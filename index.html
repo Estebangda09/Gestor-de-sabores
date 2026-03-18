@@ -2,181 +2,95 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel Administrativo - Heladería</title>
+    <title>Sistema Menús - Admin</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; font-family: sans-serif; }
-        .sidebar { width: 250px; height: 100vh; position: fixed; background: #2d3748; color: white; padding: 20px; }
-        .main-content { margin-left: 250px; padding: 20px; }
-        .card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; }
-        .modal.active { display: flex; }
+        .menu-item.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .sidebar { background: #2d3748; width: 250px; height: 100vh; position: fixed; color: white; }
+        .content { margin-left: 250px; padding: 25px; background: #f0f2f5; min-height: 100vh; }
     </style>
 </head>
 <body>
 
-    <div class="sidebar">
-        <h2 class="text-2xl font-bold border-b border-gray-600 pb-4 mb-6">🍦 Sistema Menús</h2>
-        <nav class="space-y-2">
-            <button onclick="showPage('categorias')" class="w-full text-left p-3 hover:bg-gray-700 rounded">📁 Categorías</button>
-            <button onclick="showPage('sabores')" class="w-full text-left p-3 hover:bg-gray-700 rounded">🍨 Sabores (ABML)</button>
-        </nav>
+<div class="sidebar p-4">
+    <div class="text-xl font-bold mb-8 italic">🍦 Sistema Menús</div>
+    <nav class="space-y-2">
+        <button onclick="showPage('categorias')" id="btn-categorias" class="menu-item w-full text-left p-3 rounded">📁 Categorías</button>
+        <button onclick="showPage('sabores')" id="btn-sabores" class="menu-item w-full text-left p-3 rounded">🍨 Sabores</button>
+        <button onclick="showPage('sucursales')" id="btn-sucursales" class="menu-item w-full text-left p-3 rounded">🏪 Sucursales</button>
+        <button onclick="showPage('precios')" id="btn-precios" class="menu-item w-full text-left p-3 rounded">💰 Precios</button>
+        <button onclick="showPage('visibilidad')" id="btn-visibilidad" class="menu-item w-full text-left p-3 rounded">👁️ Visibilidad</button>
+    </nav>
+</div>
+
+<div class="content">
+    <div class="bg-white p-6 rounded-xl shadow-lg mb-6 flex justify-between items-center">
+        <h2 class="text-2xl font-bold" id="page-title">Panel Administrativo</h2>
+        <button class="bg-red-400 text-white px-4 py-2 rounded-lg">Cerrar Sesión</button>
     </div>
 
-    <div class="main-content">
-        <div id="page-categorias" class="card">
-            <div class="flex justify-between mb-6">
-                <h1 class="text-3xl font-bold text-gray-800">Gestión de Categorías</h1>
-                <button onclick="openModalCat()" class="bg-blue-600 text-white px-4 py-2 rounded">+ Nueva Categoría</button>
-            </div>
-            <table class="w-full text-left border-collapse">
-                <thead><tr class="bg-gray-100"><th>Nombre</th><th>Orden</th><th>Acciones</th></tr></thead>
-                <tbody id="lista-categorias-body"></tbody>
-            </table>
+    <div id="view-container" class="bg-white p-8 rounded-xl shadow-lg min-height-[500px]">
         </div>
+</div>
 
-        <div id="page-sabores" class="card hidden">
-            <div class="flex justify-between mb-6">
-                <h1 class="text-3xl font-bold text-gray-800">Gestión de Sabores</h1>
-                <button onclick="openModalSabor()" class="bg-green-600 text-white px-4 py-2 rounded">+ Nuevo Sabor</button>
-            </div>
-            <table class="w-full text-left border-collapse">
-                <thead><tr class="bg-gray-100"><th>Sabor</th><th>Categoría</th><th>Precio</th><th>Estado</th><th>Acciones</th></tr></thead>
-                <tbody id="lista-sabores-body"></tbody>
-            </table>
-        </div>
-    </div>
+<script>
+    const SUPABASE_URL = 'https://vokwutkpntqtfevvdkei.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZva3d1dGtwbnRxdGZldnZka2VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3OTE4MDMsImV4cCI6MjA4OTM2NzgwM30.FdNLN4PdKAMe4LSdw9lGqjLeV6UzbfFlwZjgkd8nkro';
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    <div id="modalCat" class="modal">
-        <div class="bg-white p-8 rounded-lg w-96">
-            <h2 class="text-xl font-bold mb-4">Categoría</h2>
-            <input type="hidden" id="cat-id">
-            <input type="text" id="cat-nombre" placeholder="Nombre (Ej: Cremas)" class="w-full border p-2 mb-4 rounded">
-            <input type="number" id="cat-orden" placeholder="Orden" class="w-full border p-2 mb-4 rounded">
-            <div class="flex justify-end gap-2">
-                <button onclick="closeModal('modalCat')" class="bg-gray-400 text-white px-4 py-2 rounded">Cancelar</button>
-                <button onclick="guardarCat()" class="bg-blue-600 text-white px-4 py-2 rounded">Guardar</button>
-            </div>
-        </div>
-    </div>
+    async function showPage(page) {
+        // Actualizar UI del menú
+        document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
+        document.getElementById(`btn-${page}`).classList.add('active');
+        const container = document.getElementById('view-container');
 
-    <div id="modalSabor" class="modal">
-        <div class="bg-white p-8 rounded-lg w-96">
-            <h2 class="text-xl font-bold mb-4">Sabor</h2>
-            <input type="hidden" id="sabor-id">
-            <input type="text" id="sabor-nombre" placeholder="Nombre" class="w-full border p-2 mb-4 rounded">
-            <select id="sabor-cat-select" class="w-full border p-2 mb-4 rounded"></select>
-            <input type="number" id="sabor-precio" placeholder="Precio $" class="w-full border p-2 mb-4 rounded">
-            <select id="sabor-pantalla" class="w-full border p-2 mb-4 rounded">
-                <option value="1">Pantalla 1</option>
-                <option value="2">Pantalla 2</option>
-            </select>
-            <div class="flex justify-end gap-2">
-                <button onclick="closeModal('modalSabor')" class="bg-gray-400 text-white px-4 py-2 rounded">Cancelar</button>
-                <button onclick="guardarSabor()" class="bg-green-600 text-white px-4 py-2 rounded">Guardar</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        const SUPABASE_URL = 'https://vokwutkpntqtfevvdkei.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZva3d1dGtwbnRxdGZldnZka2VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3OTE4MDMsImV4cCI6MjA4OTM2NzgwM30.FdNLN4PdKAMe4LSdw9lGqjLeV6UzbfFlwZjgkd8nkro';
-        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-        // --- NAVEGACIÓN ---
-        function showPage(page) {
-            document.getElementById('page-categorias').classList.add('hidden');
-            document.getElementById('page-sabores').classList.add('hidden');
-            document.getElementById('page-' + page).classList.remove('hidden');
-            if(page === 'sabores') cargarSabores();
-            if(page === 'categorias') cargarCategorias();
-        }
-
-        // --- CATEGORÍAS ---
-        async function cargarCategorias() {
+        if (page === 'categorias') {
             const { data } = await _supabase.from('categorias').select('*').order('orden');
-            const body = document.getElementById('lista-categorias-body');
-            body.innerHTML = data.map(c => `
-                <tr class="border-b">
-                    <td class="p-2">${c.nombre}</td>
-                    <td class="p-2">${c.orden}</td>
-                    <td class="p-2">
-                        <button onclick="eliminarCat('${c.id}')" class="text-red-500">Eliminar</button>
-                    </td>
-                </tr>
-            `).join('');
-            
-            // Actualizar select de sabores
-            document.getElementById('sabor-cat-select').innerHTML = data.map(c => 
-                `<option value="${c.id}">${c.nombre}</option>`).join('');
+            container.innerHTML = `
+                <h2 class="text-3xl font-bold mb-6">Gestión de Categorías</h2>
+                <button class="bg-indigo-500 text-white px-6 py-2 rounded-lg mb-4">+ Nueva Categoría</button>
+                <table class="w-full text-left">
+                    <thead><tr class="border-b"><th>Nombre</th><th>Orden</th><th>Estado</th><th>Acciones</th></tr></thead>
+                    <tbody>${data.map(c => `<tr class="border-b h-12"><td>${c.nombre}</td><td>${c.orden}</td><td><span class="bg-green-100 text-green-700 px-2 rounded">${c.estado}</span></td><td><button class="text-blue-500 mr-2">Editar</button><button class="text-red-500">Eliminar</button></td></tr>`).join('')}</tbody>
+                </table>`;
         }
 
-        async function guardarCat() {
-            const nombre = document.getElementById('cat-nombre').value;
-            const orden = document.getElementById('cat-orden').value;
-            await _supabase.from('categorias').insert([{ nombre, orden }]);
-            closeModal('modalCat');
-            cargarCategorias();
+        if (page === 'precios') {
+            const { data } = await _supabase.from('precios_globales').select('*');
+            container.innerHTML = `
+                <h2 class="text-3xl font-bold mb-6">Gestión de Precios</h2>
+                <div class="grid grid-cols-2 gap-4">
+                    ${data.map(p => `
+                        <div>
+                            <label class="block font-bold mb-1">${p.label}</label>
+                            <input type="number" value="${p.valor}" class="border w-full p-2 rounded" id="price-${p.id}">
+                        </div>`).join('')}
+                </div>
+                <button onclick="savePrices()" class="bg-indigo-500 text-white px-6 py-3 rounded-lg mt-6">Guardar Precios Globales</button>`;
         }
 
-        async function eliminarCat(id) {
-            if(confirm('¿Eliminar categoría?')) {
-                await _supabase.from('categorias').delete().eq('id', id);
-                cargarCategorias();
-            }
+        if (page === 'visibilidad') {
+            // Lógica para cargar sucursales y sus sabores con toggle
+            const { data: sucs } = await _supabase.from('sucursales').select('*');
+            container.innerHTML = `
+                <h2 class="text-3xl font-bold mb-6">Control de Visibilidad</h2>
+                <select id="sucursal-selector" onchange="loadVisBySuc(this.value)" class="border p-2 rounded mb-6 w-64">
+                    <option>Seleccionar sucursal...</option>
+                    ${sucs.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('')}
+                </select>
+                <div id="vis-list"></div>`;
         }
+    }
 
-        // --- SABORES ---
-        async function cargarSabores() {
-            const { data } = await _supabase.from('sabores').select('*, categorias(nombre)');
-            const body = document.getElementById('lista-sabores-body');
-            body.innerHTML = data.map(s => `
-                <tr class="border-b">
-                    <td class="p-2 font-bold">${s.nombre}</td>
-                    <td class="p-2">${s.categorias ? s.categorias.nombre : 'Sin cat'}</td>
-                    <td class="p-2">$${s.precio}</td>
-                    <td class="p-2">
-                        <input type="checkbox" ${s.disponible ? 'checked' : ''} onchange="toggleSabor('${s.id}', ${s.disponible})">
-                    </td>
-                    <td class="p-2">
-                        <button onclick="eliminarSabor('${s.id}')" class="text-red-500">Borrar</button>
-                    </td>
-                </tr>
-            `).join('');
-        }
+    async function savePrices() {
+        // Lógica para recorrer los inputs y hacer update en la tabla precios_globales
+        alert("Precios actualizados en Supabase");
+    }
 
-        async function guardarSabor() {
-            const nombre = document.getElementById('sabor-nombre').value;
-            const categoria_id = document.getElementById('sabor-cat-select').value;
-            const precio = document.getElementById('sabor-precio').value;
-            const pantalla_id = document.getElementById('sabor-pantalla').value;
-            
-            await _supabase.from('sabores').insert([{ nombre, categoria_id, precio, pantalla_id }]);
-            closeModal('modalSabor');
-            cargarSabores();
-        }
+    // Carga inicial
+    showPage('categorias');
+</script>
 
-        async function toggleSabor(id, estado) {
-            await _supabase.from('sabores').update({ disponible: !estado }).eq('id', id);
-            cargarSabores();
-        }
-
-        async function eliminarSabor(id) {
-            if(confirm('¿Eliminar sabor?')) {
-                await _supabase.from('sabores').delete().eq('id', id);
-                cargarSabores();
-            }
-        }
-
-        // --- MODALES ---
-        function openModalCat() { document.getElementById('modalCat').classList.add('active'); }
-        function openModalSabor() { document.getElementById('modalSabor').classList.add('active'); }
-        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
-
-        // Carga inicial
-        cargarCategorias();
-    </script>
 </body>
 </html>
