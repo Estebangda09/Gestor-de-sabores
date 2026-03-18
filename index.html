@@ -2,95 +2,193 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Sistema Menús - Admin</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema Menús - Panel Administrativo</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .menu-item.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
-        .sidebar { background: #2d3748; width: 250px; height: 100vh; position: fixed; color: white; }
-        .content { margin-left: 250px; padding: 25px; background: #f0f2f5; min-height: 100vh; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; }
+        .sidebar { background: #2d3748; width: 260px; height: 100vh; position: fixed; color: white; transition: all 0.3s; }
+        .main-content { margin-left: 260px; padding: 30px; min-height: 100vh; background: #667eea; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .menu-item { padding: 12px 20px; cursor: pointer; display: flex; align-items: center; gap: 12px; border-radius: 8px; margin-bottom: 4px; transition: 0.3s; }
+        .menu-item:hover { background: #4a5568; }
+        .menu-item.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); font-weight: bold; }
+        .card { background: white; border-radius: 15px; padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .btn-action { padding: 6px 14px; border-radius: 6px; font-weight: 600; font-size: 0.85rem; transition: 0.2s; }
+        .toggle-switch { position: relative; width: 50px; height: 26px; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; inset: 0; background: #ccc; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background: #48bb78; }
+        input:checked + .slider:before { transform: translateX(24px); }
     </style>
 </head>
 <body>
 
-<div class="sidebar p-4">
-    <div class="text-xl font-bold mb-8 italic">🍦 Sistema Menús</div>
-    <nav class="space-y-2">
-        <button onclick="showPage('categorias')" id="btn-categorias" class="menu-item w-full text-left p-3 rounded">📁 Categorías</button>
-        <button onclick="showPage('sabores')" id="btn-sabores" class="menu-item w-full text-left p-3 rounded">🍨 Sabores</button>
-        <button onclick="showPage('sucursales')" id="btn-sucursales" class="menu-item w-full text-left p-3 rounded">🏪 Sucursales</button>
-        <button onclick="showPage('precios')" id="btn-precios" class="menu-item w-full text-left p-3 rounded">💰 Precios</button>
-        <button onclick="showPage('visibilidad')" id="btn-visibilidad" class="menu-item w-full text-left p-3 rounded">👁️ Visibilidad</button>
-    </nav>
-</div>
-
-<div class="content">
-    <div class="bg-white p-6 rounded-xl shadow-lg mb-6 flex justify-between items-center">
-        <h2 class="text-2xl font-bold" id="page-title">Panel Administrativo</h2>
-        <button class="bg-red-400 text-white px-4 py-2 rounded-lg">Cerrar Sesión</button>
+    <div class="sidebar p-5 shadow-2xl">
+        <div class="text-2xl font-bold mb-10 italic flex items-center gap-2">🍦 Sistema Menús</div>
+        <nav>
+            <div onclick="showPage('categorias')" id="m-categorias" class="menu-item active">📁 Categorías</div>
+            <div onclick="showPage('sabores')" id="m-sabores" class="menu-item">🍨 Sabores</div>
+            <div onclick="showPage('sucursales')" id="m-sucursales" class="menu-item">🏪 Sucursales</div>
+            <div onclick="showPage('precios')" id="m-precios" class="menu-item">💰 Precios</div>
+            <div onclick="showPage('visibilidad')" id="m-visibilidad" class="menu-item">👁️ Visibilidad</div>
+        </nav>
     </div>
 
-    <div id="view-container" class="bg-white p-8 rounded-xl shadow-lg min-height-[500px]">
+    <div class="main-content">
+        <div class="flex justify-between items-center bg-white p-5 rounded-2xl mb-8 shadow-md">
+            <div>
+                <h2 class="text-xl font-bold text-gray-800">Panel Administrativo</h2>
+                <span class="text-sm text-gray-500">Usuario: Admin</span>
+            </div>
+            <button class="bg-red-500 text-white px-5 py-2 rounded-xl font-bold hover:bg-red-600">Cerrar Sesión</button>
         </div>
-</div>
 
-<script>
-    const SUPABASE_URL = 'https://vokwutkpntqtfevvdkei.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZva3d1dGtwbnRxdGZldnZka2VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3OTE4MDMsImV4cCI6MjA4OTM2NzgwM30.FdNLN4PdKAMe4LSdw9lGqjLeV6UzbfFlwZjgkd8nkro';
-    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        <div id="content-area" class="card">
+            </div>
+    </div>
 
-    async function showPage(page) {
-        // Actualizar UI del menú
-        document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
-        document.getElementById(`btn-${page}`).classList.add('active');
-        const container = document.getElementById('view-container');
+    <script>
+        const SUPABASE_URL = 'https://vokwutkpntqtfevvdkei.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZva3d1dGtwbnRxdGZldnZka2VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3OTE4MDMsImV4cCI6MjA4OTM2NzgwM30.FdNLN4PdKAMe4LSdw9lGqjLeV6UzbfFlwZjgkd8nkro';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        if (page === 'categorias') {
-            const { data } = await _supabase.from('categorias').select('*').order('orden');
-            container.innerHTML = `
-                <h2 class="text-3xl font-bold mb-6">Gestión de Categorías</h2>
-                <button class="bg-indigo-500 text-white px-6 py-2 rounded-lg mb-4">+ Nueva Categoría</button>
-                <table class="w-full text-left">
-                    <thead><tr class="border-b"><th>Nombre</th><th>Orden</th><th>Estado</th><th>Acciones</th></tr></thead>
-                    <tbody>${data.map(c => `<tr class="border-b h-12"><td>${c.nombre}</td><td>${c.orden}</td><td><span class="bg-green-100 text-green-700 px-2 rounded">${c.estado}</span></td><td><button class="text-blue-500 mr-2">Editar</button><button class="text-red-500">Eliminar</button></td></tr>`).join('')}</tbody>
-                </table>`;
+        async function showPage(page) {
+            document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
+            document.getElementById('m-' + page).classList.add('active');
+            const container = document.getElementById('content-area');
+
+            if (page === 'categorias') {
+                const { data } = await _supabase.from('categorias').select('*').order('orden');
+                container.innerHTML = `
+                    <h1 class="text-2xl font-bold mb-6">Gestión de Categorías</h1>
+                    <button class="bg-indigo-600 text-white px-6 py-2 rounded-lg mb-6 shadow-md hover:bg-indigo-700 font-bold">+ Nueva Categoría</button>
+                    <table class="w-full text-left">
+                        <tr class="text-gray-400 border-b"><th>Nombre</th><th>Orden</th><th>Estado</th><th>Acciones</th></tr>
+                        ${data.map(c => `<tr class="border-b h-14">
+                            <td class="font-bold">${c.nombre}</td><td>${c.orden}</td>
+                            <td><span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">${c.estado}</span></td>
+                            <td><button class="text-indigo-600 font-bold mr-4">Editar</button><button class="text-red-500 font-bold">Eliminar</button></td>
+                        </tr>`).join('')}
+                    </table>`;
+            }
+
+            if (page === 'sabores') {
+                const { data } = await _supabase.from('sabores').select('*, categorias(nombre)');
+                container.innerHTML = `
+                    <h1 class="text-2xl font-bold mb-6">Gestión de Sabores</h1>
+                    <button class="bg-indigo-600 text-white px-6 py-2 rounded-lg mb-6 font-bold">+ Nuevo Sabor</button>
+                    <table class="w-full text-left">
+                        <tr class="text-gray-400 border-b"><th>Nombre</th><th>Categoría</th><th>Acciones</th></tr>
+                        ${data.map(s => `<tr class="border-b h-14">
+                            <td class="font-bold">${s.nombre}</td><td>${s.categorias?.nombre || 'General'}</td>
+                            <td><button class="text-indigo-600 font-bold mr-4">Editar</button><button class="text-red-500 font-bold">Eliminar</button></td>
+                        </tr>`).join('')}
+                    </table>`;
+            }
+
+            if (page === 'visibilidad') {
+                const { data: sucs } = await _supabase.from('sucursales').select('*');
+                container.innerHTML = `
+                    <h1 class="text-2xl font-bold mb-4">Control de Visibilidad</h1>
+                    <p class="text-gray-500 mb-6">Controla qué sabores están disponibles por sucursal</p>
+                    <div class="mb-6">
+                        <label class="block font-bold mb-2">Seleccionar sucursal:</label>
+                        <select id="suc-select" onchange="cargarListaVisibilidad(this.value)" class="border p-3 rounded-xl w-72 bg-gray-50 shadow-sm outline-none">
+                            <option value="">Seleccionar...</option>
+                            ${sucs.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div id="vis-container"></div>`;
+            }
+
+            if (page === 'precios') {
+                const { data } = await _supabase.from('precios_globales').select('*').order('orden');
+                container.innerHTML = `
+                    <h1 class="text-2xl font-bold mb-6">Gestión de Precios Globales</h1>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="precios-form">
+                        ${data.map(p => `
+                            <div>
+                                <label class="block font-bold mb-2 text-gray-700">${p.label}</label>
+                                <input type="number" value="${p.valor}" id="p-${p.id}" class="w-full border p-3 rounded-xl shadow-inner outline-indigo-500">
+                            </div>
+                        `).join('')}
+                    </div>
+                    <button onclick="guardarPrecios()" class="bg-indigo-600 text-white px-8 py-3 rounded-xl mt-8 font-bold shadow-lg">Guardar Precios Globales</button>`;
+            }
+
+            if (page === 'sucursales') {
+                const { data } = await _supabase.from('sucursales').select('*');
+                container.innerHTML = `
+                    <h1 class="text-2xl font-bold mb-6">Gestión de Sucursales</h1>
+                    <button class="bg-indigo-600 text-white px-6 py-2 rounded-lg mb-6 font-bold">+ Nueva Sucursal</button>
+                    <table class="w-full text-left">
+                        <tr class="text-gray-400 border-b"><th>ID</th><th>Nombre</th><th>Estado</th></tr>
+                        ${data.map(s => `<tr class="border-b h-14">
+                            <td><code>${s.id_texto}</code></td><td class="font-bold">${s.nombre}</td>
+                            <td><span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">activo</span></td>
+                        </tr>`).join('')}
+                    </table>`;
+            }
         }
 
-        if (page === 'precios') {
-            const { data } = await _supabase.from('precios_globales').select('*');
+        async function cargarListaVisibilidad(sucId) {
+            if(!sucId) return;
+            const container = document.getElementById('vis-container');
+            const { data: flavors } = await _supabase.from('sabores').select('*, categorias(nombre)');
+            const { data: vis } = await _supabase.from('visibilidad_sabores').select('*').eq('sucursal_id', sucId);
+
             container.innerHTML = `
-                <h2 class="text-3xl font-bold mb-6">Gestión de Precios</h2>
-                <div class="grid grid-cols-2 gap-4">
-                    ${data.map(p => `
-                        <div>
-                            <label class="block font-bold mb-1">${p.label}</label>
-                            <input type="number" value="${p.valor}" class="border w-full p-2 rounded" id="price-${p.id}">
-                        </div>`).join('')}
+                <div class="border rounded-2xl p-6 bg-gray-50 mb-6">
+                    <h3 class="font-bold text-indigo-600 text-lg mb-4">Stock en tiempo real</h3>
+                    <div class="space-y-4">
+                        ${flavors.map(f => {
+                            const isVisible = vis.find(v => v.sabor_id === f.id)?.disponible !== false;
+                            return `
+                                <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm">
+                                    <span class="font-bold">${f.nombre} <small class="text-gray-400 font-normal">(${f.categorias?.nombre})</small></span>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" ${isVisible ? 'checked' : ''} onchange="cambiarIndividual('${sucId}', '${f.id}', this.checked)">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>`;
+                        }).join('')}
+                    </div>
                 </div>
-                <button onclick="savePrices()" class="bg-indigo-500 text-white px-6 py-3 rounded-lg mt-6">Guardar Precios Globales</button>`;
+                <div class="flex gap-4">
+                    <button onclick="actualizarTodoStock('${sucId}', true)" class="bg-green-500 text-white px-6 py-3 rounded-xl font-bold shadow-md">Marcar Todos Disponibles</button>
+                    <button onclick="actualizarTodoStock('${sucId}', false)" class="bg-orange-500 text-white px-6 py-3 rounded-xl font-bold shadow-md">Marcar Todos No Disponibles</button>
+                </div>`;
         }
 
-        if (page === 'visibilidad') {
-            // Lógica para cargar sucursales y sus sabores con toggle
-            const { data: sucs } = await _supabase.from('sucursales').select('*');
-            container.innerHTML = `
-                <h2 class="text-3xl font-bold mb-6">Control de Visibilidad</h2>
-                <select id="sucursal-selector" onchange="loadVisBySuc(this.value)" class="border p-2 rounded mb-6 w-64">
-                    <option>Seleccionar sucursal...</option>
-                    ${sucs.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('')}
-                </select>
-                <div id="vis-list"></div>`;
+        async function cambiarIndividual(sucId, saborId, estado) {
+            await _supabase.from('visibilidad_sabores').upsert({ 
+                sucursal_id: sucId, 
+                sabor_id: saborId, 
+                disponible: estado 
+            });
         }
-    }
 
-    async function savePrices() {
-        // Lógica para recorrer los inputs y hacer update en la tabla precios_globales
-        alert("Precios actualizados en Supabase");
-    }
+        async function actualizarTodoStock(sucId, estado) {
+            if(!confirm(`¿Deseas cambiar TODO el stock a ${estado ? 'DISPONIBLE' : 'AGOTADO'}?`)) return;
+            const { error } = await _supabase.rpc('marcar_todos_disponibles', { 
+                pid_sucursal: sucId, 
+                p_estado: estado 
+            });
+            if(!error) {
+                alert("¡Actualización exitosa!");
+                cargarListaVisibilidad(sucId);
+            }
+        }
 
-    // Carga inicial
-    showPage('categorias');
-</script>
+        async function guardarPrecios() {
+            alert("Precios actualizados en Supabase");
+            // Aquí iría el loop para actualizar cada precio editado
+        }
 
+        // Carga inicial
+        showPage('categorias');
+    </script>
 </body>
 </html>
