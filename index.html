@@ -22,26 +22,31 @@
         </div>
 
         <div id="lista-sabores" class="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-4 text-2xl">
-            </div>
+        </div>
     </div>
 
     <script>
-        // 1. CONFIGURACIÓN (REEMPLAZA ESTO)
+        // 1. CONFIGURACIÓN
         const SUPABASE_URL = 'https://vokwutkpntqtfevvdkei.supabase.co'; 
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZva3d1dGtwbnRxdGZldnZka2VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3OTE4MDMsImV4cCI6MjA4OTM2NzgwM30.FdNLN4PdKAMe4LSdw9lGqjLeV6UzbfFlwZjgkd8nkro';
 
-        const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+        // CORRECCIÓN AQUÍ: Usamos supabase.createClient
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // Obtener el ID de pantalla de la URL (ej: heladeria.html?id=1)
         const urlParams = new URLSearchParams(window.location.search);
         const idPantalla = urlParams.get('id') || 1;
 
         async function cargarSabores() {
-            const { data, error } = await supabase
+            const { data, error } = await _supabase
                 .from('sabores')
                 .select('*')
                 .eq('pantalla_id', idPantalla)
                 .eq('disponible', true);
+
+            if (error) {
+                console.error("Error cargando:", error);
+                return;
+            }
 
             if (data) {
                 renderizar(data);
@@ -52,7 +57,6 @@
             const contenedor = document.getElementById('lista-sabores');
             const titulo = document.getElementById('categoria-titulo');
             
-            // Personalizar título según pantalla
             titulo.innerText = idPantalla == 1 ? "Cremas y Frutales" : "Dulces de Leche y Especiales";
 
             contenedor.innerHTML = sabores.map(sabor => `
@@ -64,15 +68,13 @@
         }
 
         // SUSCRIPCIÓN EN TIEMPO REAL
-        supabase
+        _supabase
             .channel('cambios')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'sabores' }, (payload) => {
-                console.log('Hubo un cambio!', payload);
                 cargarSabores();
             })
             .subscribe();
 
-        // Carga inicial
         cargarSabores();
     </script>
 </body>
