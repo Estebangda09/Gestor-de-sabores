@@ -3,48 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Heladería - Full Pro</title>
+    <title>Admin Heladería</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: 'Inter', sans-serif; background: #f3f4f6; }
         .sidebar { background: #1e293b; width: 260px; height: 100vh; position: fixed; color: white; }
         .main-content { margin-left: 260px; padding: 40px; min-height: 100vh; }
-        .menu-item { padding: 12px 20px; cursor: pointer; border-radius: 8px; margin-bottom: 5px; transition: 0.2s; }
-        .menu-item:hover { background: #334155; }
-        .menu-item.active { background: #3b82f6; color: white; font-weight: 600; }
+        .menu-item { padding: 12px 20px; cursor: pointer; border-radius: 8px; margin-bottom: 5px; }
+        .menu-item.active { background: #3b82f6; color: white; }
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 100; }
         .modal.active { display: flex; }
-        input, select { border: 1px solid #d1d5db; padding: 10px; border-radius: 8px; width: 100%; outline: none; }
-        input:focus { border-color: #3b82f6; }
     </style>
 </head>
 <body>
 
     <div class="sidebar p-6 shadow-xl">
-        <h2 class="text-2xl font-black mb-8 tracking-tight text-blue-400">ICE CREAM ADMIN</h2>
+        <h2 class="text-2xl font-black mb-8 text-blue-400">ICE CREAM ADMIN</h2>
         <nav>
             <div onclick="showPage('categorias')" id="m-categorias" class="menu-item active">📁 Categorías</div>
             <div onclick="showPage('sabores')" id="m-sabores" class="menu-item">🍨 Sabores</div>
             <div onclick="showPage('sucursales')" id="m-sucursales" class="menu-item">🏪 Sucursales</div>
-            <div onclick="showPage('precios')" id="m-precios" class="menu-item">💰 Precios Globales</div>
-            <div onclick="showPage('visibilidad')" id="m-visibilidad" class="menu-item">👁️ Visibilidad / Stock</div>
+            <div onclick="showPage('precios')" id="m-precios" class="menu-item">💰 Precios</div>
+            <div onclick="showPage('visibilidad')" id="m-visibilidad" class="menu-item">👁️ Stock</div>
         </nav>
     </div>
 
     <div class="main-content">
-        <div id="content-area">
-            </div>
+        <div id="content-area"></div>
     </div>
 
     <div id="modal-form" class="modal">
-        <div class="bg-white p-8 rounded-2xl w-[450px] shadow-2xl">
-            <h3 id="modal-title" class="text-2xl font-bold mb-6 text-gray-800"></h3>
-            <div id="modal-body" class="space-y-4">
+        <div class="bg-white p-8 rounded-2xl w-[400px] shadow-2xl">
+            <h3 id="modal-title" class="text-2xl font-bold mb-6"></h3>
+            <div id="modal-body" class="space-y-4 text-gray-800">
                 </div>
             <div class="flex justify-end gap-3 mt-8">
-                <button onclick="closeModal()" class="px-5 py-2 text-gray-500 font-semibold">Cancelar</button>
-                <button id="btn-save" class="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold shadow-lg">Guardar</button>
+                <button onclick="closeModal()" class="px-5 py-2 text-gray-500">Cancelar</button>
+                <button id="btn-save" class="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold">Guardar</button>
             </div>
         </div>
     </div>
@@ -56,216 +52,123 @@
 
         let currentPage = 'categorias';
 
-        // --- NAVEGACIÓN ---
         async function showPage(page) {
             currentPage = page;
             document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
             document.getElementById('m-' + page).classList.add('active');
             const container = document.getElementById('content-area');
-            container.innerHTML = `<p class="text-gray-500 animate-pulse text-xl">Cargando ${page}...</p>`;
+            container.innerHTML = "Cargando...";
 
             if (page === 'categorias') {
                 const { data } = await _supabase.from('categorias').select('*').order('orden');
-                container.innerHTML = `
-                    <div class="flex justify-between items-center mb-8">
-                        <h1 class="text-3xl font-extrabold text-gray-800">Categorías</h1>
-                        <button onclick="openModal('cat')" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg">+ Nueva Categoría</button>
-                    </div>
-                    <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
-                        <table class="w-full text-left">
-                            <thead class="bg-gray-50 text-gray-400 uppercase text-xs font-bold">
-                                <tr><th class="p-5">Nombre</th><th class="p-5">Orden</th><th class="p-5">Acciones</th></tr>
-                            </thead>
-                            <tbody>
-                                ${data.map(c => `
-                                    <tr class="border-t">
-                                        <td class="p-5 font-semibold text-gray-700">${c.nombre}</td>
-                                        <td class="p-5">${c.orden}</td>
-                                        <td class="p-5">
-                                            <button onclick="eliminar('categorias', '${c.id}')" class="text-red-500 font-bold">Eliminar</button>
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>`;
+                container.innerHTML = `<div class="flex justify-between mb-6"><h1 class="text-3xl font-bold">Categorías</h1><button onclick="abrirModalCat()" class="bg-blue-600 text-white px-6 py-2 rounded-lg">+ Nueva</button></div>
+                <div class="bg-white rounded-xl shadow p-4">${data.map(c => `<div class="flex justify-between border-b p-3"><span>${c.nombre}</span><button onclick="eliminar('categorias','${c.id}')" class="text-red-500">Eliminar</button></div>`).join('')}</div>`;
             }
 
             if (page === 'sabores') {
                 const { data: sab } = await _supabase.from('sabores').select('*, categorias(nombre)');
-                container.innerHTML = `
-                    <div class="flex justify-between items-center mb-8">
-                        <h1 class="text-3xl font-extrabold text-gray-800">Sabores</h1>
-                        <button onclick="openModal('sabor')" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg">+ Nuevo Sabor</button>
-                    </div>
-                    <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
-                        <table class="w-full text-left">
-                            <thead class="bg-gray-50 text-gray-400 uppercase text-xs font-bold">
-                                <tr><th class="p-5">Sabor</th><th class="p-5">Categoría</th><th class="p-5">Acciones</th></tr>
-                            </thead>
-                            <tbody>
-                                ${sab.map(s => `
-                                    <tr class="border-t">
-                                        <td class="p-5 font-semibold">${s.nombre}</td>
-                                        <td class="p-5 text-gray-500">${s.categorias?.nombre || '--'}</td>
-                                        <td class="p-5">
-                                            <button onclick="eliminar('sabores', '${s.id}')" class="text-red-500 font-bold">Eliminar</button>
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>`;
-            }
-
-            if (page === 'sucursales') {
-                const { data } = await _supabase.from('sucursales').select('*');
-                container.innerHTML = `
-                    <div class="flex justify-between items-center mb-8">
-                        <h1 class="text-3xl font-extrabold text-gray-800">Sucursales</h1>
-                        <button onclick="openModal('sucursal')" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg">+ Nueva Sucursal</button>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        ${data.map(s => `
-                            <div class="bg-white p-6 rounded-2xl shadow-sm border-l-4 border-blue-500">
-                                <h3 class="text-xl font-bold">${s.nombre}</h3>
-                                <p class="text-gray-400 text-sm mb-4">ID: ${s.id_texto}</p>
-                                <button onclick="eliminar('sucursales', '${s.id}')" class="text-red-400 text-sm font-bold uppercase tracking-wider">Eliminar Sucursal</button>
-                            </div>
-                        `).join('')}
-                    </div>`;
+                container.innerHTML = `<div class="flex justify-between mb-6"><h1 class="text-3xl font-bold">Sabores</h1><button onclick="abrirModalSabor()" class="bg-blue-600 text-white px-6 py-2 rounded-lg">+ Nuevo</button></div>
+                <div class="bg-white rounded-xl shadow p-4">${sab.map(s => `<div class="flex justify-between border-b p-3"><span><b>${s.nombre}</b> (${s.categorias?.nombre || '--'})</span><button onclick="eliminar('sabores','${s.id}')" class="text-red-500">Eliminar</button></div>`).join('')}</div>`;
             }
 
             if (page === 'precios') {
                 const { data } = await _supabase.from('precios_globales').select('*').order('orden');
-                container.innerHTML = `
-                    <div class="flex justify-between items-center mb-8">
-                        <h1 class="text-3xl font-extrabold text-gray-800">Precios Globales</h1>
-                        <button onclick="openModal('precio')" class="bg-green-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg">+ Nuevo Item de Precio</button>
-                    </div>
-                    <div class="bg-white p-8 rounded-2xl shadow-sm space-y-4">
-                        ${data.map(p => `
-                            <div class="flex gap-4 items-end border-b pb-4">
-                                <div class="flex-1">
-                                    <label class="text-xs font-bold text-gray-400 uppercase">${p.label}</label>
-                                    <input type="number" value="${p.valor}" onchange="updatePrecioVal('${p.id}', this.value)" class="mt-1">
-                                </div>
-                                <button onclick="eliminar('precios_globales', '${p.id}')" class="bg-red-50 text-red-500 p-2 rounded-lg">✕</button>
-                            </div>
-                        `).join('')}
-                    </div>`;
+                container.innerHTML = `<div class="flex justify-between mb-6"><h1 class="text-3xl font-bold">Precios</h1><button onclick="abrirModalPrecio()" class="bg-green-600 text-white px-6 py-2 rounded-lg">+ Nuevo Precio</button></div>
+                <div class="bg-white rounded-xl shadow p-6 space-y-4">
+                ${data.map(p => `<div class="flex gap-4 items-center">
+                    <span class="w-1/3 font-bold">${p.label}</span>
+                    <input type="number" value="${p.valor}" class="border p-2 rounded w-full" onchange="updatePrecio('${p.id}', this.value)">
+                    <button onclick="eliminar('precios_globales','${p.id}')" class="text-red-400">✕</button>
+                </div>`).join('')}</div>`;
             }
 
-            if (page === 'visibilidad') {
-                const { data: sucs } = await _supabase.from('sucursales').select('*');
-                container.innerHTML = `
-                    <h1 class="text-3xl font-extrabold text-gray-800 mb-8">Visibilidad / Stock</h1>
-                    <select onchange="loadStock(this.value)" class="mb-8 max-w-sm">
-                        <option value="">Selecciona Sucursal...</option>
-                        ${sucs.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('')}
-                    </select>
-                    <div id="stock-list" class="space-y-2"></div>`;
+            if (page === 'sucursales') {
+                const { data } = await _supabase.from('sucursales').select('*');
+                container.innerHTML = `<div class="flex justify-between mb-6"><h1 class="text-3xl font-bold">Sucursales</h1><button onclick="abrirModalSucursal()" class="bg-blue-600 text-white px-6 py-2 rounded-lg">+ Nueva Sucursal</button></div>
+                <div class="grid grid-cols-2 gap-4">${data.map(s => `<div class="bg-white p-4 rounded-xl shadow"><b>${s.nombre}</b><br><small>${s.id_texto}</small><br><button onclick="eliminar('sucursales','${s.id}')" class="text-red-500 mt-2">Eliminar</button></div>`).join('')}</div>`;
             }
         }
 
-        // --- GESTIÓN DE MODALES ---
-        async function openModal(type) {
-            const modal = document.getElementById('modal-form');
-            const title = document.getElementById('modal-title');
+        // --- FUNCIONES DE APERTURA DE MODAL (ESPECÍFICAS) ---
+        function abrirModalCat() {
             const body = document.getElementById('modal-body');
-            const btn = document.getElementById('btn-save');
-            modal.classList.add('active');
-            body.innerHTML = '';
-
-            if (type === 'cat') {
-                title.innerText = 'Nueva Categoría';
-                body.innerHTML = `<input id="f-nombre" placeholder="Nombre (Cremas, Frutales...)"><input id="f-orden" type="number" placeholder="Orden (1, 2...)">`;
-                btn.onclick = async () => {
-                    await _supabase.from('categorias').insert([{ nombre: f_nombre.value, orden: f_orden.value }]);
-                    closeModal(); showPage('categorias');
-                };
-            }
-
-            if (type === 'sabor') {
-                title.innerText = 'Nuevo Sabor';
-                const { data: cats } = await _supabase.from('categorias').select('*');
-                body.innerHTML = `
-                    <input id="f-nombre" placeholder="Nombre del Sabor">
-                    <select id="f-cat">${cats.map(c => `<option value="${c.id}">${c.nombre}</option>`)}</select>`;
-                btn.onclick = async () => {
-                    await _supabase.from('sabores').insert([{ nombre: f_nombre.value, categoria_id: f_cat.value }]);
-                    closeModal(); showPage('sabores');
-                };
-            }
-
-            if (type === 'sucursal') {
-                title.innerText = 'Nueva Sucursal';
-                body.innerHTML = `<input id="f-nombre" placeholder="Nombre (Ej: Sucursal Pacheco)"><input id="f-id" placeholder="ID de texto (ej: pacheco)">`;
-                btn.onclick = async () => {
-                    await _supabase.from('sucursales').insert([{ nombre: f_nombre.value, id_texto: f_id.value }]);
-                    closeModal(); showPage('sucursales');
-                };
-            }
-
-            if (type === 'precio') {
-                title.innerText = 'Nuevo Precio';
-                body.innerHTML = `<input id="f-label" placeholder="Etiqueta (Ej: 1 KILO)"><input id="f-valor" type="number" placeholder="Precio ($)"><input id="f-orden" type="number" placeholder="Orden">`;
-                btn.onclick = async () => {
-                    await _supabase.from('precios_globales').insert([{ label: f_label.value, valor: f_valor.value, orden: f_orden.value }]);
-                    closeModal(); showPage('precios');
-                };
-            }
+            document.getElementById('modal-title').innerText = "Nueva Categoría";
+            body.innerHTML = `
+                <input id="input-nombre" type="text" placeholder="Nombre (Ej: Cremas)" class="w-full border p-2 mb-2">
+                <input id="input-orden" type="number" placeholder="Orden (Ej: 1)" class="w-full border p-2">`;
+            document.getElementById('btn-save').onclick = async () => {
+                const nom = document.getElementById('input-nombre').value;
+                const ord = document.getElementById('input-orden').value;
+                const { error } = await _supabase.from('categorias').insert([{ nombre: nom, orden: ord }]);
+                if(error) alert("Error: " + error.message); else { closeModal(); showPage('categorias'); }
+            };
+            document.getElementById('modal-form').classList.add('active');
         }
 
-        function closeModal() { document.getElementById('modal-form').classList.remove('active'); }
+        async function abrirModalSabor() {
+            const { data: cats } = await _supabase.from('categorias').select('*');
+            const body = document.getElementById('modal-body');
+            document.getElementById('modal-title').innerText = "Nuevo Sabor";
+            body.innerHTML = `
+                <input id="input-nombre" type="text" placeholder="Nombre Sabor" class="w-full border p-2 mb-2">
+                <select id="select-cat" class="w-full border p-2">
+                    ${cats.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('')}
+                </select>`;
+            document.getElementById('btn-save').onclick = async () => {
+                const nom = document.getElementById('input-nombre').value;
+                const cat = document.getElementById('select-cat').value;
+                const { error } = await _supabase.from('sabores').insert([{ nombre: nom, categoria_id: cat }]);
+                if(error) alert("Error: " + error.message); else { closeModal(); showPage('sabores'); }
+            };
+            document.getElementById('modal-form').classList.add('active');
+        }
 
-        // --- FUNCIONES DE BASE DE DATOS ---
+        function abrirModalSucursal() {
+            const body = document.getElementById('modal-body');
+            document.getElementById('modal-title').innerText = "Nueva Sucursal";
+            body.innerHTML = `
+                <input id="input-nombre" type="text" placeholder="Nombre Sucursal" class="w-full border p-2 mb-2">
+                <input id="input-id" type="text" placeholder="ID Texto (ej: pacheco)" class="w-full border p-2">`;
+            document.getElementById('btn-save').onclick = async () => {
+                const nom = document.getElementById('input-nombre').value;
+                const tid = document.getElementById('input-id').value;
+                const { error } = await _supabase.from('sucursales').insert([{ nombre: nom, id_texto: tid }]);
+                if(error) alert("Error: " + error.message); else { closeModal(); showPage('sucursales'); }
+            };
+            document.getElementById('modal-form').classList.add('active');
+        }
+
+        function abrirModalPrecio() {
+            const body = document.getElementById('modal-body');
+            document.getElementById('modal-title').innerText = "Nuevo Precio Global";
+            body.innerHTML = `
+                <input id="input-label" type="text" placeholder="Etiqueta (Ej: 1 KILO)" class="w-full border p-2 mb-2">
+                <input id="input-valor" type="number" placeholder="Precio $" class="w-full border p-2 mb-2">
+                <input id="input-orden" type="number" placeholder="Orden" class="w-full border p-2">`;
+            document.getElementById('btn-save').onclick = async () => {
+                const lab = document.getElementById('input-label').value;
+                const val = document.getElementById('input-valor').value;
+                const ord = document.getElementById('input-orden').value;
+                const { error } = await _supabase.from('precios_globales').insert([{ label: lab, valor: val, orden: ord }]);
+                if(error) alert("Error: " + error.message); else { closeModal(); showPage('precios'); }
+            };
+            document.getElementById('modal-form').classList.add('active');
+        }
+
+        async function updatePrecio(id, nuevoValor) {
+            await _supabase.from('precios_globales').update({ valor: nuevoValor }).eq('id', id);
+        }
+
         async function eliminar(tabla, id) {
-            if (confirm('¿Estás seguro de eliminar este registro?')) {
+            if(confirm("¿Seguro?")) {
                 await _supabase.from(tabla).delete().eq('id', id);
                 showPage(currentPage);
             }
         }
 
-        async function updatePrecioVal(id, val) {
-            await _supabase.from('precios_globales').update({ valor: val }).eq('id', id);
-        }
+        function closeModal() { document.getElementById('modal-form').classList.remove('active'); }
 
-        async function loadStock(sucId) {
-            if (!sucId) return;
-            const container = document.getElementById('stock-list');
-            const { data: sab } = await _supabase.from('sabores').select('*');
-            const { data: vis } = await _supabase.from('visibilidad_sabores').select('*').eq('sucursal_id', sucId);
-
-            container.innerHTML = `
-                <div class="flex gap-4 mb-6">
-                    <button onclick="bulkStock('${sucId}', true)" class="bg-blue-100 text-blue-700 px-4 py-2 rounded-lg font-bold">Activar Todo</button>
-                    <button onclick="bulkStock('${sucId}', false)" class="bg-red-100 text-red-700 px-4 py-2 rounded-lg font-bold">Agotar Todo</button>
-                </div>
-                ${sab.map(s => {
-                    const isOk = vis.find(v => v.sabor_id === s.id)?.disponible !== false;
-                    return `
-                        <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm">
-                            <span class="font-bold">${s.nombre}</span>
-                            <button onclick="toggleSabor('${sucId}', '${s.id}', ${isOk})" class="${isOk ? 'bg-green-500' : 'bg-gray-300'} text-white px-4 py-1 rounded-full text-xs font-bold transition-all">
-                                ${isOk ? 'DISPONIBLE' : 'AGOTADO'}
-                            </button>
-                        </div>`;
-                }).join('')}`;
-        }
-
-        async function toggleSabor(sucId, saborId, current) {
-            await _supabase.from('visibilidad_sabores').upsert({ sucursal_id: sucId, sabor_id: saborId, disponible: !current });
-            loadStock(sucId);
-        }
-
-        async function bulkStock(sucId, estado) {
-            await _supabase.rpc('marcar_todos_disponibles', { pid_sucursal: sucId, p_estado: estado });
-            loadStock(sucId);
-        }
-
-        // Carga inicial
         showPage('categorias');
     </script>
 </body>
-</html>
+</html>v
