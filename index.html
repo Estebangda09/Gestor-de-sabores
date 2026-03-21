@@ -3,50 +3,69 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ice Cream OS - Full System</title>
+    <title>Ice Cream OS - Panel Maestro</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Fugaz+One&family=Inter:wght@400;900&display=swap');
-        body { font-family: 'Inter', sans-serif; background: #0f172a; margin: 0; }
-        .sidebar { background: #1e293b; width: 280px; height: 100vh; position: fixed; color: white; z-index: 50; transition: 0.3s; }
-        .main-content { margin-left: 280px; padding: 40px; min-height: 100vh; background: #f1f5f9; transition: 0.3s; }
-        @media (max-width: 768px) {
-            .sidebar { width: 100%; height: auto; position: relative; padding: 15px !important; }
-            .main-content { margin-left: 0; padding: 20px; }
-            .menu-nav-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
-            .menu-item { padding: 8px !important; font-size: 10px; flex-direction: column; text-align: center; }
-        }
-        .menu-item { padding: 12px 20px; cursor: pointer; border-radius: 12px; margin-bottom: 5px; display: flex; align-items: center; gap: 10px; color: #94a3b8; font-weight: bold; }
+        @import url('https://fonts.googleapis.com/css2?family=Fugaz+One&family=Inter:wght@400;700;900&display=swap');
+        
+        body { font-family: 'Inter', sans-serif; background: #0f172a; margin: 0; overflow-x: hidden; }
+        
+        /* Layout Admin */
+        .sidebar { background: #1e293b; width: 280px; height: 100vh; position: fixed; color: white; z-index: 50; }
+        .main-content { margin-left: 280px; padding: 40px; min-height: 100vh; background: #f1f5f9; }
+        .menu-item { padding: 12px 20px; cursor: pointer; border-radius: 12px; margin-bottom: 5px; display: flex; align-items: center; gap: 10px; color: #94a3b8; font-weight: bold; transition: 0.2s; }
         .menu-item.active { background: #3b82f6; color: white; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4); }
-        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); align-items: center; justify-content: center; z-index: 100; }
         .modal.active { display: flex; }
-        .tv-mode { position: fixed; inset: 0; background: #0f172a; z-index: 9999; color: white; overflow-y: auto; display: flex; flex-direction: column; padding: 40px; }
-        .tv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; align-content: start; }
-        .tv-card { background: rgba(255,255,255,0.05); padding: 20px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; }
-        .tv-cat-title { font-family: 'Fugaz One', cursive; font-size: 2rem; color: #3b82f6; margin-top: 30px; margin-bottom: 15px; border-bottom: 2px solid #1e293b; padding-bottom: 5px; text-transform: uppercase; }
-        .tv-sabor-nombre { font-size: 1.8rem; font-weight: 900; text-transform: uppercase; font-style: italic; }
-        .tag { font-size: 0.7rem; padding: 4px 8px; border-radius: 6px; font-weight: 900; margin-left: 5px; text-transform: uppercase; }
-        .tag-veg { background: #22c55e; color: #052e16; }
-        .tag-tacc { background: #eab308; color: #422006; }
+
+        /* MODO TV - DISEÑO PROFESIONAL SIN SCROLL */
+        .tv-mode { 
+            position: fixed; inset: 0; background: #fdfbf7; z-index: 9999; color: #1e293b; 
+            overflow: hidden; display: flex; flex-direction: column; padding: 40px;
+        }
+        .tv-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; flex-grow: 1; }
+        .tv-column { display: flex; flex-direction: column; gap: 20px; }
+        
+        .tv-cat-header { 
+            font-family: 'Fugaz One', cursive; font-size: 2.2rem; border-bottom: 3px solid #1e293b; 
+            margin-bottom: 15px; padding-bottom: 5px; text-transform: uppercase; 
+        }
+        .tv-flavor-list { display: grid; grid-template-columns: 1fr 1fr; gap: x; row-gap: 8px; margin-bottom: 30px; }
+        .tv-flavor-item { font-size: 1.6rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+        
+        /* Ticker / Animación inferior */
+        .tv-ticker {
+            position: absolute; bottom: 0; left: 0; width: 100%; background: #1e293b; 
+            color: white; padding: 10px 0; font-weight: 900; text-transform: uppercase;
+            overflow: hidden; white-space: nowrap; font-size: 1.2rem;
+        }
+        .ticker-content { display: inline-block; animation: ticker 20s linear infinite; padding-left: 100%; }
+        @keyframes ticker { 0% { transform: translate(0, 0); } 100% { transform: translate(-100%, 0); } }
+
+        /* Estilo de Precios (Basado en imagen) */
+        .price-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px dashed #cbd5e1; padding: 15px 0; }
+        .price-label { font-size: 2rem; font-weight: 800; text-transform: uppercase; color: #475569; }
+        .price-value { font-size: 3rem; font-weight: 900; color: #3b82f6; font-family: 'Fugaz One'; }
+
         #login-screen { background: #0f172a; position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; }
     </style>
 </head>
 <body>
 
     <div id="login-screen">
-        <div class="bg-white p-10 rounded-3xl shadow-2xl w-full max-w-sm text-center">
-            <h2 class="text-3xl font-black mb-6 text-gray-800 italic uppercase tracking-tighter">Helado OS</h2>
-            <input type="email" id="login-email" placeholder="Email" class="w-full border p-4 rounded-2xl mb-4 bg-gray-50 outline-none focus:ring-2 ring-blue-500">
-            <input type="password" id="login-pass" placeholder="Contraseña" class="w-full border p-4 rounded-2xl mb-6 bg-gray-50 outline-none focus:ring-2 ring-blue-500 text-gray-800">
-            <button onclick="handleLogin()" id="btn-login" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold hover:bg-blue-700 transition shadow-lg">INGRESAR</button>
+        <div class="bg-white p-10 rounded-3xl shadow-2xl w-96 text-center">
+            <h2 class="text-3xl font-black mb-6 text-gray-800 italic uppercase">ICE CREAM OS</h2>
+            <input type="email" id="login-email" placeholder="Email" class="w-full border p-4 rounded-2xl mb-4 bg-gray-50 outline-none">
+            <input type="password" id="login-pass" placeholder="Contraseña" class="w-full border p-4 rounded-2xl mb-6 bg-gray-50 outline-none">
+            <button onclick="handleLogin()" id="btn-login" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg">INGRESAR</button>
         </div>
     </div>
 
     <div id="sidebar" class="sidebar p-6 hidden">
-        <h2 class="text-2xl font-black mb-10 text-blue-400 italic text-center uppercase tracking-tighter">HELADO OS</h2>
-        <nav id="menu-nav" class="menu-nav-grid"></nav>
-        <button onclick="handleLogout()" class="mt-auto absolute bottom-8 left-6 text-red-400 font-bold flex items-center gap-2 hover:text-red-300 transition">✕ Salir</button>
+        <h2 class="text-2xl font-black mb-10 text-blue-400 italic text-center uppercase">HELADO OS</h2>
+        <nav id="menu-nav"></nav>
+        <button onclick="handleLogout()" class="mt-auto absolute bottom-8 left-6 text-red-400 font-bold flex items-center gap-2 hover:text-red-300">✕ Salir</button>
     </div>
 
     <div id="app" class="main-content hidden">
@@ -58,11 +77,11 @@
 
     <div id="modal-form" class="modal">
         <div class="bg-white p-8 rounded-3xl w-full max-w-lg shadow-2xl relative overflow-y-auto max-h-[90vh]">
-            <h3 id="modal-title" class="text-2xl font-bold mb-6 text-gray-800 italic uppercase"></h3>
-            <div id="modal-body" class="space-y-4 text-gray-700"></div>
+            <h3 id="modal-title" class="text-2xl font-bold mb-6 text-gray-800 uppercase italic"></h3>
+            <div id="modal-body" class="space-y-4"></div>
             <div class="flex justify-end gap-3 mt-8 border-t pt-6">
-                <button onclick="closeModal()" class="px-5 font-bold text-slate-400 uppercase text-sm">Cancelar</button>
-                <button id="btn-save" class="px-8 py-3 bg-blue-600 text-white rounded-2xl font-bold shadow-lg hover:bg-blue-700 transition uppercase italic text-sm"></button>
+                <button onclick="closeModal()" class="px-5 font-bold text-slate-400 uppercase">Cancelar</button>
+                <button id="btn-save" class="px-8 py-3 bg-blue-600 text-white rounded-2xl font-bold uppercase italic"></button>
             </div>
         </div>
     </div>
@@ -86,41 +105,31 @@
         }
 
         async function checkSession() {
-            try {
-                const { data: { session } } = await _supabase.auth.getSession();
-                if (!session) return;
-                let { data: perfil, error } = await _supabase.from('perfiles').select('*').eq('id', session.user.id).single();
-                if (error && error.message.includes('schema')) {
-                    await new Promise(r => setTimeout(r, 1000));
-                    const retry = await _supabase.from('perfiles').select('*').eq('id', session.user.id).single();
-                    perfil = retry.data;
-                }
-                if (!perfil) return handleLogout();
-                userPerfil = perfil;
-                document.getElementById('login-screen').style.display = 'none';
-                document.getElementById('sidebar').classList.remove('hidden');
-                document.getElementById('app').classList.remove('hidden');
-                renderMenu();
-                showPage(userPerfil.rol === 'admin' ? 'categorias' : 'sucursales');
-            } catch (e) { console.error(e); }
+            const { data: { session } } = await _supabase.auth.getSession();
+            if (!session) return;
+            const { data: perfil } = await _supabase.from('perfiles').select('*').eq('id', session.user.id).single();
+            userPerfil = perfil;
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('sidebar').classList.remove('hidden');
+            document.getElementById('app').classList.remove('hidden');
+            renderMenu();
+            showPage(userPerfil.rol === 'admin' ? 'categorias' : 'sucursales');
         }
 
         async function handleLogin() {
-            const btn = document.getElementById('btn-login');
-            btn.innerText = "VERIFICANDO..."; btn.disabled = true;
             const email = document.getElementById('login-email').value;
             const pass = document.getElementById('login-pass').value;
             const { error } = await _supabase.auth.signInWithPassword({ email, password: pass });
-            if (error) { alert("Error: " + error.message); btn.innerText = "INGRESAR"; btn.disabled = false; } 
-            else window.location.reload();
+            if (error) alert(error.message); else window.location.reload();
         }
 
         function handleLogout() { _supabase.auth.signOut().then(() => window.location.reload()); }
 
         function renderMenu() {
             const nav = document.getElementById('menu-nav');
+            let items = `<div onclick="showPage('sucursales')" id="m-sucursales" class="menu-item active">🏪 Sucursales</div>`;
             if (userPerfil.rol === 'admin') {
-                nav.innerHTML = `
+                items = `
                     <div onclick="showPage('categorias')" id="m-categorias" class="menu-item active">📁 Categorías</div>
                     <div onclick="showPage('sabores')" id="m-sabores" class="menu-item">🍨 Sabores</div>
                     <div onclick="showPage('sucursales')" id="m-sucursales" class="menu-item">🏪 Sucursales</div>
@@ -128,9 +137,8 @@
                     <div onclick="showPage('usuarios')" id="m-usuarios" class="menu-item">👥 Usuarios</div>
                     <div onclick="showPage('precios')" id="m-precios" class="menu-item">💰 Precios</div>
                 `;
-            } else {
-                nav.innerHTML = `<div onclick="showPage('sucursales')" id="m-sucursales" class="menu-item active">🏪 Sucursales</div>`;
             }
+            nav.innerHTML = items;
         }
 
         async function showPage(page, params = null) {
@@ -143,7 +151,7 @@
             if (page === 'categorias') {
                 header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Categorías</h1><button onclick="abrirModal('cat')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ Nueva</button>`;
                 const { data } = await _supabase.from('categorias').select('*').order('orden');
-                container.innerHTML = `<div class="space-y-3">${data.map(c => `<div class="bg-white p-5 rounded-2xl shadow-sm flex justify-between items-center border-l-8 border-blue-500 font-bold text-slate-700">${c.nombre} <div class="flex gap-4"><button onclick='abrirModal("cat", ${JSON.stringify(c)})' class="text-blue-500 text-xs">EDITAR</button><button onclick="eliminar('categorias','${c.id}')" class="text-red-300 text-xs uppercase font-black">Borrar</button></div></div>`).join('')}</div>`;
+                container.innerHTML = `<div class="space-y-3">${data.map(c => `<div class="bg-white p-5 rounded-2xl shadow-sm flex justify-between items-center border-l-8 border-blue-500 font-bold text-slate-700">${c.nombre} <div class="flex gap-4"><button onclick='abrirModal("cat", ${JSON.stringify(c)})' class="text-blue-500">Editar</button><button onclick="eliminar('categorias','${c.id}')" class="text-red-300">Borrar</button></div></div>`).join('')}</div>`;
             }
 
             if (page === 'sabores') {
@@ -155,22 +163,22 @@
                     return `<div class="mb-8 bg-white p-6 rounded-3xl shadow-sm border-l-8 border-indigo-500"><h3 class="text-xl font-bold text-indigo-600 mb-6 uppercase tracking-widest text-sm">${c.nombre}</h3><div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                     ${ms.map(s => `<div class="border-2 border-slate-50 p-4 rounded-2xl flex flex-col justify-between h-28 bg-slate-50 relative group">
                     <div class="flex gap-1 flex-wrap">${s.es_vegano ? '<span class="tag tag-veg">Veg</span>':''}${s.es_sintacc ? '<span class="tag tag-tacc">TACC</span>':''}</div><span class="font-bold text-slate-700 uppercase italic text-xs">${s.nombre}</span>
-                    <div class="flex justify-end gap-2"><button onclick='abrirModal("sabor", ${JSON.stringify(s)})' class="text-blue-500 font-bold text-[10px]">EDIT</button><button onclick="eliminar('sabores','${s.id}')" class="text-red-400 font-bold text-[10px]">BORRAR</button></div></div>`).join('')}</div></div>`;
+                    <div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition"><button onclick='abrirModal("sabor", ${JSON.stringify(s)})' class="text-blue-500 font-bold text-[10px]">EDIT</button><button onclick="eliminar('sabores','${s.id}')" class="text-red-400 font-bold text-[10px]">BORRAR</button></div></div>`).join('')}</div></div>`;
                 }).join('');
             }
 
             if (page === 'usuarios') {
-                header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Usuarios</h1><button onclick="abrirModal('usuario')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ CREAR</button>`;
+                header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic text-slate-800">Usuarios</h1><button onclick="abrirModal('usuario')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ CREAR</button>`;
                 const { data: users } = await _supabase.from('perfiles').select('*');
                 container.innerHTML = `<div class="grid gap-4">${users.map(u => `<div class="bg-white p-6 rounded-3xl shadow-sm flex justify-between items-center border-l-8 ${u.rol === 'admin' ? 'border-amber-400':'border-emerald-400'}">
                 <div><p class="font-black text-slate-700 text-xl uppercase italic">${u.username}</p><p class="text-xs text-slate-400 font-bold uppercase">${u.rol}</p></div>
-                <div class="flex gap-4"><button onclick='gestionarAccesos("${u.id}", "${u.username}")' class="bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-bold">PERMISOS</button><button onclick='abrirModal("usuario", ${JSON.stringify(u)})' class="text-blue-500 font-bold text-xs p-2">EDITAR</button><button onclick="eliminar('perfiles','${u.id}')" class="text-red-300 font-bold text-xs p-2 uppercase">Borrar</button></div></div>`).join('')}</div>`;
+                <div class="flex gap-2"><button onclick='gestionarAccesos("${u.id}", "${u.username}")' class="bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-bold">PERMISOS</button><button onclick='abrirModal("usuario", ${JSON.stringify(u)})' class="text-blue-500 font-bold text-xs p-2">EDITAR</button><button onclick="eliminar('perfiles','${u.id}')" class="text-red-300 font-bold text-xs p-2">BORRAR</button></div></div>`).join('')}</div>`;
             }
 
             if (page === 'precios') {
                 header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Precios Globales</h1><button onclick="abrirModal('precio')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ Nuevo</button>`;
                 const { data } = await _supabase.from('precios_globales').select('*').order('orden');
-                container.innerHTML = `<div class="grid gap-4 max-w-2xl">${data.map(p => `<div class="bg-white p-6 rounded-3xl shadow-sm flex justify-between items-center border-l-8 border-amber-500"><div><p class="text-xs font-bold text-slate-400 uppercase">${p.label}</p><p class="text-2xl font-black text-slate-800">$${p.valor}</p></div><div class="flex gap-3"><button onclick='abrirModal("precio", ${JSON.stringify(p)})' class="text-blue-500 font-bold">EDITAR</button><button onclick="eliminar('precios_globales','${p.id}')" class="text-red-300 font-bold">✕</button></div></div>`).join('')}</div>`;
+                container.innerHTML = `<div class="grid gap-4 max-w-2xl">${data.map(p => `<div class="bg-white p-6 rounded-3xl shadow-sm flex justify-between items-center border-l-8 border-amber-500"><div><p class="text-xs font-bold text-slate-400 uppercase">${p.label}</p><p class="text-2xl font-black text-slate-800">$${p.valor}</p></div><div class="flex gap-3"><button onclick='abrirModal("precio", ${JSON.stringify(p)})' class="text-blue-500 font-bold">EDITAR</button><button onclick="eliminar('precios_globales','${p.id}')" class="text-red-300 font-bold">BORRAR</button></div></div>`).join('')}</div>`;
             }
 
             if (page === 'pantallas') {
@@ -195,29 +203,21 @@
                 container.innerHTML = cats.map(c => {
                     const ms = sabs.filter(s => s.categoria_id === c.id);
                     if(!ms.length) return '';
-                    return `<div class="mb-10 bg-white p-8 rounded-[40px] shadow-sm">
-                        <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-                            <h4 class="font-black text-slate-800 uppercase text-lg italic border-b-4 border-blue-500 pb-1">${c.nombre}</h4>
-                            <div class="flex gap-2">
-                                <button onclick="masterStock('${sucId}', ${JSON.stringify(ms.map(m=>m.id))}, true)" class="text-[10px] bg-emerald-500 text-white px-4 py-2 rounded-full font-black shadow-lg uppercase">Habilitar Todo</button>
-                                <button onclick="masterStock('${sucId}', ${JSON.stringify(ms.map(m=>m.id))}, false)" class="text-[10px] bg-red-500 text-white px-4 py-2 rounded-full font-black shadow-lg uppercase">Pausar Todo</button>
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">${ms.map(s => { 
-                            const isOk = vis.find(v => v.sabor_id === s.id)?.disponible !== false; 
-                            return `<button onclick="toggleStock('${sucId}', '${s.id}', ${isOk})" class="p-5 rounded-2xl border-2 font-bold transition-all active:scale-95 ${isOk ? 'bg-white border-blue-500 text-blue-700 shadow-md':'bg-slate-100 border-transparent text-slate-400 line-through'}">${s.nombre}</button>`; 
-                        }).join('')}</div></div>`;
+                    return `<div class="mb-10 bg-white p-8 rounded-[40px] shadow-sm"><div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4"><h4 class="font-black text-slate-800 uppercase text-lg italic">${c.nombre}</h4><div class="flex gap-2">
+                    <button onclick="masterStock('${sucId}', ${JSON.stringify(ms.map(m=>m.id))}, true)" class="text-[10px] bg-emerald-500 text-white px-4 py-2 rounded-full font-black uppercase">Habilitar Todo</button>
+                    <button onclick="masterStock('${sucId}', ${JSON.stringify(ms.map(m=>m.id))}, false)" class="text-[10px] bg-red-500 text-white px-4 py-2 rounded-full font-black uppercase">Pausar Todo</button>
+                    </div></div><div class="grid grid-cols-2 md:grid-cols-4 gap-3">${ms.map(s => { const isOk = vis.find(v => v.sabor_id === s.id)?.disponible !== false; return `<button onclick="toggleStock('${sucId}', '${s.id}', ${isOk})" class="p-5 rounded-2xl border-2 font-bold transition-all ${isOk ? 'bg-white border-blue-500 text-blue-700 shadow-md':'bg-slate-100 border-transparent text-slate-400 line-through'}">${s.nombre}</button>`; }).join('')}</div></div>`;
                 }).join('');
             }
         }
 
         async function masterStock(sucId, ids, status) {
             const batch = ids.map(id => ({ sucursal_id: sucId, sabor_id: id, disponible: status }));
-            const { error } = await _supabase.from('visibilidad_sabores').upsert(batch);
-            if (error) alert("Error: " + error.message);
-            else showPage('admin_stock', sucId);
+            await _supabase.from('visibilidad_sabores').upsert(batch);
+            showPage('admin_stock', sucId);
         }
 
+        // --- GESTIÓN DE TVs ---
         async function verPantallasSucursal(sucId, sucName) {
             const container = document.getElementById('view-content');
             const header = document.getElementById('view-header');
@@ -225,9 +225,9 @@
             const { data: pants } = await _supabase.from('pantallas').select('*').eq('sucursal_id', sucId);
             container.innerHTML = `<div class="grid gap-4">${pants.map(p => {
                 const url = `${window.location.origin}${window.location.pathname}?mode=tv&id=${p.id}`;
-                return `<div class="bg-white p-6 rounded-3xl shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center border-2 border-slate-100"><div class="mb-4 md:mb-0"><p class="font-black text-slate-700 text-lg uppercase italic">${p.nombre}</p><p class="text-[10px] text-blue-500 font-black uppercase mb-2">${p.tipo} (${p.orientacion})</p><input type="text" readonly value="${url}" class="text-[9px] text-slate-400 bg-slate-50 p-2 rounded w-full md:w-64 border-none outline-none"></div><div class="flex gap-3">
-                <button onclick="window.open('${url}', '_blank')" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-[10px] shadow-lg">VER VISTA</button>
-                <button onclick='abrirModalPantalla("${sucId}", ${JSON.stringify(p)})' class="text-blue-400 font-bold text-xs p-2">EDITAR</button>
+                return `<div class="bg-white p-6 rounded-3xl shadow-sm flex flex-col md:flex-row justify-between border-2 border-slate-100"><div><p class="font-black text-slate-700 text-lg uppercase italic">${p.nombre}</p><p class="text-[10px] text-blue-500 uppercase font-black">${p.tipo} (${p.orientacion})</p><input type="text" readonly value="${url}" class="text-[9px] text-slate-400 bg-slate-50 p-2 rounded mt-2 w-full md:w-64 border-none"></div><div class="flex gap-3">
+                <button onclick="window.open('${url}', '_blank')" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-[10px]">VER VISTA</button>
+                <button onclick='abrirModalPantalla("${sucId}", ${JSON.stringify(p)})' class="text-blue-500 font-bold text-xs p-2">EDITAR</button>
                 <button onclick="eliminarTV('${p.id}', '${sucId}', '${sucName}')" class="text-red-300 font-bold text-xs p-2">✕</button></div></div>`;
             }).join('')}</div>`;
         }
@@ -238,25 +238,24 @@
             const body = document.getElementById('modal-body');
             const btn = document.getElementById('btn-save');
             const title = document.getElementById('modal-title');
-            const esEdicion = !!data;
             const configActiva = data?.config_categorias || [];
 
-            title.innerText = esEdicion ? "EDITAR PANTALLA" : "NUEVA PANTALLA";
-            btn.innerText = esEdicion ? "ACTUALIZAR TV" : "CREAR TV";
+            title.innerText = data ? "EDITAR PANTALLA" : "NUEVA PANTALLA";
+            btn.innerText = data ? "ACTUALIZAR" : "CREAR TV";
             document.getElementById('modal-form').classList.add('active');
             
             body.innerHTML = `
                 <input id="p-nom" value="${data?.nombre || ''}" placeholder="Nombre TV" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none focus:ring-2 ring-blue-500">
                 <select id="p-tipo" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none" onchange="toggleTvConfig(this.value)">
-                    <option value="sabores" ${data?.tipo === 'sabores' ? 'selected':''}>Menú de Sabores</option>
-                    <option value="precios" ${data?.tipo === 'precios' ? 'selected':''}>Lista de Precios</option>
+                    <option value="sabores" ${data?.tipo === 'sabores' ? 'selected':''}>Sabores</option>
+                    <option value="precios" ${data?.tipo === 'precios' ? 'selected':''}>Precios</option>
                 </select>
                 <select id="p-ori" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
                     <option value="16:9" ${data?.orientacion === '16:9' ? 'selected':''}>Horizontal (16:9)</option>
                     <option value="9:16" ${data?.orientacion === '9:16' ? 'selected':''}>Vertical (9:16)</option>
                 </select>
-                <div id="check-wrapper">
-                    <p class="text-xs font-black text-slate-400 mb-3 uppercase italic">Contenido a mostrar:</p>
+                <div>
+                    <p class="text-xs font-black text-slate-400 mb-3 uppercase italic">Mostrar:</p>
                     <div id="check-list" class="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 bg-slate-50 rounded-2xl border border-slate-100"></div>
                 </div>`;
 
@@ -264,12 +263,11 @@
             window.toggleTvConfig = (val) => {
                 const items = val === 'sabores' ? cats : precios;
                 listCont.innerHTML = items.map(i => `
-                    <label class="flex items-center gap-2 p-2 bg-white rounded-xl cursor-pointer border-2 border-transparent hover:border-blue-100 transition">
-                        <input type="checkbox" class="tv-check w-4 h-4" value="${i.id}" ${configActiva.includes(i.id) ? 'checked' : ''}> 
-                        <span class="text-[10px] font-black uppercase text-slate-600">${i.nombre || i.label}</span>
+                    <label class="flex items-center gap-2 p-2 bg-white rounded-xl cursor-pointer">
+                        <input type="checkbox" class="tv-check" value="${i.id}" ${configActiva.includes(i.id) ? 'checked' : ''}> 
+                        <span class="text-[10px] font-bold uppercase">${i.nombre || i.label}</span>
                     </label>`).join('');
             };
-            
             toggleTvConfig(data?.tipo || 'sabores');
 
             btn.onclick = async () => {
@@ -277,15 +275,16 @@
                     sucursal_id: sucId,
                     nombre: document.getElementById('p-nom').value,
                     tipo: document.getElementById('p-tipo').value,
-                    orientacion: document.getElementById('p-ori').value,
+                    orientacion: '16:9', // Hardcoded por ahora para asegurar compatibilidad
                     config_categorias: Array.from(document.querySelectorAll('.tv-check:checked')).map(c => c.value)
                 };
-                if(esEdicion) await _supabase.from('pantallas').update(row).eq('id', data.id);
+                if(data) await _supabase.from('pantallas').update(row).eq('id', data.id);
                 else await _supabase.from('pantallas').insert([row]);
-                closeModal(); verPantallasSucursal(sucId, sucName);
+                closeModal(); verPantallasSucursal(sucId, "Refrescando...");
             };
         }
 
+        // --- RENDER TV DINÁMICO (Categorías + Stock + Ticker) ---
         async function renderPantallaTV(id) {
             const { data: pant } = await _supabase.from('pantallas').select('*').eq('id', id).single();
             if(!pant) return;
@@ -294,31 +293,50 @@
 
             if (pant.tipo === 'precios') {
                 const { data: precios } = await _supabase.from('precios_globales').select('*').in('id', pant.config_categorias || []).order('orden');
-                tv.innerHTML = `<h1 class="tv-title text-center mb-10">Precios</h1>
-                    <div class="space-y-8 max-w-4xl mx-auto w-full">
-                        ${precios.map(p => `<div class="flex justify-between items-center border-b-4 border-slate-800 pb-6"><span class="text-6xl font-black text-slate-400 uppercase italic tracking-tighter">${p.label}</span><span class="text-8xl font-black text-blue-500">$${p.valor}</span></div>`).join('')}
+                tv.innerHTML = `
+                    <div class="flex flex-col h-full">
+                        <h1 class="tv-title text-center mb-10" style="color:#1e293b">Nuestros Precios</h1>
+                        <div class="space-y-4 max-w-5xl mx-auto w-full flex-grow">
+                            ${precios.map(p => `
+                                <div class="price-row">
+                                    <span class="price-label">${p.label}</span>
+                                    <span class="price-value">$${p.valor}</span>
+                                </div>`).join('')}
+                        </div>
+                        <div class="tv-ticker"><div class="ticker-content">HELADOS ARTESANALES DE CALIDAD • TODOS LOS MEDIOS DE PAGO • PRECIOS ACTUALIZADOS •</div></div>
                     </div>`;
             } else {
                 const { data: cats } = await _supabase.from('categorias').select('*').in('id', pant.config_categorias || []).order('orden');
                 const { data: sabs } = await _supabase.from('sabores').select('*');
                 const { data: vis } = await _supabase.from('visibilidad_sabores').select('*').eq('sucursal_id', pant.sucursal_id);
                 
-                let html = `<div class="flex justify-between items-end mb-10 border-b-4 border-blue-500 pb-4"><h1 class="tv-title">SABORES</h1><p class="text-3xl font-black text-slate-600 uppercase italic">Artesanales</p></div>`;
-                cats.forEach(c => {
+                let html = `<div class="flex justify-between items-center mb-5"><h1 class="tv-title" style="color:#1e293b">NUESTROS SABORES</h1><img src="https://i.ibb.co/vzrKxQ0/logo-helado.png" style="height:80px"></div><div class="tv-layout">`;
+                
+                // Dividir categorías en dos columnas
+                const leftCats = cats.slice(0, Math.ceil(cats.length / 2));
+                const rightCats = cats.slice(Math.ceil(cats.length / 2));
+
+                const buildCol = (colCats) => colCats.map(c => {
                     const disponibles = sabs.filter(s => s.categoria_id === c.id).filter(s => {
                         const v = vis.find(v => v.sabor_id === s.id);
                         return v ? v.disponible !== false : true;
                     });
-                    if(disponibles.length > 0) {
-                        html += `<div class="tv-cat-title">${c.nombre}</div><div class="tv-grid">`;
-                        html += disponibles.map(s => `<div class="tv-card"><span class="tv-sabor-nombre">${s.nombre}</span><div class="flex">${s.es_vegano ? '<span class="tag tag-veg">VEG</span>':''}${s.es_sintacc ? '<span class="tag tag-tacc">TACC</span>':''}</div></div>`).join('');
-                        html += `</div>`;
-                    }
-                });
+                    if(!disponibles.length) return '';
+                    return `<div class="tv-cat-title">${c.nombre}</div><div class="tv-flavor-list">
+                        ${disponibles.map(s => `<div class="tv-flavor-item">
+                            <span class="text-blue-500">•</span> ${s.nombre}
+                            ${s.es_vegano ? '<span class="tag tag-veg">V</span>':''}
+                            ${s.es_sintacc ? '<span class="tag tag-tacc">T</span>':''}
+                        </div>`).join('')}</div>`;
+                }).join('');
+
+                html += `<div class="tv-column">${buildCol(leftCats)}</div><div class="tv-column">${buildCol(rightCats)}</div></div>`;
+                html += `<div class="tv-ticker"><div class="ticker-content">CALIDAD AL ALCANCE DE TODOS • HELADOS 100% ARTESANALES • DISFRUTÁ TU MOMENTO •</div></div>`;
                 tv.innerHTML = html;
             }
         }
 
+        // --- ABML RESTO ---
         async function abrirModal(type, data = null) {
             const body = document.getElementById('modal-body');
             const btn = document.getElementById('btn-save');
@@ -340,7 +358,7 @@
             }
             if (type === 'sabor') {
                 const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
-                body.innerHTML = `<input id="f-nom" value="${data?.nombre || ''}" placeholder="Nombre" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><select id="f-cat" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">${cats.map(c => `<option value="${c.id}" ${data?.categoria_id === c.id ? 'selected':''}>${c.nombre}</option>`)}</select><div class="flex gap-4 p-2 font-bold text-slate-500"><label class="flex items-center gap-2"><input type="checkbox" id="f-veg" ${data?.es_vegano ? 'checked':''}> Vegano</label><label class="flex items-center gap-2"><input type="checkbox" id="f-tacc" ${data?.es_sintacc ? 'checked':''}> Sin TACC</label></div>`;
+                body.innerHTML = `<input id="f-nom" value="${data?.nombre || ''}" placeholder="Nombre" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><select id="f-cat" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">${cats.map(c => `<option value="${c.id}" ${data?.categoria_id === c.id ? 'selected':''}>${c.nombre}</option>`)}</select><div class="flex gap-4 p-2 font-bold text-slate-500"><label><input type="checkbox" id="f-veg" ${data?.es_vegano ? 'checked':''}> Vegano</label><label><input type="checkbox" id="f-tacc" ${data?.es_sintacc ? 'checked':''}> Sin TACC</label></div>`;
                 btn.onclick = async () => {
                     const row = { nombre: document.getElementById('f-nom').value, categoria_id: document.getElementById('f-cat').value, es_vegano: document.getElementById('f-veg').checked, es_sintacc: document.getElementById('f-tacc').checked };
                     if (data) await _supabase.from('sabores').update(row).eq('id', data.id);
@@ -349,27 +367,16 @@
                 };
             }
             if (type === 'usuario') {
-                body.innerHTML = `<input id="u-name" value="${data?.username || ''}" placeholder="Nombre" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><input id="u-email" type="email" value="${data?.username || ''}" placeholder="Email" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none" ${esEdicion ? 'disabled':''}><input id="u-pass" type="text" placeholder="Password temporal" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none ${esEdicion ? 'hidden':''}">
+                body.innerHTML = `<input id="u-name" value="${data?.username || ''}" placeholder="Nombre" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><input id="u-email" type="email" value="${data?.username || ''}" placeholder="Email" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none" ${esEdicion ? 'disabled':''}><input id="u-pass" type="text" placeholder="Password" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none ${esEdicion ? 'hidden':''}">
                 <select id="u-rol" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><option value="empleado" ${data?.rol === 'empleado' ? 'selected':''}>Empleado</option><option value="admin" ${data?.rol === 'admin' ? 'selected':''}>Admin</option></select>`;
                 btn.onclick = async () => {
-                    const name = document.getElementById('u-name').value;
-                    const rol = document.getElementById('u-rol').value;
-                    if (esEdicion) await _supabase.from('perfiles').update({ username: name, rol: rol }).eq('id', data.id);
-                    else await _supabase.rpc('admin_create_user', { p_email: document.getElementById('u-email').value, p_password: document.getElementById('u-pass').value, p_username: name, p_rol: rol });
+                    if (esEdicion) await _supabase.from('perfiles').update({ username: document.getElementById('u-name').value, rol: document.getElementById('u-rol').value }).eq('id', data.id);
+                    else await _supabase.rpc('admin_create_user', { p_email: document.getElementById('u-email').value, p_password: document.getElementById('u-pass').value, p_username: document.getElementById('u-name').value, p_rol: document.getElementById('u-rol').value });
                     closeModal(); showPage('usuarios');
                 };
             }
-            if (type === 'sucursal') {
-                body.innerHTML = `<input id="f-nom" value="${data?.nombre || ''}" placeholder="Nombre" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><input id="f-tid" value="${data?.id_texto || ''}" placeholder="ID (ej: pacheco)" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">`;
-                btn.onclick = async () => {
-                    const row = { nombre: document.getElementById('f-nom').value, id_texto: document.getElementById('f-tid').value };
-                    if(data) await _supabase.from('sucursales').update(row).eq('id', data.id);
-                    else await _supabase.from('sucursales').insert([row]);
-                    closeModal(); showPage('sucursales');
-                };
-            }
             if (type === 'precio') {
-                body.innerHTML = `<input id="f-lab" value="${data?.label || ''}" placeholder="Etiqueta (Ej: 1 KG)" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><input id="f-val" type="number" value="${data?.valor || ''}" placeholder="Precio" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><input id="f-ord" type="number" value="${data?.orden || ''}" placeholder="Orden" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">`;
+                body.innerHTML = `<input id="f-lab" value="${data?.label || ''}" placeholder="Ej: 1 KG" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><input id="f-val" type="number" value="${data?.valor || ''}" placeholder="Valor" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><input id="f-ord" type="number" value="${data?.orden || ''}" placeholder="Orden" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">`;
                 btn.onclick = async () => {
                     const row = { label: document.getElementById('f-lab').value, valor: document.getElementById('f-val').value, orden: document.getElementById('f-ord').value };
                     if (data) await _supabase.from('precios_globales').update(row).eq('id', data.id);
@@ -387,7 +394,7 @@
             const btn = document.getElementById('btn-save');
             document.getElementById('modal-title').innerText = "ACCESOS: " + name;
             btn.innerText = "GUARDAR";
-            body.innerHTML = `<div class="space-y-2">${sucs.map(s => `<label class="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl cursor-pointer"><input type="checkbox" class="suc-check w-6 h-6" value="${s.id}" ${checkIds.includes(s.id) ? 'checked' : ''}> <span class="font-black uppercase italic">${s.nombre}</span></label>`).join('')}</div>`;
+            body.innerHTML = `<div class="space-y-2 text-gray-700">${sucs.map(s => `<label class="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl cursor-pointer"><input type="checkbox" class="suc-check w-6 h-6" value="${s.id}" ${checkIds.includes(s.id) ? 'checked' : ''}> <span class="font-black uppercase italic">${s.nombre}</span></label>`).join('')}</div>`;
             document.getElementById('modal-form').classList.add('active');
             btn.onclick = async () => {
                 await _supabase.from('usuario_sucursales').delete().eq('usuario_id', userId);
@@ -404,7 +411,7 @@
 
         function closeModal() { document.getElementById('modal-form').classList.remove('active'); }
         async function eliminar(t, id) { if(confirm('¿BORRAR?')) { await _supabase.from(t).delete().eq('id', id); showPage(currentPage); } }
-        async function eliminarTV(id, sucId, sucName) { if(confirm('¿ELIMINAR ESTA PANTALLA?')) { await _supabase.from('pantallas').delete().eq('id', id); verPantallasSucursal(sucId, sucName); } }
+        async function eliminarTV(id, sucId, sucName) { if(confirm('¿BORRAR TV?')) { await _supabase.from('pantallas').delete().eq('id', id); verPantallasSucursal(sucId, sucName); } }
     </script>
 </body>
 </html>
