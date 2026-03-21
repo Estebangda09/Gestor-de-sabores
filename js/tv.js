@@ -101,7 +101,14 @@ async function renderModalContent() {
 window.renderPantallaTV = async function(id) {
     const { data: pant } = await _supabase.from('pantallas').select('*').eq('id', id).single();
     if(!pant) return;
-    const style = pant.estilo || { font: 'Inter', bg: '#fdfbf7', catColor: '#64748b', saborColor: '#1e293b', catSize: '1.2', saborSize: '1.6', marquesinaActiva: true, marquesinaBg: '#1e293b', marquesinaColor: '#ffffff', marquesinaTexto: 'BIENVENIDOS' };
+    
+    const style = pant.estilo || { 
+        font: 'Inter', bg: '#fdfbf7', catColor: '#64748b', 
+        saborColor: '#1e293b', catSize: '1.2', saborSize: '1.6', 
+        marquesinaActiva: true, marquesinaBg: '#1e293b', 
+        marquesinaColor: '#ffffff', marquesinaTexto: 'BIENVENIDOS' 
+    };
+    
     const tv = document.getElementById('tv-container');
     tv.classList.remove('hidden');
     tv.style.backgroundColor = style.bg;
@@ -112,14 +119,19 @@ window.renderPantallaTV = async function(id) {
         const { data: prices } = await _supabase.from('precios_globales').select('*').order('orden');
         let html = `<div class="tv-layout">`;
         const mid = Math.ceil(catPrecios.length / 2);
+        
         [catPrecios.slice(0, mid), catPrecios.slice(mid)].forEach(colCats => {
             html += `<div class="tv-column">`;
             colCats.forEach(c => {
                 const items = prices.filter(p => p.categoria_precio_id === c.id);
-                html += `<div class="tv-cat-header" style="color:${style.catColor}; font-size:${style.catSize}rem">${c.nombre}</div>`;
+                // Categorías en MAYÚSCULAS
+                html += `<div class="tv-cat-header" style="color:${style.catColor}; font-size:${style.catSize}rem; text-transform: uppercase;">${c.nombre}</div>`;
                 items.forEach(p => {
                     html += `<div class="price-row" style="border-color:${style.catColor}44">
-                        <div class="flex items-center gap-4">${p.imagen_url ? `<img src="${p.imagen_url}" class="h-16 w-16 object-contain">` : ''}<span class="price-label" style="color:${style.catColor}; font-size:${style.saborSize}rem">${p.label}</span></div>
+                        <div class="flex items-center gap-4">
+                            ${p.imagen_url ? `<img src="${p.imagen_url}" class="h-16 w-16 object-contain">` : ''}
+                            <span class="price-label" style="color:${style.catColor}; font-size:${style.saborSize}rem">${p.label}</span>
+                        </div>
                         <span class="price-value" style="color:${style.saborColor}; font-size:${style.saborSize}rem">$${p.valor}</span>
                     </div>`;
                 });
@@ -131,8 +143,10 @@ window.renderPantallaTV = async function(id) {
         const { data: cats } = await _supabase.from('categorias').select('*').in('id', pant.config_categorias || []).order('orden');
         const { data: sabs } = await _supabase.from('sabores').select('*');
         const { data: vis } = await _supabase.from('visibilidad_sabores').select('*').eq('sucursal_id', pant.sucursal_id);
+        
         let html = `<div class="tv-layout">`;
         const mid = Math.ceil(cats.length / 2);
+        
         [cats.slice(0, mid), cats.slice(mid)].forEach(colCats => {
             html += `<div class="tv-column">`;
             colCats.forEach(c => {
@@ -140,17 +154,37 @@ window.renderPantallaTV = async function(id) {
                     const v = vis.find(v => v.sabor_id === s.id);
                     return v ? v.disponible !== false : true;
                 });
+                
                 if(disponibles.length) {
-                    html += `<div class="tv-cat-header" style="color:${style.catColor}; font-size:${style.catSize}rem">${c.nombre}</div>
-                    <div class="tv-flavor-list">${disponibles.map(s => `<div class="tv-flavor-item" style="color:${style.saborColor}; font-size:${style.saborSize}rem"><span class="tv-dot">•</span> ${s.nombre} ${s.es_sintacc ? 'T':''} ${s.es_vegano ? 'V':''}</div>`).join('')}</div>`;
+                   
+                    html += `<div class="tv-cat-header" style="color:${style.catColor}; font-size:${style.catSize}rem; text-transform: uppercase;">${c.nombre}</div>
+                    <div class="tv-flavor-list">
+                        ${disponibles.map(s => {
+                           
+                            const nombreFormateado = s.nombre.charAt(0).toUpperCase() + s.nombre.slice(1).toLowerCase();
+                            
+                            return `
+                            <div class="tv-flavor-item" style="color:${style.saborColor}; font-size:${style.saborSize}rem">
+                                <span class="tv-dot">•</span> ${nombreFormateado}
+                                <div class="flex gap-1 ml-2 items-center">
+                                    ${s.es_vegano ? `<img src="https://i.ibb.co/p6V0h86/vegano-icon.png" class="h-6 w-auto" alt="Vegano">` : ''}
+                                    ${s.es_sintacc ? `<img src="https://i.ibb.co/mS6z8vG/sintacc-icon.png" class="h-6 w-auto" alt="Sin TACC">` : ''}
+                                </div>
+                            </div>`;
+                        }).join('')}
+                    </div>`;
                 }
             });
             html += `</div>`;
         });
         tv.innerHTML = html + `</div>`;
     }
+    
     if (style.marquesinaActiva) {
-        tv.innerHTML += `<div class="tv-ticker" style="background:${style.marquesinaBg}; color:${style.marquesinaColor}"><div class="ticker-content">${style.marquesinaTexto} • ${style.marquesinaTexto}</div></div>`;
+        tv.innerHTML += `
+            <div class="tv-ticker" style="background:${style.marquesinaBg}; color:${style.marquesinaColor}">
+                <div class="ticker-content">${style.marquesinaTexto} • ${style.marquesinaTexto}</div>
+            </div>`;
     }
 }
 
