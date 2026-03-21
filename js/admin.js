@@ -19,11 +19,31 @@ async function showPage(page, params = null) {
     const container = document.getElementById('view-content');
     const header = document.getElementById('view-header');
     
-    // Reset visual
     document.getElementById('modal-tabs').classList.add('hidden');
     document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
     if(document.getElementById('m-'+page)) document.getElementById('m-'+page).classList.add('active');
-
+    
+    if (page === 'usuarios') {
+        header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Usuarios</h1>
+                            <button onclick="abrirModalUsuario()" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg">+ NUEVO USUARIO</button>`;
+        
+        const { data: users, error } = await _supabase.from('perfiles').select('*').order('username');
+        
+        container.innerHTML = `<div class="grid gap-4">
+            ${users.map(u => `
+                <div class="bg-white p-6 rounded-3xl shadow-sm flex justify-between items-center border-l-8 ${u.rol === 'admin' ? 'border-amber-400' : 'border-emerald-400'}">
+                    <div>
+                        <p class="font-black text-slate-700 text-xl uppercase italic">${u.username}</p>
+                        <p class="text-xs text-slate-400 font-bold uppercase tracking-widest">${u.rol}</p>
+                    </div>
+                    <div class="flex gap-3">
+                        ${u.rol !== 'admin' ? `<button onclick='abrirModalAccesos("${u.id}", "${u.username}")' class="bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-bold uppercase">PERMISOS SUCURSAL</button>` : ''}
+                        <button onclick='abrirModalUsuario(${JSON.stringify(u)})' class="text-blue-500 font-bold text-xs p-2">EDITAR</button>
+                        <button onclick="eliminar('perfiles','${u.id}')" class="text-red-300 font-bold text-xs p-2">✕</button>
+                    </div>
+                </div>`).join('')}
+        </div>`;
+    }
     if (page === 'pantallas') {
         header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Digital Signage</h1>`;
         const { data: sucs } = await _supabase.from('sucursales').select('*').order('nombre');
@@ -49,6 +69,7 @@ if (page === 'sabores') {
     const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
     const { data: sabs } = await _supabase.from('sabores').select('*').order('nombre');
 
+    
     container.innerHTML = cats.map(c => {
         const saboresDeEstaCat = sabs.filter(s => s.categoria_id === c.id);
         
@@ -96,16 +117,31 @@ if (page === 'sabores') {
         }).join('');
     }
 
-    if (page === 'usuarios') {
-        header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Usuarios</h1><button onclick="abrirModal('usuario')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ Nuevo</button>`;
-        const { data: users } = await _supabase.from('perfiles').select('*');
-        container.innerHTML = `<div class="grid gap-4">${users.map(u => `<div class="bg-white p-5 rounded-2xl flex justify-between"><div><p class="font-black">${u.username}</p><p class="text-xs uppercase">${u.rol}</p></div><div class="flex gap-2"><button onclick='gestionarAccesos("${u.id}", "${u.username}")' class="text-xs bg-slate-100 p-2 rounded-lg">ACCESOS</button><button onclick='abrirModal("usuario", ${JSON.stringify(u)})' class="text-blue-500 text-xs">EDITAR</button></div></div>`).join('')}</div>`;
-    }
+    
 
     if (page === 'sucursales') {
-        header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Sucursales</h1><button onclick="abrirModal('sucursal')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ Nueva</button>`;
-        const { data: sucs } = await _supabase.from('sucursales').select('*');
-        container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-3 gap-6">${sucs.map(s => `<div class="bg-white p-6 rounded-3xl text-center"><h3 class="font-black uppercase">${s.nombre}</h3><button onclick="showPage('admin_stock', '${s.id}')" class="w-full bg-slate-900 text-white py-3 rounded-xl font-bold text-xs mt-4">STOCK</button></div>`).join('')}</div>`;
+        header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Mis Sucursales</h1>
+                            ${userPerfil.rol === 'admin' ? `<button onclick="abrirModal('sucursal')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ NUEVA</button>` : ''}`;
+        
+        // Usamos la función RPC que creamos en SQL para filtrar por permisos
+        const { data: sucs, error } = await _supabase.rpc('obtener_sucursales_por_permiso', { 
+            p_usuario_id: userPerfil.id, 
+            p_rol: userPerfil.rol 
+        });
+
+        if (!sucs || sucs.length === 0) {
+            container.innerHTML = `<div class="text-center p-20 bg-white rounded-3xl text-slate-400 font-bold">No tienes sucursales asignadas. Contacta al administrador.</div>`;
+            return;
+        }
+
+        container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            ${sucs.map(s => `
+                <div class="bg-white p-6 rounded-3xl shadow-lg border-t-8 border-blue-500 text-center">
+                    <h3 class="text-xl font-black mb-4 uppercase italic text-slate-800">${s.nombre}</h3>
+                    <button onclick="showPage('admin_stock', '${s.id}')" class="w-full bg-slate-900 text-white py-3 rounded-xl font-black text-xs hover:bg-blue-600 transition">GESTIONAR STOCK</button>
+                    ${userPerfil.rol === 'admin' ? `<div class="mt-4 flex justify-center gap-4"><button onclick='abrirModal("sucursal", ${JSON.stringify(s)})' class="text-[10px] text-blue-400 font-bold">EDITAR</button></div>` : ''}
+                </div>`).join('')}
+        </div>`;
     }
 
     if (page === 'admin_stock') {
@@ -230,5 +266,75 @@ function abrirModalSaborExistente(sabor) {
         if(error) alert("Error al actualizar");
         closeModal();
         showPage('sabores');
+    };
+}
+
+function abrirModalUsuario(u = null) {
+    const body = document.getElementById('modal-body');
+    const btn = document.getElementById('btn-save');
+    document.getElementById('modal-tabs').classList.add('hidden');
+    document.getElementById('modal-form').classList.add('active');
+    document.getElementById('modal-title').innerText = u ? "EDITAR USUARIO" : "NUEVO USUARIO";
+    
+    body.innerHTML = `
+        <div class="space-y-4">
+            <input id="u-name" value="${u?.username || ''}" placeholder="Nombre / Sucursal" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
+            <input id="u-email" type="email" value="${u?.username || ''}" placeholder="Email de acceso" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none" ${u ? 'disabled' : ''}>
+            ${u ? '' : `<input id="u-pass" type="text" placeholder="Contraseña temporal" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">`}
+            <select id="u-rol" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
+                <option value="empleado" ${u?.rol === 'empleado' ? 'selected' : ''}>Empleado (Solo ve su sucursal)</option>
+                <option value="admin" ${u?.rol === 'admin' ? 'selected' : ''}>Admin (Ve todo)</option>
+            </select>
+        </div>`;
+
+    btn.onclick = async () => {
+        const username = document.getElementById('u-name').value;
+        const rol = document.getElementById('u-rol').value;
+
+        if (u) {
+            // Actualizar perfil existente
+            await _supabase.from('perfiles').update({ username, rol }).eq('id', u.id);
+        } else {
+            // Crear usuario nuevo usando el RPC de Supabase (admin_create_user)
+            const email = document.getElementById('u-email').value;
+            const password = document.getElementById('u-pass').value;
+            await _supabase.rpc('admin_create_user', { p_email: email, p_password: password, p_username: username, p_rol: rol });
+        }
+        closeModal();
+        showPage('usuarios');
+    };
+}
+
+async function abrirModalAccesos(userId, name) {
+    const body = document.getElementById('modal-body');
+    const btn = document.getElementById('btn-save');
+    document.getElementById('modal-title').innerText = "ACCESOS: " + name;
+    
+    const { data: sucs } = await _supabase.from('sucursales').select('*').order('nombre');
+    const { data: actuales } = await _supabase.from('usuario_sucursales').select('sucursal_id').eq('usuario_id', userId);
+    const idsActuales = actuales.map(a => a.sucursal_id);
+
+    body.innerHTML = `
+        <p class="text-xs font-bold text-slate-400 mb-4 uppercase">Selecciona las sucursales que este usuario puede administrar:</p>
+        <div class="grid gap-2">
+            ${sucs.map(s => `
+                <label class="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-slate-100 transition">
+                    <input type="checkbox" class="suc-check w-6 h-6 rounded-lg" value="${s.id}" ${idsActuales.includes(s.id) ? 'checked' : ''}>
+                    <span class="font-black uppercase italic text-slate-700">${s.nombre}</span>
+                </label>`).join('')}
+        </div>`;
+
+    btn.onclick = async () => {
+        // Borrar permisos viejos e insertar los nuevos
+        await _supabase.from('usuario_sucursales').delete().eq('usuario_id', userId);
+        const checks = Array.from(document.querySelectorAll('.suc-check:checked')).map(c => ({
+            usuario_id: userId,
+            sucursal_id: c.value
+        }));
+        
+        if(checks.length > 0) await _supabase.from('usuario_sucursales').insert(checks);
+        
+        closeModal();
+        alert("Permisos actualizados correctamente");
     };
 }
