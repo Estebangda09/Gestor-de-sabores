@@ -22,14 +22,26 @@ async function checkSession() {
     try {
         const { data: { session } } = await _supabase.auth.getSession();
         if (!session) return;
+        
         const { data: perfil } = await _supabase.from('perfiles').select('*').eq('id', session.user.id).single();
         userPerfil = perfil;
+        
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('sidebar').classList.remove('hidden');
         document.getElementById('app').classList.remove('hidden');
+        
         renderMenu();
-        showPage('categorias');
-    } catch (e) { console.error(e); }
+
+        // REDIRECCIÓN SEGÚN ROL
+        if (userPerfil.rol === 'admin') {
+            showPage('categorias');
+        } else {
+            showPage('sucursales'); 
+        }
+        
+    } catch (e) { 
+        console.error("Error de sesión:", e); 
+    }
 }
 
 async function handleLogin() {
