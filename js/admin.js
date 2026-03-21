@@ -42,7 +42,7 @@ async function showPage(page, params = null) {
         container.innerHTML = `<div class="space-y-3">${data.map(c => `<div class="bg-white p-5 rounded-2xl shadow-sm flex justify-between border-l-8 border-blue-500 font-bold">${c.nombre} <button onclick='abrirModal("cat", ${JSON.stringify(c)})' class="text-blue-500 text-xs">EDITAR</button></div>`).join('')}</div>`;
     }
 
-    // MODULO SABORES (Actualizado con tu mejora de UX)
+    // MODULO SABORES
 if (page === 'sabores') {
     header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Gestión de Sabores</h1>`;
     
@@ -168,21 +168,31 @@ function abrirModalSaborDirecto(catId, catNombre) {
     modal.classList.add('active');
 
     btn.onclick = async () => {
-        const payload = {
-            nombre: document.getElementById('f-nombre').value,
-            categoria_id: document.getElementById('f-cat-id').value,
-            es_vegano: document.getElementById('f-vegano').checked,
-            es_sintacc: document.getElementById('f-sintacc').checked
-        };
+    const nombreInput = document.getElementById('f-nombre').value.trim();
+    const catId = document.getElementById('f-cat-id').value;
 
-        if(!payload.nombre) return alert("Ponle un nombre al sabor");
+    const { data: existente } = await _supabase
+        .from('sabores')
+        .select('id')
+        .eq('categoria_id', catId)
+        .ilike('nombre', nombreInput) 
+        .maybeSingle();
 
-        const { error } = await _supabase.from('sabores').insert([payload]);
-        if(error) alert("Error: " + error.message);
-        
-        closeModal();
-        showPage('sabores');
-    };
+    if (existente) {
+        return alert("¡Error! Ya existe un sabor con ese nombre en esta categoría.");
+    }
+
+    const { error } = await _supabase.from('sabores').insert([{
+        nombre: nombreInput,
+        categoria_id: catId,
+        es_vegano: document.getElementById('f-vegano').checked,
+        es_sintacc: document.getElementById('f-sintacc').checked
+    }]);
+    
+    if(error) alert("Error: " + error.message);
+    closeModal();
+    showPage('sabores');
+};
 }
 
 // Función para editar sabor existente
