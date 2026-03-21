@@ -166,6 +166,7 @@ async function showPage(page, params = null) {
 window.abrirModalUsuario = async function(u = null) {
     const body = document.getElementById('modal-body');
     const btn = document.getElementById('btn-save');
+    // Cargamos sucursales para el selector
     const { data: sucs } = await _supabase.from('sucursales').select('*').order('nombre');
 
     document.getElementById('modal-tabs').classList.add('hidden');
@@ -175,13 +176,26 @@ window.abrirModalUsuario = async function(u = null) {
     
     body.innerHTML = `
         <div class="space-y-4">
-            <input id="u-name" value="${u?.username || ''}" placeholder="Nombre de Usuario" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
-            <input id="u-email" type="email" value="${u?.username || ''}" placeholder="email@acceso.com" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none" ${u ? 'disabled' : ''}>
-            ${u ? '' : `<input id="u-pass" type="text" placeholder="Contraseña inicial" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">`}
-            <select id="u-rol" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none" onchange="document.getElementById('suc-selector-container').classList.toggle('hidden', this.value === 'admin')">
-                <option value="empleado" ${u?.rol === 'empleado' ? 'selected' : ''}>Empleado (Solo ve su sucursal)</option>
-                <option value="admin" ${u?.rol === 'admin' ? 'selected' : ''}>Admin (Ve todo)</option>
-            </select>
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase">Nombre para mostrar</label>
+                <input id="u-name" value="${u?.username || ''}" placeholder="Ej: Esteban - Sucursal Troncos" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
+            </div>
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase">Email de acceso (ID único)</label>
+                <input id="u-email" type="email" value="${u?.username || ''}" placeholder="troncos@gmail.com" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none" ${u ? 'disabled' : ''}>
+            </div>
+            ${u ? '' : `
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase">Contraseña</label>
+                <input id="u-pass" type="text" placeholder="123456" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
+            </div>`}
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase">Rol del Sistema</label>
+                <select id="u-rol" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none" onchange="document.getElementById('suc-selector-container').classList.toggle('hidden', this.value === 'admin')">
+                    <option value="empleado" ${u?.rol === 'empleado' ? 'selected' : ''}>Empleado (Solo ve su sucursal)</option>
+                    <option value="admin" ${u?.rol === 'admin' ? 'selected' : ''}>Admin (Ve todo)</option>
+                </select>
+            </div>
             <div id="suc-selector-container" class="${u?.rol === 'admin' ? 'hidden' : ''}">
                 <label class="text-[10px] font-bold text-slate-400 uppercase">Asignar Sucursal Inicial</label>
                 <select id="u-suc-inicial" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
@@ -193,23 +207,52 @@ window.abrirModalUsuario = async function(u = null) {
 
     btn.onclick = async () => {
         const username = document.getElementById('u-name').value;
-        const rol = document.getElementById('u-rol').value;
         const email = document.getElementById('u-email').value;
+        const rol = document.getElementById('u-rol').value;
+        const sucId = document.getElementById('u-suc-inicial').value;
 
-        if (u) {
-            await _supabase.from('perfiles').update({ username, rol }).eq('id', u.id);
-        } else {
-            const password = document.getElementById('u-pass').value;
-            const sucId = document.getElementById('u-suc-inicial').value;
-            const { error } = await _supabase.rpc('admin_create_user', { p_email: email, p_password: password, p_username: username, p_rol: rol });
-            if (error) return alert(error.message);
+        try {
+            if (u) {
+                // Actualizar usuario existente
+                const { error: errUpd } = await _supabase.from('perfiles').update({ username, rol }).eq('id', u.id);
+                if (errUpd) throw errUpd;
+            } else {
+                // CREAR USUARIO NUEVO
+                const password = document.getElementById('u-pass').value;
+                if (!password) return alert("Debes ingresar una contraseña");
 
-            if (rol === 'empleado' && sucId) {
-                const { data: newUser } = await _supabase.from('perfiles').select('id').eq('username', username).single();
-                if (newUser) await _supabase.from('usuario_sucursales').insert([{ usuario_id: newUser.id, sucursal_id: sucId }]);
+                // 1. Llamamos al RPC (Asegúrate de haber ejecutado el último SQL que te pasé con encrypted_password)
+                const { error: errRpc } = await _supabase.rpc('admin_create_user', { 
+                    p_email: email, 
+                    p_password: password, 
+                    p_username: username, 
+                    p_rol: rol 
+                });
+                
+                if (errRpc) throw errRpc;
+
+                // 2. Vinculación de sucursal inmediata si es empleado
+                if (rol === 'empleado' && sucId) {
+                    // Buscamos el ID recién creado en perfiles
+                    const { data: newUser, error: errSearch } = await _supabase
+                        .from('perfiles')
+                        .select('id')
+                        .eq('username', username)
+                        .single();
+
+                    if (newUser) {
+                        await _supabase.from('usuario_sucursales').insert([{ 
+                            usuario_id: newUser.id, 
+                            sucursal_id: sucId 
+                        }]);
+                    }
+                }
             }
+            closeModal();
+            showPage('usuarios');
+        } catch (err) {
+            alert("Error: " + err.message);
         }
-        closeModal(); showPage('usuarios');
     };
 }
 
