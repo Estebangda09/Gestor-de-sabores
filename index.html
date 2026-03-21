@@ -12,13 +12,30 @@
 
     <!-- Pantalla de Login -->
     <div id="login-screen">
-        <div class="bg-white p-10 rounded-3xl shadow-2xl w-96 text-center">
-            <h2 class="text-3xl font-black mb-6 text-gray-800 italic uppercase">HELADO OS</h2>
-            <input type="email" id="login-email" placeholder="Email" class="w-full border p-4 rounded-2xl mb-4 bg-gray-50 outline-none">
-            <input type="password" id="login-pass" placeholder="Contraseña" class="w-full border p-4 rounded-2xl mb-6 bg-gray-50 outline-none">
-            <button onclick="handleLogin()" id="btn-login" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg hover:bg-blue-700 transition">INGRESAR</button>
+    <div class="bg-white p-10 rounded-3xl shadow-2xl w-96 text-center">
+        <h2 class="text-3xl font-black mb-6 text-gray-800 italic uppercase">HELADO OS</h2>
+        
+        <!-- Campo para Usuario o Email -->
+        <input type="text" id="login-user" placeholder="Nombre de usuario o Email" 
+               class="w-full border p-4 rounded-2xl mb-4 bg-gray-50 outline-none focus:border-blue-500 transition-all">
+        
+        <input type="password" id="login-pass" placeholder="Contraseña" 
+               class="w-full border p-4 rounded-2xl mb-4 bg-gray-50 outline-none focus:border-blue-500 transition-all">
+        
+        <!-- Checkbox Recordar y Link Recuperar -->
+        <div class="flex justify-between items-center mb-6 px-1">
+            <label class="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer">
+                <input type="checkbox" id="remember-me" class="w-4 h-4 rounded"> RECORDARME
+            </label>
+            <button onclick="recuperarClave()" class="text-xs font-bold text-blue-600 hover:underline">¿OLVIDASTE TU CLAVE?</button>
         </div>
+
+        <button onclick="handleLogin()" id="btn-login" 
+                class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg hover:bg-blue-700 transition">
+            INGRESAR
+        </button>
     </div>
+</div>
 
     <!-- Sidebar Admin -->
     <div id="sidebar" class="sidebar p-6 hidden">
