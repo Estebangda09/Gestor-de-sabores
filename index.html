@@ -6,6 +6,8 @@
     <title>Ice Cream OS - Panel de Gestión</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- IMPORTANTE: Cargamos la configuración primero -->
+    <script src="config.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; background: #f1f5f9; }
         .sidebar { background: #0f172a; width: 260px; height: 100vh; position: fixed; color: white; transition: 0.3s; }
@@ -23,194 +25,145 @@
 </head>
 <body>
 
-    <!-- Pantalla de Login -->
     <div id="login-screen" class="hidden">
         <div class="bg-white p-10 rounded-3xl shadow-2xl w-96 text-center">
-            <h2 class="text-3xl font-black mb-6 text-gray-800 italic">HELADERÍA LOGIN</h2>
+            <h2 class="text-3xl font-black mb-6 text-gray-800 italic uppercase tracking-tighter">Ice Cream OS</h2>
+            <p class="text-gray-400 mb-6 text-sm">Ingresa tus credenciales de acceso</p>
             <input type="email" id="login-email" placeholder="Email" class="w-full border p-3 rounded-xl mb-4 outline-none focus:ring-2 ring-blue-500">
             <input type="password" id="login-pass" placeholder="Contraseña" class="w-full border p-3 rounded-xl mb-6 outline-none focus:ring-2 ring-blue-500">
-            <button onclick="handleLogin()" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition">Entrar al Sistema</button>
+            <button onclick="handleLogin()" id="btn-login" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition">Entrar al Sistema</button>
         </div>
     </div>
 
-    <!-- Sidebar -->
     <div id="sidebar" class="sidebar p-6 hidden">
         <h2 class="text-xl font-black mb-8 text-blue-400">ADMIN OS</h2>
-        <nav id="menu-nav">
-            <!-- Se llena dinámicamente según rol -->
-        </nav>
-        <button onclick="handleLogout()" class="mt-auto absolute bottom-8 left-6 text-red-400 font-bold">Cerrar Sesión</button>
+        <nav id="menu-nav"></nav>
+        <button onclick="handleLogout()" class="mt-auto absolute bottom-8 left-6 text-red-400 font-bold hover:text-red-300">Cerrar Sesión</button>
     </div>
 
-    <!-- Contenido -->
     <div id="app" class="main-content hidden">
         <div id="content-area"></div>
     </div>
 
-    <!-- Modal General -->
     <div id="modal-form" class="modal">
         <div class="bg-white p-8 rounded-2xl w-[450px] shadow-2xl relative">
             <h3 id="modal-title" class="text-2xl font-bold mb-6"></h3>
-            <div id="modal-body" class="space-y-4"></div>
+            <div id="modal-body" class="space-y-4 text-gray-800"></div>
             <div class="flex justify-end gap-3 mt-8">
-                <button onclick="closeModal()" class="px-5 py-2 text-gray-500">Cancelar</button>
+                <button onclick="closeModal()" class="px-5 py-2 text-gray-500 font-semibold">Cancelar</button>
                 <button id="btn-save" class="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold">Guardar</button>
             </div>
         </div>
     </div>
 
     <script>
-        const SUPABASE_URL = 'https://vokwutkpntqtfevvdkei.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZva3d1dGtwbnRxdGZldnZka2VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3OTE4MDMsImV4cCI6MjA4OTM2NzgwM30.FdNLN4PdKAMe4LSdw9lGqjLeV6UzbfFlwZjgkd8nkro';
-        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
         let userPerfil = null;
+        let currentPage = 'categorias';
 
-        // --- INICIO: SESIÓN Y ROLES ---
-        // --- INICIO: SESIÓN Y ROLES (CORREGIDO) ---
-async function checkSession() {
-    // 1. Verificamos si hay una sesión activa en Supabase Auth
-    const { data: { session }, error: sessionError } = await _supabase.auth.getSession();
-    
-    if (sessionError || !session) {
-        // Si no hay sesión, mostramos el login y ocultamos lo demás
-        document.getElementById('login-screen').classList.remove('hidden');
-        document.getElementById('sidebar').classList.add('hidden');
-        document.getElementById('app').classList.add('hidden');
-        return;
-    }
+        async function checkSession() {
+            const { data: { session }, error: authError } = await _supabase.auth.getSession();
+            
+            if (authError || !session) {
+                document.getElementById('login-screen').classList.remove('hidden');
+                return;
+            }
 
-    // 2. Si llegamos aquí, el login fue exitoso. Ahora buscamos el ROL en la tabla 'perfiles'
-    const { data: perfil, error: perfilError } = await _supabase
-        .from('perfiles')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
+            // Buscamos el perfil
+            const { data: perfil, error: perfilError } = await _supabase
+                .from('perfiles')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
+            
+            if (perfilError || !perfil) {
+                console.error("Perfil no encontrado:", perfilError);
+                alert("ERROR: Tu usuario no tiene un perfil en la tabla 'perfiles'. \n\nVerifica que el ID en la tabla coincida con tu User UID.");
+                await _supabase.auth.signOut();
+                window.location.reload();
+                return;
+            }
 
-    // ERROR CRÍTICO: El usuario existe en Auth pero NO en tu tabla 'perfiles'
-    if (perfilError || !perfil) {
-        console.error("Error de perfil:", perfilError);
-        alert("ERROR DE CONFIGURACIÓN:\nTu usuario existe, pero no tienes una fila en la tabla 'perfiles'.\n\nPor favor, agrega manualmente tu UID en la tabla perfiles con el rol 'admin'.");
-        // Forzamos logout para que no se quede trabado en una sesión sin permisos
-        await _supabase.auth.signOut();
-        window.location.reload();
-        return;
-    }
+            userPerfil = perfil;
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('sidebar').classList.remove('hidden');
+            document.getElementById('app').classList.remove('hidden');
 
-    // 3. Si todo está bien, guardamos el perfil y mostramos la app
-    userPerfil = perfil;
-    document.getElementById('login-screen').classList.add('hidden');
-    document.getElementById('sidebar').classList.remove('hidden');
-    document.getElementById('app').classList.remove('hidden');
-
-    renderMenu();
-
-    // 4. Redirección según rol
-    if (userPerfil.rol === 'empleado') {
-        // Si es empleado, debe tener una sucursal_id asignada
-        if (!userPerfil.sucursal_id) {
-            alert("Error: Este usuario empleado no tiene una sucursal asignada.");
-            return;
+            renderMenu();
+            if (perfil.rol === 'empleado') showPage('admin_stock', perfil.sucursal_id);
+            else showPage('categorias');
         }
-        showPage('admin_stock', userPerfil.sucursal_id);
-    } else {
-        // Si es admin, va a categorías por defecto
-        showPage('categorias');
-    }
-}
 
-async function handleLogin() {
-    const email = document.getElementById('login-email').value;
-    const pass = document.getElementById('login-pass').value;
+        async function handleLogin() {
+            const btn = document.getElementById('btn-login');
+            btn.innerText = "Cargando...";
+            btn.disabled = true;
 
-    if (!email || !pass) {
-        alert("Por favor, completa todos los campos.");
-        return;
-    }
+            const email = document.getElementById('login-email').value;
+            const pass = document.getElementById('login-pass').value;
 
-    const { data, error } = await _supabase.auth.signInWithPassword({ 
-        email: email, 
-        password: pass 
-    });
+            const { error } = await _supabase.auth.signInWithPassword({ email, password: pass });
+            
+            if (error) {
+                alert("Error: " + error.message);
+                btn.innerText = "Entrar al Sistema";
+                btn.disabled = false;
+            } else {
+                checkSession();
+            }
+        }
 
-    if (error) {
-        // Esto te dirá si la contraseña está mal o si el mail no está confirmado
-        alert("Error de autenticación: " + error.message);
-    } else {
-        // Login exitoso, recargamos para que checkSession haga el resto
-        window.location.reload();
-    }
-}
+        async function handleLogout() {
+            await _supabase.auth.signOut();
+            window.location.reload();
+        }
 
-async function handleLogout() {
-    const { error } = await _supabase.auth.signOut();
-    if (error) console.error("Error al cerrar sesión:", error.message);
-    window.location.reload();
-}
-
-function renderMenu() {
-    const nav = document.getElementById('menu-nav');
-    if (!nav) return;
-
-    if (userPerfil.rol === 'admin') {
-        nav.innerHTML = `
-            <div onclick="showPage('categorias')" id="m-categorias" class="menu-item active font-bold">📁 Categorías</div>
-            <div onclick="showPage('sabores')" id="m-sabores" class="menu-item">🍨 Sabores</div>
-            <div onclick="showPage('sucursales')" id="m-sucursales" class="menu-item">🏪 Sucursales</div>
-            <div onclick="showPage('precios')" id="m-precios" class="menu-item">💰 Precios</div>
-        `;
-    } else {
-        nav.innerHTML = `
-            <div class="menu-item active font-bold text-blue-400">🏪 Gestión de Stock</div>
-            <div class="p-3 text-xs text-gray-500 italic">Sucursal: ${userPerfil.username || 'Asignada'}</div>
-        `;
-    }
-}
+        function renderMenu() {
+            const nav = document.getElementById('menu-nav');
+            if (userPerfil.rol === 'admin') {
+                nav.innerHTML = `
+                    <div onclick="showPage('categorias')" id="m-categorias" class="menu-item active font-bold">📁 Categorías</div>
+                    <div onclick="showPage('sabores')" id="m-sabores" class="menu-item">🍨 Sabores</div>
+                    <div onclick="showPage('sucursales')" id="m-sucursales" class="menu-item">🏪 Sucursales</div>
+                    <div onclick="showPage('precios')" id="m-precios" class="menu-item">💰 Precios</div>
+                `;
+            } else {
+                nav.innerHTML = `<div class="menu-item active font-bold text-blue-400">🏪 Gestión de Stock</div>`;
+            }
+        }
 
         // --- LÓGICA DE PÁGINAS ---
         async function showPage(page, params = null) {
+            currentPage = page;
             const container = document.getElementById('content-area');
             document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
             if(document.getElementById('m-'+page)) document.getElementById('m-'+page).classList.add('active');
 
             if (page === 'categorias') {
                 const { data } = await _supabase.from('categorias').select('*').order('orden');
-                container.innerHTML = `<div class="flex justify-between mb-8"><h1 class="text-3xl font-bold">Categorías</h1><button onclick="abrirModal('cat')" class="bg-blue-600 text-white px-6 py-2 rounded-xl">+ Nueva</button></div>
-                <div class="space-y-3">${data.map(c => `<div class="bg-white p-4 rounded-xl shadow-sm flex justify-between border-l-4 border-blue-500">
+                container.innerHTML = `<div class="flex justify-between mb-8"><h1 class="text-3xl font-bold">Categorías</h1><button onclick="abrirModal('cat')" class="bg-blue-600 text-white px-6 py-2 rounded-xl shadow-lg hover:bg-blue-700">+ Nueva</button></div>
+                <div class="space-y-3">${data.map(c => `<div class="bg-white p-4 rounded-xl shadow-sm flex justify-between border-l-4 border-blue-500 hover:bg-gray-50 transition">
                 <span class="font-bold">${c.nombre} <small class="text-gray-400 font-normal">#${c.orden}</small></span>
-                <div class="flex gap-4 text-sm"><button onclick='abrirModal("cat", ${JSON.stringify(c)})' class="text-blue-500">Editar</button><button onclick="eliminar('categorias','${c.id}')" class="text-red-400">Eliminar</button></div></div>`).join('')}</div>`;
+                <div class="flex gap-4 text-sm font-bold"><button onclick='abrirModal("cat", ${JSON.stringify(c)})' class="text-blue-500">Editar</button><button onclick="eliminar('categorias','${c.id}')" class="text-red-400">Eliminar</button></div></div>`).join('')}</div>`;
             }
 
             if (page === 'sabores') {
                 const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
                 const { data: sabs } = await _supabase.from('sabores').select('*');
-                container.innerHTML = `<div class="flex justify-between mb-8"><h1 class="text-3xl font-bold text-gray-800">Sabores</h1><button onclick="abrirModal('sabor')" class="bg-blue-600 text-white px-6 py-2 rounded-xl">+ Nuevo</button></div>`;
+                container.innerHTML = `<div class="flex justify-between mb-8"><h1 class="text-3xl font-bold text-gray-800">Sabores</h1><button onclick="abrirModal('sabor')" class="bg-blue-600 text-white px-6 py-2 rounded-xl shadow-lg hover:bg-blue-700">+ Nuevo</button></div>`;
                 cats.forEach(c => {
                     const misSabores = sabs.filter(s => s.categoria_id === c.id);
-                    container.innerHTML += `
-                        <div class="mb-8 bg-white p-6 rounded-2xl shadow-sm border-l-4 border-indigo-400">
-                            <h3 class="text-xl font-bold text-indigo-600 mb-4">${c.nombre}</h3>
-                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                ${misSabores.map(s => `
-                                    <div class="border p-3 rounded-xl flex flex-col justify-between h-24 bg-gray-50">
-                                        <div class="flex gap-1 flex-wrap">${s.es_vegano ? '<span class="tag tag-vegano">Veg</span>':''}${s.es_sintacc ? '<span class="tag tag-tacc">TACC</span>':''}</div>
-                                        <span class="font-bold text-gray-700">${s.nombre}</span>
-                                        <div class="flex justify-end gap-2 text-[10px]"><button onclick='abrirModal("sabor", ${JSON.stringify(s)})' class="text-blue-500">EDIT</button><button onclick="eliminar('sabores','${s.id}')" class="text-red-400">BORRAR</button></div>
-                                    </div>`).join('')}
-                            </div>
-                        </div>`;
+                    container.innerHTML += `<div class="mb-8 bg-white p-6 rounded-2xl shadow-sm border-l-4 border-indigo-400"><h3 class="text-xl font-bold text-indigo-600 mb-4">${c.nombre}</h3><div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    ${misSabores.map(s => `<div class="border p-3 rounded-xl flex flex-col justify-between h-24 bg-gray-50 relative group">
+                    <div class="flex gap-1 flex-wrap">${s.es_vegano ? '<span class="tag tag-vegano">Veg</span>':''}${s.es_sintacc ? '<span class="tag tag-tacc">TACC</span>':''}</div><span class="font-bold text-gray-700 truncate">${s.nombre}</span>
+                    <div class="flex justify-end gap-2 text-[10px] opacity-0 group-hover:opacity-100 transition"><button onclick='abrirModal("sabor", ${JSON.stringify(s)})' class="text-blue-500 font-bold">EDIT</button><button onclick="eliminar('sabores','${s.id}')" class="text-red-400 font-bold">BORRAR</button></div></div>`).join('')}</div></div>`;
                 });
             }
 
             if (page === 'sucursales') {
                 const { data } = await _supabase.from('sucursales').select('*');
-                container.innerHTML = `<h1 class="text-3xl font-bold mb-8 text-gray-800">Sucursales</h1><button onclick="abrirModal('sucursal')" class="mb-6 bg-blue-600 text-white px-6 py-2 rounded-xl">+ Nueva</button>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">${data.map(s => `
-                    <div class="bg-white p-6 rounded-3xl shadow-sm border-l-4 border-blue-500">
-                        <h3 class="text-xl font-bold mb-4">${s.nombre}</h3>
-                        <button onclick="showPage('admin_stock', '${s.id}')" class="w-full bg-blue-50 text-blue-600 py-3 rounded-2xl font-bold hover:bg-blue-600 hover:text-white transition">📦 Gestionar Stock</button>
-                        <div class="flex justify-between mt-4"><button onclick='abrirModal("sucursal", ${JSON.stringify(s)})' class="text-xs text-gray-400">Editar</button><button onclick="eliminar('sucursales','${s.id}')" class="text-xs text-red-300">Eliminar</button></div>
-                    </div>`).join('')}</div>`;
+                container.innerHTML = `<h1 class="text-3xl font-bold mb-8">Sucursales</h1>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">${data.map(s => `<div class="bg-white p-6 rounded-3xl shadow-sm border-l-4 border-blue-500"><h3 class="text-xl font-bold mb-4">${s.nombre}</h3><button onclick="showPage('admin_stock', '${s.id}')" class="w-full bg-blue-50 text-blue-600 py-3 rounded-2xl font-bold hover:bg-blue-600 hover:text-white transition">📦 Gestionar Stock</button>
+                <div class="flex justify-between mt-4 px-2"><button onclick='abrirModal("sucursal", ${JSON.stringify(s)})' class="text-xs text-gray-400 font-bold uppercase">Editar</button><button onclick="eliminar('sucursales','${s.id}')" class="text-xs text-red-300 font-bold uppercase">Eliminar</button></div></div>`).join('')}</div>`;
             }
 
             if (page === 'admin_stock') {
@@ -220,25 +173,15 @@ function renderMenu() {
                 const { data: sabs } = await _supabase.from('sabores').select('*');
                 const { data: vis } = await _supabase.from('visibilidad_sabores').select('*').eq('sucursal_id', sucId);
 
-                container.innerHTML = `
-                    <div class="flex justify-between items-start mb-8">
-                        <div>
-                            <h1 class="text-3xl font-bold">${suc.nombre}</h1>
-                            <p class="text-gray-500">Control de faltantes y stock</p>
-                        </div>
-                        <div class="flex gap-2">
-                            <button onclick="bulkStock('${sucId}', true)" class="bg-green-100 text-green-700 px-4 py-2 rounded-xl font-bold">Activar Todo</button>
-                            <button onclick="bulkStock('${sucId}', false)" class="bg-red-100 text-red-700 px-4 py-2 rounded-xl font-bold">Agotar Todo</button>
-                        </div>
-                    </div>
-                `;
+                container.innerHTML = `<div class="flex justify-between items-start mb-8"><div><h1 class="text-3xl font-bold">${suc.nombre}</h1><p class="text-gray-500">Gestión de disponibilidad</p></div>
+                <div class="flex gap-2"><button onclick="bulkStock('${sucId}', true)" class="bg-green-100 text-green-700 px-4 py-2 rounded-xl font-bold hover:bg-green-200 transition">Activar Todo</button><button onclick="bulkStock('${sucId}', false)" class="bg-red-100 text-red-700 px-4 py-2 rounded-xl font-bold hover:bg-red-200 transition">Agotar Todo</button></div></div>`;
 
                 cats.forEach(c => {
                     const misSabores = sabs.filter(s => s.categoria_id === c.id);
-                    container.innerHTML += `<div class="mb-6"><h4 class="font-bold text-blue-600 mb-3 ml-2">${c.nombre}</h4><div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    container.innerHTML += `<div class="mb-6"><h4 class="font-bold text-blue-600 mb-3 ml-2 uppercase text-xs tracking-widest">${c.nombre}</h4><div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                     ${misSabores.map(s => {
                         const isOk = vis.find(v => v.sabor_id === s.id)?.disponible !== false;
-                        return `<button onclick="toggleStock('${sucId}', '${s.id}', ${isOk})" class="p-4 rounded-2xl border-2 font-bold transition-all ${isOk ? 'bg-white border-blue-500 text-blue-700':'bg-gray-100 border-transparent text-gray-300 line-through'}">${s.nombre}</button>`;
+                        return `<button onclick="toggleStock('${sucId}', '${s.id}', ${isOk})" class="p-4 rounded-2xl border-2 font-bold shadow-sm transition-all ${isOk ? 'bg-white border-blue-500 text-blue-700':'bg-gray-100 border-transparent text-gray-300 line-through'}">${s.nombre}</button>`;
                     }).join('')}</div></div>`;
                 });
             }
@@ -246,13 +189,13 @@ function renderMenu() {
             if (page === 'precios') {
                 const { data } = await _supabase.from('precios_globales').select('*').order('orden');
                 container.innerHTML = `<h1 class="text-3xl font-bold mb-8">Precios Globales</h1><div class="bg-white p-8 rounded-3xl shadow-sm max-w-xl">
-                <button onclick="abrirModal('precio')" class="bg-blue-600 text-white px-4 py-2 rounded-xl mb-6">+ Nuevo Precio</button>
+                <button onclick="abrirModal('precio')" class="bg-blue-600 text-white px-4 py-2 rounded-xl mb-6 font-bold">+ Nuevo Precio</button>
                 ${data.map(p => `<div class="flex items-center gap-4 mb-4 border-b pb-4"><span class="w-1/3 font-bold">${p.label}</span><input type="number" value="${p.valor}" onchange="updatePrecio('${p.id}', this.value)" class="border p-2 rounded w-full bg-gray-50 font-bold text-blue-600">
                 <button onclick='abrirModal("precio", ${JSON.stringify(p)})' class="text-blue-400">✏️</button><button onclick="eliminar('precios_globales','${p.id}')" class="text-red-300">✕</button></div>`).join('')}</div>`;
             }
         }
 
-        // --- ABML: MODALES ---
+        // --- MODALES ---
         async function abrirModal(type, data = null) {
             const body = document.getElementById('modal-body');
             const title = document.getElementById('modal-title');
@@ -272,27 +215,17 @@ function renderMenu() {
             }
             if (type === 'sabor') {
                 const { data: cats } = await _supabase.from('categorias').select('*');
-                body.innerHTML = `
-                    <input id="f-nom" value="${data?.nombre || ''}" placeholder="Nombre" class="w-full border p-3 rounded-xl">
-                    <select id="f-cat" class="w-full border p-3 rounded-xl">${cats.map(c => `<option value="${c.id}" ${data?.categoria_id === c.id ? 'selected':''}>${c.nombre}</option>`)}</select>
-                    <div class="flex gap-6 p-2">
-                        <label class="flex items-center gap-2 font-bold text-green-700"><input type="checkbox" id="f-veg" ${data?.es_vegano ? 'checked':''}> Vegano</label>
-                        <label class="flex items-center gap-2 font-bold text-yellow-600"><input type="checkbox" id="f-tacc" ${data?.es_sintacc ? 'checked':''}> Sin TACC</label>
-                    </div>`;
+                body.innerHTML = `<input id="f-nom" value="${data?.nombre || ''}" placeholder="Nombre" class="w-full border p-3 rounded-xl"><select id="f-cat" class="w-full border p-3 rounded-xl">${cats.map(c => `<option value="${c.id}" ${data?.categoria_id === c.id ? 'selected':''}>${c.nombre}</option>`)}</select>
+                <div class="flex gap-6 p-2"><label class="flex items-center gap-2 font-bold text-green-700 cursor-pointer"><input type="checkbox" id="f-veg" ${data?.es_vegano ? 'checked':''}> Vegano</label><label class="flex items-center gap-2 font-bold text-yellow-600 cursor-pointer"><input type="checkbox" id="f-tacc" ${data?.es_sintacc ? 'checked':''}> Sin TACC</label></div>`;
                 btn.onclick = async () => {
-                    const row = { 
-                        nombre: document.getElementById('f-nom').value, 
-                        categoria_id: document.getElementById('f-cat').value,
-                        es_vegano: document.getElementById('f-veg').checked,
-                        es_sintacc: document.getElementById('f-tacc').checked
-                    };
+                    const row = { nombre: document.getElementById('f-nom').value, categoria_id: document.getElementById('f-cat').value, es_vegano: document.getElementById('f-veg').checked, es_sintacc: document.getElementById('f-tacc').checked };
                     if(data) await _supabase.from('sabores').update(row).eq('id', data.id);
                     else await _supabase.from('sabores').insert([row]);
                     closeModal(); showPage('sabores');
                 };
             }
             if (type === 'sucursal') {
-                body.innerHTML = `<input id="f-nom" value="${data?.nombre || ''}" placeholder="Nombre Sucursal" class="w-full border p-3 rounded-xl"><input id="f-tid" value="${data?.id_texto || ''}" placeholder="pacheco" class="w-full border p-3 rounded-xl">`;
+                body.innerHTML = `<input id="f-nom" value="${data?.nombre || ''}" placeholder="Nombre" class="w-full border p-3 rounded-xl"><input id="f-tid" value="${data?.id_texto || ''}" placeholder="pacheco" class="w-full border p-3 rounded-xl">`;
                 btn.onclick = async () => {
                     const row = { nombre: document.getElementById('f-nom').value, id_texto: document.getElementById('f-tid').value };
                     if(data) await _supabase.from('sucursales').update(row).eq('id', data.id);
@@ -301,7 +234,7 @@ function renderMenu() {
                 };
             }
             if (type === 'precio') {
-                body.innerHTML = `<input id="f-lab" value="${data?.label || ''}" placeholder="1 KILO" class="w-full border p-3 rounded-xl"><input id="f-val" type="number" value="${data?.valor || ''}" placeholder="Precio" class="w-full border p-3 rounded-xl"><input id="f-ord" type="number" value="${data?.orden || ''}" placeholder="Orden" class="w-full border p-3 rounded-xl">`;
+                body.innerHTML = `<input id="f-lab" value="${data?.label || ''}" placeholder="Etiqueta" class="w-full border p-3 rounded-xl"><input id="f-val" type="number" value="${data?.valor || ''}" placeholder="Valor" class="w-full border p-3 rounded-xl"><input id="f-ord" type="number" value="${data?.orden || ''}" placeholder="Orden" class="w-full border p-3 rounded-xl">`;
                 btn.onclick = async () => {
                     const row = { label: document.getElementById('f-lab').value, valor: parseFloat(document.getElementById('f-val').value), orden: parseInt(document.getElementById('f-ord').value) };
                     if(data) await _supabase.from('precios_globales').update(row).eq('id', data.id);
@@ -325,6 +258,7 @@ function renderMenu() {
         async function updatePrecio(id, val) { await _supabase.from('precios_globales').update({ valor: val }).eq('id', id); }
         function closeModal() { document.getElementById('modal-form').classList.remove('active'); }
 
+        // Iniciamos el chequeo de sesión al cargar
         checkSession();
     </script>
 </body>
