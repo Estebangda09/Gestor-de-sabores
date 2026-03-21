@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HeladoOS-</title>
+    <title>HeladOs-</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -57,7 +57,7 @@
 
     <!-- Modal Formulario -->
     <div id="modal-form" class="modal">
-        <div class="bg-white p-8 rounded-3xl w-full max-w-lg shadow-2xl relative">
+        <div class="bg-white p-8 rounded-3xl w-full max-lg shadow-2xl relative">
             <h3 id="modal-title" class="text-2xl font-bold mb-6 text-gray-800 uppercase italic"></h3>
             <div id="modal-body" class="space-y-4"></div>
             <div class="flex justify-end gap-3 mt-8 border-t pt-6">
@@ -76,69 +76,42 @@
         let currentPage = 'categorias';
 
         async function checkSession() {
-    try {
-        // 1. Obtener la sesión activa
-        const { data: { session }, error: sessionError } = await _supabase.auth.getSession();
-        
-        if (sessionError || !session) {
-            const savedEmail = localStorage.getItem('remembered_email');
-            if (savedEmail) document.getElementById('login-email').value = savedEmail;
-            
-            // Aseguramos que todo esté oculto excepto el login
-            document.getElementById('login-screen').style.display = 'flex';
-            document.getElementById('sidebar').classList.add('hidden');
-            document.getElementById('app').classList.add('hidden');
-            return;
+            try {
+                const { data: { session }, error: sessionError } = await _supabase.auth.getSession();
+                
+                if (sessionError || !session) {
+                    const savedEmail = localStorage.getItem('remembered_email');
+                    if (savedEmail) document.getElementById('login-email').value = savedEmail;
+                    document.getElementById('login-screen').style.display = 'flex';
+                    document.getElementById('sidebar').classList.add('hidden');
+                    document.getElementById('app').classList.add('hidden');
+                    return;
+                }
+
+                let { data: perfil, error: perfilError } = await _supabase.from('perfiles').select('*').eq('id', session.user.id).single();
+
+                if (perfilError && perfilError.message.includes('schema')) {
+                    await new Promise(res => setTimeout(res, 1000));
+                    const retry = await _supabase.from('perfiles').select('*').eq('id', session.user.id).single();
+                    perfil = retry.data;
+                    perfilError = retry.error;
+                }
+
+                if (perfilError || !perfil) {
+                    handleLogout();
+                    return;
+                }
+
+                userPerfil = perfil;
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('sidebar').classList.remove('hidden');
+                document.getElementById('app').classList.remove('hidden');
+                renderMenu();
+                showPage(userPerfil.rol === 'admin' ? 'categorias' : 'sucursales');
+            } catch (err) {
+                document.getElementById('login-screen').style.display = 'flex';
+            }
         }
-
-        // 2. Intentar obtener el perfil (con manejo de errores de esquema)
-        let { data: perfil, error: perfilError } = await _supabase
-            .from('perfiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-
-        // Si hay error de esquema o permisos, esperamos un momento y reintentamos UNA vez
-        if (perfilError && perfilError.message.includes('schema')) {
-            console.warn("Reintentando lectura de perfil...");
-            await new Promise(res => setTimeout(res, 1000)); // Espera 1 segundo
-            const retry = await _supabase.from('perfiles').select('*').eq('id', session.user.id).single();
-            perfil = retry.data;
-            perfilError = retry.error;
-        }
-
-        if (perfilError || !perfil) {
-            console.error("Error detallado:", perfilError);
-            alert("Error de acceso: No se pudo cargar tu perfil de usuario. Verifica los permisos RLS en Supabase.");
-            handleLogout();
-            return;
-        }
-
-        // 3. Si todo está OK, cargar la interfaz
-        userPerfil = perfil;
-        
-        // Ocultar login y mostrar panel
-        document.getElementById('login-screen').style.display = 'none';
-        document.getElementById('sidebar').classList.remove('hidden');
-        document.getElementById('app').classList.remove('hidden');
-
-        // Renderizar según el rol
-        renderMenu();
-
-        // Redirección inteligente:
-        // Si es admin, va a categorías. Si es empleado, va a su lista de sucursales.
-        if (userPerfil.rol === 'admin') {
-            showPage('categorias');
-        } else {
-            showPage('sucursales');
-        }
-
-    } catch (err) {
-        console.error("Error crítico en checkSession:", err);
-        // Evitamos bucles de alerta, solo mandamos al login si algo falla feo
-        document.getElementById('login-screen').style.display = 'flex';
-    }
-}
 
         async function handleLogin() {
             const btn = document.getElementById('btn-login');
@@ -147,7 +120,6 @@
             const remember = document.getElementById('remember').checked;
 
             if (!email || !pass) return alert("Completa los datos");
-
             btn.innerText = "VERIFICANDO...";
             btn.disabled = true;
 
@@ -216,12 +188,7 @@
 
             if (page === 'sucursales') {
                 header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Sucursales</h1>${userPerfil.rol === 'admin' ? '<button onclick="abrirModal(\'sucursal\')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ Nueva</button>' : ''}`;
-                
-                const { data: sucs } = await _supabase.rpc('obtener_sucursales_por_permiso', {
-                    p_usuario_id: userPerfil.id,
-                    p_rol: userPerfil.rol
-                });
-
+                const { data: sucs } = await _supabase.rpc('obtener_sucursales_por_permiso', { p_usuario_id: userPerfil.id, p_rol: userPerfil.rol });
                 container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">${sucs.map(s => `
                     <div class="bg-white p-6 rounded-3xl shadow-lg border-t-8 border-blue-500 text-center">
                         <h3 class="text-xl font-black mb-6 text-slate-800 uppercase italic">${s.nombre}</h3>
@@ -236,10 +203,8 @@
                 const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
                 const { data: sabs } = await _supabase.from('sabores').select('*');
                 const { data: vis } = await _supabase.from('visibilidad_sabores').select('*').eq('sucursal_id', sucId);
-
                 header.innerHTML = `<div class="flex items-center gap-4"><button onclick="showPage('sucursales')" class="text-slate-400 text-2xl font-black">←</button><h1 class="text-3xl font-black text-slate-800 uppercase italic">${suc.nombre}</h1></div>
                 <div class="flex gap-2"><button onclick="bulkStock('${sucId}', true)" class="bg-green-500 text-white px-4 py-2 rounded-xl font-bold text-xs">TODO DISPONIBLE</button><button onclick="bulkStock('${sucId}', false)" class="bg-red-500 text-white px-4 py-2 rounded-xl font-bold text-xs">TODO AGOTADO</button></div>`;
-
                 container.innerHTML = '';
                 cats.forEach(c => {
                     const misSabores = sabs.filter(s => s.categoria_id === c.id);
@@ -257,7 +222,6 @@
                 const { data: users } = await _supabase.from('perfiles').select('*');
                 const { data: sucs } = await _supabase.from('sucursales').select('*');
                 const { data: vinc } = await _supabase.from('usuario_sucursales').select('*');
-
                 container.innerHTML = `<div class="grid gap-4">${users.map(u => {
                     const misSucs = vinc.filter(v => v.usuario_id === u.id).map(v => sucs.find(s => s.id === v.sucursal_id)?.nombre || '');
                     const labelSucs = u.rol === 'admin' ? 'TODAS (ADMIN)' : (misSucs.join(', ') || 'NINGUNA');
@@ -289,8 +253,9 @@
             const title = document.getElementById('modal-title');
             const btn = document.getElementById('btn-save');
             body.innerHTML = '';
-            title.innerText = (data ? 'EDITAR ' : 'NUEVO ') + type.toUpperCase();
-            btn.innerText = "GUARDAR";
+            const esEdicion = !!data;
+            title.innerText = (esEdicion ? 'EDITAR ' : 'NUEVO ') + type.toUpperCase();
+            btn.innerText = esEdicion ? "ACTUALIZAR" : "GUARDAR";
             btn.disabled = false;
             document.getElementById('modal-form').classList.add('active');
 
@@ -324,41 +289,30 @@
                 };
             }
             if (type === 'usuario') {
-                if (!data) {
-                    body.innerHTML = `
-                        <input id="u-name" placeholder="Nombre / Apodo" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
-                        <input id="u-email" type="email" placeholder="email@heladeria.com" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
-                        <input id="u-pass" type="text" placeholder="Contraseña Temporal" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
-                        <select id="u-rol" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none text-gray-800">
-                            <option value="empleado">Empleado (Solo Stock)</option>
-                            <option value="admin">Administrador (Todo)</option>
-                        </select>`;
-                    btn.innerText = "CREAR USUARIO";
-                    btn.onclick = async () => {
+                body.innerHTML = `
+                    <input id="u-name" value="${data?.username || ''}" placeholder="Nombre / Apodo" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
+                    <input id="u-email" type="email" value="${data?.username || ''}" placeholder="email@heladeria.com" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none" ${esEdicion ? 'disabled' : ''}>
+                    ${!esEdicion ? '<input id="u-pass" type="text" placeholder="Contraseña Temporal" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">' : ''}
+                    <select id="u-rol" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
+                        <option value="empleado" ${data?.rol === 'empleado' ? 'selected':''}>Empleado (Solo Stock)</option>
+                        <option value="admin" ${data?.rol === 'admin' ? 'selected':''}>Administrador (Todo)</option>
+                    </select>`;
+                btn.onclick = async () => {
+                    const name = document.getElementById('u-name').value;
+                    const rol = document.getElementById('u-rol').value;
+                    if (!name) return alert("Completa los datos");
+                    btn.innerText = "PROCESANDO..."; btn.disabled = true;
+                    if (esEdicion) {
+                        await _supabase.from('perfiles').update({ username: name, rol: rol }).eq('id', data.id);
+                        closeModal(); showPage('usuarios');
+                    } else {
                         const email = document.getElementById('u-email').value;
                         const pass = document.getElementById('u-pass').value;
-                        const name = document.getElementById('u-name').value;
-                        const rol = document.getElementById('u-rol').value;
-                        if (!email || !pass || !name) return alert("Completa los datos");
-                        btn.innerText = "CREANDO..."; btn.disabled = true;
-                        try {
-                            const { data: res, error } = await _supabase.rpc('admin_create_user', { p_email: email, p_password: pass, p_username: name, p_rol: rol });
-                            if (error) throw error;
-                            alert("Usuario creado!"); closeModal(); showPage('usuarios');
-                        } catch (e) { alert(e.message); btn.innerText = "CREAR USUARIO"; btn.disabled = false; }
-                    };
-                } else {
-                    body.innerHTML = `
-                        <input id="u-name" value="${data.username}" placeholder="Nombre" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
-                        <select id="u-rol" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
-                            <option value="empleado" ${data.rol === 'empleado' ? 'selected':''}>Empleado</option>
-                            <option value="admin" ${data.rol === 'admin' ? 'selected':''}>Administrador</option>
-                        </select>`;
-                    btn.onclick = async () => {
-                        await _supabase.from('perfiles').update({ username: document.getElementById('u-name').value, rol: document.getElementById('u-rol').value }).eq('id', data.id);
-                        closeModal(); showPage('usuarios');
-                    };
-                }
+                        const { error } = await _supabase.rpc('admin_create_user', { p_email: email, p_password: pass, p_username: name, p_rol: rol });
+                        if (error) { alert(error.message); btn.innerText = "GUARDAR"; btn.disabled = false; }
+                        else { closeModal(); showPage('usuarios'); }
+                    }
+                };
             }
             if (type === 'precio') {
                 body.innerHTML = `<input id="f-lab" value="${data?.label || ''}" placeholder="Etiqueta" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><input id="f-val" type="number" value="${data?.valor || ''}" placeholder="Precio" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><input id="f-ord" type="number" value="${data?.orden || ''}" placeholder="Orden" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">`;
@@ -380,7 +334,7 @@
             const btn = document.getElementById('btn-save');
             title.innerText = "ACCESOS DE " + name.toUpperCase();
             btn.innerText = "GUARDAR CAMBIOS"; btn.disabled = false;
-            body.innerHTML = `<div class="space-y-2">${sucs.map(s => `<label class="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-slate-100"><input type="checkbox" class="suc-check w-6 h-6 text-blue-600" value="${s.id}" ${checkIds.includes(s.id) ? 'checked' : ''}><span class="font-black text-slate-700 uppercase italic text-sm">${s.nombre}</span></label>`).join('')}</div>`;
+            body.innerHTML = `<div class="space-y-2 max-h-60 overflow-y-auto">${sucs.map(s => `<label class="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-slate-100"><input type="checkbox" class="suc-check w-6 h-6 text-blue-600" value="${s.id}" ${checkIds.includes(s.id) ? 'checked' : ''}><span class="font-black text-slate-700 uppercase italic text-sm">${s.nombre}</span></label>`).join('')}</div>`;
             document.getElementById('modal-form').classList.add('active');
             btn.onclick = async () => {
                 btn.innerText = "GUARDANDO..."; btn.disabled = true;
