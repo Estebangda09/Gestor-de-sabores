@@ -203,41 +203,77 @@
         }
 
         async function abrirModalPantalla(sucId) {
-            const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
-            const body = document.getElementById('modal-body');
-            const btn = document.getElementById('btn-save');
-            document.getElementById('modal-title').innerText = "NUEVA PANTALLA";
-            btn.innerText = "CREAR TV";
-            body.innerHTML = `
-                <input id="p-nom" placeholder="Nombre TV (ej: Mostrador Principal)" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
-                <select id="p-tipo" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none" onchange="document.getElementById('cat-list').style.display = (this.value === 'sabores' ? 'block' : 'none')">
-                    <option value="sabores">Menú de Sabores</option>
-                    <option value="precios">Lista de Precios</option>
-                </select>
-                <select id="p-ori" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
-                    <option value="16:9">Horizontal (16:9)</option>
-                    <option value="9:16">Vertical (9:16)</option>
-                </select>
-                <div id="cat-list" class="space-y-2 pt-4">
-                    <p class="text-xs font-bold text-slate-400 uppercase italic">Categorías:</p>
-                    <div class="grid grid-cols-2 gap-2">${cats.map(c => `
-                    <label class="flex items-center gap-2 p-3 bg-slate-100 rounded-xl cursor-pointer">
-                        <input type="checkbox" class="cat-check w-5 h-5" value="${c.id}"> <span class="text-xs font-bold">${c.nombre}</span>
-                    </label>`).join('')}</div>
+    const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
+    const body = document.getElementById('modal-body');
+    const btn = document.getElementById('btn-save');
+    const title = document.getElementById('modal-title');
+
+    title.innerText = "NUEVA PANTALLA";
+    btn.innerText = "CREAR TV";
+    btn.disabled = false;
+
+    body.innerHTML = `
+        <div class="space-y-4">
+            <input id="p-nom" placeholder="Nombre TV (ej: Mostrador Izquierdo)" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none focus:ring-2 ring-blue-500">
+            <select id="p-tipo" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none" onchange="document.getElementById('cat-list-wrapper').style.display = (this.value === 'sabores' ? 'block' : 'none')">
+                <option value="sabores">Menú de Sabores</option>
+                <option value="precios">Lista de Precios</option>
+            </select>
+            <select id="p-ori" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
+                <option value="16:9">Horizontal (16:9)</option>
+                <option value="9:16">Vertical (9:16)</option>
+            </select>
+            <div id="cat-list-wrapper" class="space-y-2 pt-4">
+                <p class="text-xs font-bold text-slate-400 uppercase italic">Categorías a mostrar:</p>
+                <div class="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 bg-slate-50 rounded-2xl">
+                    ${cats.map(c => `
+                    <label class="flex items-center gap-2 p-2 bg-white rounded-xl cursor-pointer border border-transparent hover:border-blue-200">
+                        <input type="checkbox" class="cat-check w-5 h-5 text-blue-600" value="${c.id}"> 
+                        <span class="text-[10px] font-black uppercase text-slate-600">${c.nombre}</span>
+                    </label>`).join('')}
                 </div>
-            `;
-            document.getElementById('modal-form').classList.add('active');
-            btn.onclick = async () => {
-                const { error } = await _supabase.from('pantallas').insert({
-                    sucursal_id: sucId,
-                    nombre: document.getElementById('p-nom').value,
-                    tipo: document.getElementById('p-tipo').value,
-                    orientacion: document.getElementById('p-ori').value,
-                    config_categorias: Array.from(document.querySelectorAll('.cat-check:checked')).map(c => c.value)
-                });
-                closeModal(); verPantallasSucursal(sucId, 'Actualizando...');
-            };
+            </div>
+        </div>
+    `;
+
+    document.getElementById('modal-form').classList.add('active');
+
+    btn.onclick = async () => {
+        const nombre = document.getElementById('p-nom').value;
+        const tipo = document.getElementById('p-tipo').value;
+        const orientacion = document.getElementById('p-ori').value;
+        const config = Array.from(document.querySelectorAll('.cat-check:checked')).map(c => c.value);
+
+        if (!nombre) return alert("Por favor, ponle un nombre a la pantalla.");
+        if (tipo === 'sabores' && config.length === 0) return alert("Selecciona al menos una categoría para mostrar.");
+
+        btn.innerText = "PROCESANDO...";
+        btn.disabled = true;
+
+        try {
+            const { error } = await _supabase.from('pantallas').insert([{
+                sucursal_id: sucId,
+                nombre: nombre,
+                tipo: tipo,
+                orientacion: orientacion,
+                config_categorias: config
+            }]);
+
+            if (error) throw error;
+
+            alert("¡Pantalla creada con éxito!");
+            closeModal();
+            // Refrescamos la vista de pantallas de esta sucursal específica
+            verPantallasSucursal(sucId, "Sucursal"); 
+
+        } catch (err) {
+            console.error("Error al crear pantalla:", err);
+            alert("Error: " + err.message);
+            btn.innerText = "CREAR TV";
+            btn.disabled = false;
         }
+    };
+}
 
         // --- RENDERIZADO MODO TV ---
         async function renderPantallaTV(id) {
