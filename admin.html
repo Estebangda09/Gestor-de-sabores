@@ -284,41 +284,60 @@
                 };
             }
             if (type === 'usuario') {
-                body.innerHTML = `
-                    <label class="text-xs font-bold text-slate-400 uppercase italic">Email del Usuario (Debe existir en Auth)</label>
-                    <input id="u-email" value="${data?.username || ''}" placeholder="ejemplo@email.com" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none focus:ring-2 ring-blue-500">
-                    <label class="text-xs font-bold text-slate-400 uppercase italic">Rol del Sistema</label>
-                    <select id="u-rol" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
-                        <option value="empleado" ${data?.rol === 'empleado' ? 'selected' : ''}>Empleado (Solo Stock)</option>
-                        <option value="admin" ${data?.rol === 'admin' ? 'selected' : ''}>Administrador (Todo)</option>
-                    </select>
-                `;
-                btn.onclick = async () => {
-                    const email = document.getElementById('u-email').value;
-                    const rol = document.getElementById('u-rol').value;
+    body.innerHTML = `
+        <div class="space-y-4">
+            <div>
+                <label class="text-xs font-bold text-slate-400 uppercase">Nombre / Apodo</label>
+                <input id="u-name" placeholder="Ej: Juan Perez" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none focus:ring-2 ring-blue-500">
+            </div>
+            <div>
+                <label class="text-xs font-bold text-slate-400 uppercase">Email (Para el login)</label>
+                <input id="u-email" type="email" placeholder="email@heladeria.com" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none focus:ring-2 ring-blue-500">
+            </div>
+            <div>
+                <label class="text-xs font-bold text-slate-400 uppercase">Contraseña Temporal</label>
+                <input id="u-pass" type="text" placeholder="minimo 6 caracteres" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none focus:ring-2 ring-blue-500">
+            </div>
+            <div>
+                <label class="text-xs font-bold text-slate-400 uppercase">Rol</label>
+                <select id="u-rol" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
+                    <option value="empleado">Empleado (Solo Stock)</option>
+                    <option value="admin">Administrador (Todo)</option>
+                </select>
+            </div>
+        </div>
+    `;
+    
+    btn.onclick = async () => {
+        const email = document.getElementById('u-email').value;
+        const pass = document.getElementById('u-pass').value;
+        const name = document.getElementById('u-name').value;
+        const rol = document.getElementById('u-rol').value;
 
-                    if(data) {
-                        await _supabase.from('perfiles').update({ username: email, rol: rol }).eq('id', data.id);
-                        closeModal(); showPage('usuarios');
-                    } else {
-                        btn.innerText = "BUSCANDO...";
-                        btn.disabled = true;
-                        
-                        // Obtenemos todos los usuarios (solo funciona si tienes acceso o RPC)
-                        // Para simplificar, insertamos con el ID que Supabase detecte por el email
-                        // Buscamos al usuario por email para obtener su ID
-                        const { data: authUsers, error: errAuth } = await _supabase.rpc('get_user_id_by_email', { p_email: email });
-                        
-                        if (errAuth || !authUsers) {
-                            alert("ERROR: No se encontró el usuario en Authentication. Créalo primero.");
-                            btn.innerText = "GUARDAR"; btn.disabled = false;
-                        } else {
-                            await _supabase.from('perfiles').insert({ id: authUsers, username: email, rol: rol });
-                            closeModal(); showPage('usuarios');
-                        }
-                    }
-                };
-            }
+        if (!email || !pass || !name) return alert("Completa todos los campos");
+
+        btn.innerText = "CREANDO ACCESO...";
+        btn.disabled = true;
+
+        // Llamamos a la función mágica que creamos en el SQL
+        const { data, error } = await _supabase.rpc('admin_create_user', {
+            p_email: email,
+            p_password: pass,
+            p_username: name,
+            p_rol: rol
+        });
+
+        if (error) {
+            alert("Error al crear usuario: " + error.message);
+            btn.innerText = "GUARDAR";
+            btn.disabled = false;
+        } else {
+            alert("¡Usuario creado con éxito! Ya puede loguearse.");
+            closeModal();
+            showPage('usuarios');
+        }
+    };
+}
             if (type === 'precio') {
                 body.innerHTML = `<input id="f-lab" value="${data?.label || ''}" placeholder="Etiqueta" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><input id="f-val" type="number" value="${data?.valor || ''}" placeholder="Precio" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><input id="f-ord" type="number" value="${data?.orden || ''}" placeholder="Orden" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">`;
                 btn.onclick = async () => {
