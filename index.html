@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ice Cream OS - Panel Maestro</title>
+    <title>Ice Cream OS - Sistema Integral</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -11,39 +11,44 @@
         body { font-family: 'Inter', sans-serif; background: #0f172a; margin: 0; overflow-x: hidden; }
         .sidebar { background: #1e293b; width: 280px; height: 100vh; position: fixed; color: white; z-index: 50; }
         .main-content { margin-left: 280px; padding: 40px; min-height: 100vh; background: #f1f5f9; }
-        .menu-item { padding: 12px 20px; cursor: pointer; border-radius: 12px; margin-bottom: 5px; display: flex; align-items: center; gap: 10px; color: #94a3b8; font-weight: bold; }
+        .menu-item { padding: 12px 20px; cursor: pointer; border-radius: 12px; margin-bottom: 5px; display: flex; align-items: center; gap: 10px; color: #94a3b8; font-weight: bold; transition: 0.2s; }
+        .menu-item:hover { background: #334155; color: white; }
         .menu-item.active { background: #3b82f6; color: white; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4); }
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); align-items: center; justify-content: center; z-index: 100; }
         .modal.active { display: flex; }
-        
         .tv-mode { position: fixed; inset: 0; background: #0f172a; z-index: 9999; color: white; overflow: hidden; display: flex; flex-direction: column; }
-        .tv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; padding: 20px; flex-grow: 1; }
-        .tv-card { background: rgba(255,255,255,0.05); padding: 25px; border-radius: 25px; border: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; }
-        .tv-title { font-family: 'Fugaz One', cursive; text-transform: uppercase; font-size: 3rem; color: #3b82f6; }
-        .tag { font-size: 0.7rem; padding: 3px 8px; border-radius: 6px; font-weight: 900; margin-left: 5px; text-transform: uppercase; }
+        .tv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 25px; padding: 30px; flex-grow: 1; align-content: start; }
+        .tv-card { background: rgba(255,255,255,0.05); padding: 30px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; }
+        .tv-title { font-family: 'Fugaz One', cursive; text-transform: uppercase; font-size: 4rem; color: #3b82f6; }
+        .tv-sabor-nombre { font-size: 2.5rem; font-weight: 900; text-transform: uppercase; font-style: italic; line-height: 1; }
+        .tag { font-size: 0.8rem; padding: 5px 10px; border-radius: 8px; font-weight: 900; margin-left: 8px; text-transform: uppercase; }
         .tag-veg { background: #22c55e; color: #052e16; }
         .tag-tacc { background: #eab308; color: #422006; }
-        
         #login-screen { background: #0f172a; position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; }
     </style>
 </head>
 <body>
 
+    <!-- LOGIN -->
     <div id="login-screen">
         <div class="bg-white p-10 rounded-3xl shadow-2xl w-96 text-center">
             <h2 class="text-3xl font-black mb-2 text-gray-800 italic uppercase">Helado OS</h2>
             <input type="email" id="login-email" placeholder="Email" class="w-full border p-4 rounded-2xl mb-4 bg-gray-50 outline-none">
             <input type="password" id="login-pass" placeholder="Contraseña" class="w-full border p-4 rounded-2xl mb-4 bg-gray-50 outline-none text-gray-800">
-            <button onclick="handleLogin()" id="btn-login" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold">INGRESAR</button>
+            <button onclick="handleLogin()" id="btn-login" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold hover:bg-blue-700 transition">INGRESAR</button>
         </div>
     </div>
 
+    <!-- SIDEBAR -->
     <div id="sidebar" class="sidebar p-6 hidden">
-        <h2 class="text-2xl font-black mb-10 text-blue-400 italic text-center uppercase">Helad OS</h2>
+        <h2 class="text-2xl font-black mb-10 text-blue-400 italic text-center uppercase">HELADO OS</h2>
         <nav id="menu-nav"></nav>
-        <button onclick="handleLogout()" class="mt-auto absolute bottom-8 left-6 text-red-400 font-bold">✕ Cerrar Sesión</button>
+        <button onclick="handleLogout()" class="mt-auto absolute bottom-8 left-6 text-red-400 font-bold flex items-center gap-2 hover:text-red-300 transition">
+            <span>✕</span> Cerrar Sesión
+        </button>
     </div>
 
+    <!-- CONTENIDO -->
     <div id="app" class="main-content hidden">
         <div id="view-header" class="flex justify-between items-center mb-10"></div>
         <div id="view-content"></div>
@@ -51,13 +56,14 @@
 
     <div id="tv-container" class="tv-mode hidden"></div>
 
+    <!-- MODAL UNICO -->
     <div id="modal-form" class="modal">
-        <div class="bg-white p-8 rounded-3xl w-full max-w-lg shadow-2xl">
+        <div class="bg-white p-8 rounded-3xl w-full max-w-lg shadow-2xl relative">
             <h3 id="modal-title" class="text-2xl font-bold mb-6 text-gray-800 italic uppercase"></h3>
             <div id="modal-body" class="space-y-4"></div>
             <div class="flex justify-end gap-3 mt-8 border-t pt-6">
                 <button onclick="closeModal()" class="px-5 font-bold text-slate-400">CANCELAR</button>
-                <button id="btn-save" class="px-8 py-3 bg-blue-600 text-white rounded-2xl font-bold shadow-lg uppercase italic"></button>
+                <button id="btn-save" class="px-8 py-3 bg-blue-600 text-white rounded-2xl font-bold shadow-lg hover:bg-blue-700 transition uppercase italic"></button>
             </div>
         </div>
     </div>
@@ -80,15 +86,23 @@
         }
 
         async function checkSession() {
-            const { data: { session } } = await _supabase.auth.getSession();
-            if (!session) return;
-            const { data: perfil } = await _supabase.from('perfiles').select('*').eq('id', session.user.id).single();
-            userPerfil = perfil;
-            document.getElementById('login-screen').style.display = 'none';
-            document.getElementById('sidebar').classList.remove('hidden');
-            document.getElementById('app').classList.remove('hidden');
-            renderMenu();
-            showPage(userPerfil.rol === 'admin' ? 'categorias' : 'sucursales');
+            try {
+                const { data: { session } } = await _supabase.auth.getSession();
+                if (!session) return;
+                let { data: perfil, error } = await _supabase.from('perfiles').select('*').eq('id', session.user.id).single();
+                if (error && error.message.includes('schema')) {
+                    await new Promise(r => setTimeout(r, 1000));
+                    const retry = await _supabase.from('perfiles').select('*').eq('id', session.user.id).single();
+                    perfil = retry.data;
+                }
+                if (!perfil) return handleLogout();
+                userPerfil = perfil;
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('sidebar').classList.remove('hidden');
+                document.getElementById('app').classList.remove('hidden');
+                renderMenu();
+                showPage(userPerfil.rol === 'admin' ? 'categorias' : 'sucursales');
+            } catch (e) { console.error(e); }
         }
 
         async function handleLogin() {
@@ -102,9 +116,8 @@
 
         function renderMenu() {
             const nav = document.getElementById('menu-nav');
-            let items = `<div onclick="showPage('sucursales')" id="m-sucursales" class="menu-item">🏪 Sucursales</div>`;
             if (userPerfil.rol === 'admin') {
-                items = `
+                nav.innerHTML = `
                     <div onclick="showPage('categorias')" id="m-categorias" class="menu-item active">📁 Categorías</div>
                     <div onclick="showPage('sabores')" id="m-sabores" class="menu-item">🍨 Sabores</div>
                     <div onclick="showPage('sucursales')" id="m-sucursales" class="menu-item">🏪 Sucursales</div>
@@ -112,8 +125,9 @@
                     <div onclick="showPage('usuarios')" id="m-usuarios" class="menu-item">👥 Usuarios</div>
                     <div onclick="showPage('precios')" id="m-precios" class="menu-item">💰 Precios</div>
                 `;
+            } else {
+                nav.innerHTML = `<div onclick="showPage('sucursales')" id="m-sucursales" class="menu-item active">🏪 Sucursales</div>`;
             }
-            nav.innerHTML = items;
         }
 
         async function showPage(page, params = null) {
@@ -142,20 +156,31 @@
                 }).join('');
             }
 
+            if (page === 'usuarios') {
+                header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic text-slate-800">Usuarios</h1><button onclick="abrirModal('usuario')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ CREAR</button>`;
+                const { data: users } = await _supabase.from('perfiles').select('*');
+                container.innerHTML = `<div class="grid gap-4">${users.map(u => `<div class="bg-white p-6 rounded-3xl shadow-sm flex justify-between items-center border-l-8 ${u.rol === 'admin' ? 'border-amber-400':'border-emerald-400'}">
+                <div><p class="font-black text-slate-700 text-xl uppercase italic">${u.username}</p><p class="text-xs text-slate-400 font-bold uppercase">${u.rol}</p></div>
+                <div class="flex gap-2"><button onclick='gestionarAccesos("${u.id}", "${u.username}")' class="bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-bold">PERMISOS</button><button onclick='abrirModal("usuario", ${JSON.stringify(u)})' class="text-blue-500 font-bold text-xs p-2">EDITAR</button><button onclick="eliminar('perfiles','${u.id}')" class="text-red-300 font-bold text-xs p-2">BORRAR</button></div></div>`).join('')}</div>`;
+            }
+
+            if (page === 'precios') {
+                header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Precios Globales</h1><button onclick="abrirModal('precio')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ Nuevo</button>`;
+                const { data } = await _supabase.from('precios_globales').select('*').order('orden');
+                container.innerHTML = `<div class="grid gap-4">${data.map(p => `<div class="bg-white p-6 rounded-3xl shadow-sm flex justify-between items-center border-l-8 border-amber-500"><div><p class="text-xs font-bold text-slate-400 uppercase">${p.label}</p><p class="text-2xl font-black text-slate-800">$${p.valor}</p></div><div class="flex gap-3"><button onclick='abrirModal("precio", ${JSON.stringify(p)})' class="text-blue-500 font-bold">EDITAR</button><button onclick="eliminar('precios_globales','${p.id}')" class="text-red-300 font-bold">BORRAR</button></div></div>`).join('')}</div>`;
+            }
+
             if (page === 'pantallas') {
                 header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Digital Signage</h1>`;
                 const { data: sucs } = await _supabase.rpc('obtener_sucursales_por_permiso', { p_usuario_id: userPerfil.id, p_rol: userPerfil.rol });
-                container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-6">${sucs.map(s => `
-                    <div class="bg-white p-6 rounded-3xl shadow-lg border-l-8 border-blue-500">
-                        <h3 class="text-xl font-black text-slate-800 uppercase mb-4">${s.nombre}</h3>
-                        <button onclick="verPantallasSucursal('${s.id}', '${s.nombre}')" class="w-full bg-slate-900 text-white py-3 rounded-xl font-bold uppercase text-xs">CONFIGURAR PANTALLAS</button>
-                    </div>`).join('')}</div>`;
+                container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-6">${sucs.map(s => `<div class="bg-white p-6 rounded-3xl shadow-lg border-l-8 border-blue-500"><h3 class="text-xl font-black text-slate-800 uppercase mb-4">${s.nombre}</h3><button onclick="verPantallasSucursal('${s.id}', '${s.nombre}')" class="w-full bg-slate-900 text-white py-3 rounded-xl font-bold uppercase text-xs">CONFIGURAR TVs</button></div>`).join('')}</div>`;
             }
 
             if (page === 'sucursales') {
-                header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Sucursales</h1>`;
+                header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Sucursales</h1>${userPerfil.rol === 'admin' ? '<button onclick="abrirModal(\'sucursal\')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ NUEVA</button>' : ''}`;
                 const { data: sucs } = await _supabase.rpc('obtener_sucursales_por_permiso', { p_usuario_id: userPerfil.id, p_rol: userPerfil.rol });
-                container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-3 gap-6">${sucs.map(s => `<div class="bg-white p-6 rounded-3xl shadow-lg border-t-8 border-blue-500 text-center"><h3 class="text-xl font-black mb-4 uppercase italic text-slate-800">${s.nombre}</h3><button onclick="showPage('admin_stock', '${s.id}')" class="w-full bg-slate-900 text-white py-3 rounded-xl font-black text-xs">GESTIONAR STOCK</button></div>`).join('')}</div>`;
+                container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-3 gap-6">${sucs.map(s => `<div class="bg-white p-6 rounded-3xl shadow-lg border-t-8 border-blue-500 text-center"><h3 class="text-xl font-black mb-4 uppercase italic text-slate-800">${s.nombre}</h3><button onclick="showPage('admin_stock', '${s.id}')" class="w-full bg-slate-900 text-white py-3 rounded-xl font-black text-xs hover:bg-blue-600 transition">GESTIONAR STOCK</button>
+                ${userPerfil.rol === 'admin' ? `<div class="flex justify-between mt-4"><button onclick='abrirModal("sucursal", ${JSON.stringify(s)})' class="text-[10px] text-slate-400 font-bold uppercase">Editar</button><button onclick="eliminar('sucursales','${s.id}')" class="text-[10px] text-red-300 font-bold uppercase">Borrar</button></div>` : ''}</div>`).join('')}</div>`;
             }
 
             if (page === 'admin_stock') {
@@ -164,11 +189,12 @@
                 const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
                 const { data: sabs } = await _supabase.from('sabores').select('*');
                 const { data: vis } = await _supabase.from('visibilidad_sabores').select('*').eq('sucursal_id', sucId);
-                header.innerHTML = `<div class="flex items-center gap-4"><button onclick="showPage('sucursales')" class="text-slate-400 text-2xl">←</button><h1 class="text-3xl font-black text-slate-800 italic">${suc.nombre}</h1></div>`;
+                header.innerHTML = `<div class="flex items-center gap-4"><button onclick="showPage('sucursales')" class="text-slate-400 text-2xl">←</button><h1 class="text-3xl font-black text-slate-800 italic uppercase">${suc.nombre}</h1></div>`;
                 container.innerHTML = cats.map(c => {
                     const ms = sabs.filter(s => s.categoria_id === c.id);
                     if(!ms.length) return '';
-                    return `<div class="mb-10"><h4 class="font-black text-blue-500 uppercase mb-4 ml-2 text-sm">${c.nombre}</h4><div class="grid grid-cols-2 md:grid-cols-4 gap-3">${ms.map(s => { const isOk = vis.find(v => v.sabor_id === s.id)?.disponible !== false; return `<button onclick="toggleStock('${sucId}', '${s.id}', ${isOk})" class="p-5 rounded-2xl border-2 font-bold ${isOk ? 'bg-white border-blue-500 text-blue-700':'bg-slate-200 border-transparent text-slate-400 line-through'}">${s.nombre}</button>`; }).join('')}</div></div>`;
+                    return `<div class="mb-10 bg-white p-8 rounded-[40px] shadow-sm"><div class="flex justify-between items-center mb-6"><h4 class="font-black text-slate-800 uppercase text-lg italic">${c.nombre}</h4><div class="flex gap-2"><button onclick="masterStock('${sucId}', ${JSON.stringify(ms.map(m=>m.id))}, true)" class="text-[10px] bg-emerald-100 text-emerald-600 px-3 py-1 rounded-full font-bold">HABILITAR TODO</button><button onclick="masterStock('${sucId}', ${JSON.stringify(ms.map(m=>m.id))}, false)" class="text-[10px] bg-red-100 text-red-600 px-3 py-1 rounded-full font-bold">PAUSAR TODO</button></div></div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">${ms.map(s => { const isOk = vis.find(v => v.sabor_id === s.id)?.disponible !== false; return `<button onclick="toggleStock('${sucId}', '${s.id}', ${isOk})" class="p-5 rounded-2xl border-2 font-bold transition-all ${isOk ? 'bg-white border-blue-500 text-blue-700 shadow-md':'bg-slate-100 border-transparent text-slate-400 line-through'}">${s.nombre}</button>`; }).join('')}</div></div>`;
                 }).join('');
             }
         }
@@ -177,12 +203,14 @@
             const body = document.getElementById('modal-body');
             const btn = document.getElementById('btn-save');
             const title = document.getElementById('modal-title');
+            const esEdicion = !!data;
             document.getElementById('modal-form').classList.add('active');
             body.innerHTML = '';
+            title.innerText = (esEdicion ? "EDITAR " : "NUEVO ") + type.toUpperCase();
+            btn.innerText = esEdicion ? "ACTUALIZAR" : "GUARDAR";
+            btn.disabled = false;
 
             if (type === 'cat') {
-                title.innerText = data ? "EDITAR CATEGORIA" : "NUEVA CATEGORIA";
-                btn.innerText = "GUARDAR";
                 body.innerHTML = `<input id="f-nom" value="${data?.nombre || ''}" placeholder="Nombre" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><input id="f-ord" type="number" value="${data?.orden || ''}" placeholder="Orden" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">`;
                 btn.onclick = async () => {
                     const row = { nombre: document.getElementById('f-nom').value, orden: document.getElementById('f-ord').value };
@@ -191,17 +219,52 @@
                     closeModal(); showPage('categorias');
                 };
             }
-
             if (type === 'sabor') {
                 const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
-                title.innerText = data ? "EDITAR SABOR" : "NUEVO SABOR";
-                btn.innerText = "GUARDAR";
-                body.innerHTML = `<input id="f-nom" value="${data?.nombre || ''}" placeholder="Nombre" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><select id="f-cat" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">${cats.map(c => `<option value="${c.id}" ${data?.categoria_id === c.id ? 'selected':''}>${c.nombre}</option>`)}</select><div class="flex gap-4"><label><input type="checkbox" id="f-veg" ${data?.es_vegano ? 'checked':''}> Vegano</label><label><input type="checkbox" id="f-tacc" ${data?.es_sintacc ? 'checked':''}> Sin TACC</label></div>`;
+                body.innerHTML = `<input id="f-nom" value="${data?.nombre || ''}" placeholder="Nombre" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><select id="f-cat" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">${cats.map(c => `<option value="${c.id}" ${data?.categoria_id === c.id ? 'selected':''}>${c.nombre}</option>`)}</select><div class="flex gap-4 p-2"><label class="font-bold flex items-center gap-2"><input type="checkbox" id="f-veg" ${data?.es_vegano ? 'checked':''}> Vegano</label><label class="font-bold flex items-center gap-2"><input type="checkbox" id="f-tacc" ${data?.es_sintacc ? 'checked':''}> Sin TACC</label></div>`;
                 btn.onclick = async () => {
                     const row = { nombre: document.getElementById('f-nom').value, categoria_id: document.getElementById('f-cat').value, es_vegano: document.getElementById('f-veg').checked, es_sintacc: document.getElementById('f-tacc').checked };
                     if (data) await _supabase.from('sabores').update(row).eq('id', data.id);
                     else await _supabase.from('sabores').insert([row]);
                     closeModal(); showPage('sabores');
+                };
+            }
+            if (type === 'sucursal') {
+                body.innerHTML = `<input id="f-nom" value="${data?.nombre || ''}" placeholder="Nombre Sucursal" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><input id="f-tid" value="${data?.id_texto || ''}" placeholder="ID Texto (ej: pacheco)" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">`;
+                btn.onclick = async () => {
+                    const row = { nombre: document.getElementById('f-nom').value, id_texto: document.getElementById('f-tid').value };
+                    if(data) await _supabase.from('sucursales').update(row).eq('id', data.id);
+                    else await _supabase.from('sucursales').insert([row]);
+                    closeModal(); showPage('sucursales');
+                };
+            }
+            if (type === 'usuario') {
+                body.innerHTML = `<input id="u-name" value="${data?.username || ''}" placeholder="Nombre / Apodo" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><input id="u-email" type="email" value="${data?.username || ''}" placeholder="email@heladeria.com" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none" ${esEdicion ? 'disabled' : ''}>
+                ${!esEdicion ? '<input id="u-pass" type="text" placeholder="Contraseña Temporal" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">' : ''}
+                <select id="u-rol" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><option value="empleado" ${data?.rol === 'empleado' ? 'selected':''}>Empleado</option><option value="admin" ${data?.rol === 'admin' ? 'selected':''}>Administrador</option></select>`;
+                btn.onclick = async () => {
+                    const name = document.getElementById('u-name').value;
+                    const rol = document.getElementById('u-rol').value;
+                    btn.innerText = "PROCESANDO..."; btn.disabled = true;
+                    if (esEdicion) {
+                        await _supabase.from('perfiles').update({ username: name, rol: rol }).eq('id', data.id);
+                        closeModal(); showPage('usuarios');
+                    } else {
+                        const email = document.getElementById('u-email').value;
+                        const pass = document.getElementById('u-pass').value;
+                        const { error } = await _supabase.rpc('admin_create_user', { p_email: email, p_password: pass, p_username: name, p_rol: rol });
+                        if (error) { alert(error.message); btn.innerText = "GUARDAR"; btn.disabled = false; }
+                        else { closeModal(); showPage('usuarios'); }
+                    }
+                };
+            }
+            if (type === 'precio') {
+                body.innerHTML = `<input id="f-lab" value="${data?.label || ''}" placeholder="Etiqueta (Ej: 1 KG)" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><input id="f-val" type="number" value="${data?.valor || ''}" placeholder="Valor $" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><input id="f-ord" type="number" value="${data?.orden || ''}" placeholder="Orden" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">`;
+                btn.onclick = async () => {
+                    const row = { label: document.getElementById('f-lab').value, valor: document.getElementById('f-val').value, orden: document.getElementById('f-ord').value };
+                    if (data) await _supabase.from('precios_globales').update(row).eq('id', data.id);
+                    else await _supabase.from('precios_globales').insert([row]);
+                    closeModal(); showPage('precios');
                 };
             }
         }
@@ -213,20 +276,26 @@
             const { data: pants } = await _supabase.from('pantallas').select('*').eq('sucursal_id', sucId);
             container.innerHTML = `<div class="grid gap-4">${pants.map(p => {
                 const url = `${window.location.origin}${window.location.pathname}?mode=tv&id=${p.id}`;
-                return `<div class="bg-white p-6 rounded-3xl shadow-sm flex justify-between items-center border-2 border-slate-100"><div><p class="font-black text-slate-700 text-lg uppercase italic">${p.nombre}</p><input type="text" readonly value="${url}" class="text-[9px] text-slate-400 bg-slate-50 p-2 rounded mt-2 w-64 border-none"></div><div class="flex gap-3"><button onclick="window.open('${url}', '_blank')" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-[10px]">VER VISTA</button><button onclick="eliminar('pantallas','${p.id}')" class="text-red-300 font-bold text-xs">✕</button></div></div>`;
+                return `<div class="bg-white p-6 rounded-3xl shadow-sm flex justify-between items-center border-2 border-slate-100"><div><p class="font-black text-slate-700 text-lg uppercase italic">${p.nombre}</p><p class="text-[10px] text-blue-500 font-bold uppercase">${p.tipo} (${p.orientacion})</p><input type="text" readonly value="${url}" class="text-[9px] text-slate-400 bg-slate-50 p-2 rounded mt-2 w-64 border-none"></div><div class="flex gap-3"><button onclick="window.open('${url}', '_blank')" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-[10px]">VER VISTA</button><button onclick="eliminar('pantallas','${p.id}')" class="text-red-300 font-bold text-xs">✕</button></div></div>`;
             }).join('')}</div>`;
         }
 
         async function abrirModalPantalla(sucId) {
             const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
+            const { data: precios } = await _supabase.from('precios_globales').select('*').order('orden');
             const body = document.getElementById('modal-body');
             const btn = document.getElementById('btn-save');
             document.getElementById('modal-title').innerText = "NUEVA PANTALLA";
             btn.innerText = "CREAR TV";
-            body.innerHTML = `<input id="p-nom" placeholder="Nombre TV" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><select id="p-tipo" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><option value="sabores">Sabores</option><option value="precios">Precios</option></select><select id="p-ori" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><option value="16:9">16:9</option><option value="9:16">9:16</option></select><div class="grid grid-cols-2 gap-2">${cats.map(c => `<label><input type="checkbox" class="cat-check" value="${c.id}"> ${c.nombre}</label>`).join('')}</div>`;
+            body.innerHTML = `<input id="p-nom" placeholder="Nombre TV" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><select id="p-tipo" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none" onchange="toggleTvConfig(this.value)"><option value="sabores">Sabores</option><option value="precios">Precios</option></select><select id="p-ori" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><option value="16:9">16:9</option><option value="9:16">9:16</option></select>
+            <div id="config-sabores" class="space-y-2"><p class="text-xs font-bold text-slate-400 uppercase italic">Categorías:</p><div class="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 bg-slate-50 rounded-2xl">${cats.map(c => `<label class="flex items-center gap-2 p-2 bg-white rounded-xl"><input type="checkbox" class="cat-check" value="${c.id}"> <span class="text-[10px] font-bold uppercase">${c.nombre}</span></label>`).join('')}</div></div>
+            <div id="config-precios" class="space-y-2 hidden"><p class="text-xs font-bold text-slate-400 uppercase italic">Precios:</p><div class="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 bg-slate-50 rounded-2xl">${precios.map(p => `<label class="flex items-center gap-2 p-2 bg-white rounded-xl"><input type="checkbox" class="price-check" value="${p.id}"> <span class="text-[10px] font-bold uppercase">${p.label}</span></label>`).join('')}</div></div>`;
+            window.toggleTvConfig = (v) => { document.getElementById('config-sabores').classList.toggle('hidden', v !== 'sabores'); document.getElementById('config-precios').classList.toggle('hidden', v !== 'precios'); };
             document.getElementById('modal-form').classList.add('active');
             btn.onclick = async () => {
-                const { error } = await _supabase.from('pantallas').insert([{ sucursal_id: sucId, nombre: document.getElementById('p-nom').value, tipo: document.getElementById('p-tipo').value, orientacion: document.getElementById('p-ori').value, config_categorias: Array.from(document.querySelectorAll('.cat-check:checked')).map(c => c.value) }]);
+                const tipo = document.getElementById('p-tipo').value;
+                const config = tipo === 'sabores' ? Array.from(document.querySelectorAll('.cat-check:checked')).map(c => c.value) : Array.from(document.querySelectorAll('.price-check:checked')).map(c => c.value);
+                await _supabase.from('pantallas').insert([{ sucursal_id: sucId, nombre: document.getElementById('p-nom').value, tipo: tipo, orientacion: document.getElementById('p-ori').value, config_categorias: config }]);
                 closeModal(); verPantallasSucursal(sucId, 'Actualizado');
             };
         }
@@ -235,15 +304,43 @@
             const { data: pant } = await _supabase.from('pantallas').select('*').eq('id', id).single();
             if(!pant) return;
             const tv = document.getElementById('tv-container');
+            tv.classList.remove('hidden');
             if (pant.tipo === 'precios') {
-                const { data: precios } = await _supabase.from('precios_globales').select('*').order('orden');
-                tv.innerHTML = `<div class="p-20 flex flex-col h-full justify-center"><h1 class="tv-title mb-20 text-center">Nuestros Precios</h1><div class="space-y-12 max-w-5xl mx-auto w-full">${precios.map(p => `<div class="flex justify-between items-end border-b-4 border-slate-800 pb-6"><span class="text-6xl font-black uppercase italic text-slate-400">${p.label}</span><span class="text-8xl font-black text-blue-500">$${p.valor}</span></div>`).join('')}</div></div>`;
+                const { data: precios } = await _supabase.from('precios_globales').select('*').in('id', pant.config_categorias).order('orden');
+                tv.innerHTML = `<div class="p-20 flex flex-col h-full justify-center"><h1 class="tv-title mb-20 text-center">Precios</h1><div class="space-y-12 max-w-5xl mx-auto w-full">${precios.map(p => `<div class="flex justify-between items-end border-b-4 border-slate-800 pb-6"><span class="text-6xl font-black uppercase italic text-slate-400">${p.label}</span><span class="text-8xl font-black text-blue-500">$${p.valor}</span></div>`).join('')}</div></div>`;
             } else {
-                const { data: cats } = await _supabase.from('categorias').select('*').in('id', pant.config_categorias).order('orden');
+                const { data: cats } = await _supabase.from('categorias').select('*').in('id', pant.config_categorias || []).order('orden');
                 const { data: sabs } = await _supabase.from('sabores').select('*');
                 const { data: vis } = await _supabase.from('visibilidad_sabores').select('*').eq('sucursal_id', pant.sucursal_id);
-                tv.innerHTML = `<div class="p-10 flex flex-col h-full"><header class="flex justify-between items-center mb-10 border-b-2 border-slate-800 pb-5"><h1 class="tv-title">Nuestros Sabores</h1></header><div class="tv-grid">${cats.map(c => sabs.filter(s => s.categoria_id === c.id).map(s => { const av = vis.find(v => v.sabor_id === s.id)?.disponible !== false; return av ? `<div class="tv-card"><span class="text-4xl font-black uppercase italic">${s.nombre}</span></div>` : ''; }).join('')).join('')}</div></div>`;
+                tv.innerHTML = `<div class="p-10 flex flex-col h-full"><header class="flex justify-between items-center mb-10 border-b-2 border-slate-800 pb-5"><h1 class="tv-title">Sabores</h1></header><div class="tv-grid">${(cats || []).map(c => sabs.filter(s => s.categoria_id === c.id).map(s => { 
+                    const av = vis.find(v => v.sabor_id === s.id)?.disponible !== false; 
+                    return av ? `<div class="tv-card"><span class="tv-sabor-nombre">${s.nombre}</span><div class="flex">${s.es_vegano ? '<span class="tag tag-veg">VEG</span>':''}${s.es_sintacc ? '<span class="tag tag-tacc">TACC</span>':''}</div></div>` : ''; 
+                }).join('')).join('')}</div></div>`;
             }
+        }
+
+        async function masterStock(sucId, ids, status) {
+            const batch = ids.map(id => ({ sucursal_id: sucId, sabor_id: id, disponible: status }));
+            await _supabase.from('visibilidad_sabores').upsert(batch);
+            showPage('admin_stock', sucId);
+        }
+
+        async function gestionarAccesos(userId, name) {
+            const { data: sucs } = await _supabase.from('sucursales').select('*').order('nombre');
+            const { data: vinc } = await _supabase.from('usuario_sucursales').select('sucursal_id').eq('usuario_id', userId);
+            const checkIds = vinc ? vinc.map(v => v.sucursal_id) : [];
+            const body = document.getElementById('modal-body');
+            const btn = document.getElementById('btn-save');
+            document.getElementById('modal-title').innerText = "ACCESOS: " + name;
+            btn.innerText = "GUARDAR";
+            body.innerHTML = `<div class="space-y-2">${sucs.map(s => `<label class="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl cursor-pointer"><input type="checkbox" class="suc-check w-6 h-6" value="${s.id}" ${checkIds.includes(s.id) ? 'checked' : ''}> <span class="font-black uppercase">${s.nombre}</span></label>`).join('')}</div>`;
+            document.getElementById('modal-form').classList.add('active');
+            btn.onclick = async () => {
+                await _supabase.from('usuario_sucursales').delete().eq('usuario_id', userId);
+                const sel = Array.from(document.querySelectorAll('.suc-check:checked')).map(c => ({ usuario_id: userId, sucursal_id: c.value }));
+                if (sel.length) await _supabase.from('usuario_sucursales').insert(sel);
+                closeModal(); showPage('usuarios');
+            };
         }
 
         async function toggleStock(sucId, saborId, current) { await _supabase.from('visibilidad_sabores').upsert({ sucursal_id: sucId, sabor_id: saborId, disponible: !current }); showPage('admin_stock', sucId); }
