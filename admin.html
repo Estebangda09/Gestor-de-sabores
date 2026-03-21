@@ -307,34 +307,36 @@
             </div>
         </div>
     `;
-    
+
     btn.onclick = async () => {
         const email = document.getElementById('u-email').value;
         const pass = document.getElementById('u-pass').value;
         const name = document.getElementById('u-name').value;
         const rol = document.getElementById('u-rol').value;
-
-        if (!email || !pass || !name) return alert("Completa todos los campos");
-
+    
+        if (!email || !pass || !name) return alert("Por favor, completa todos los campos.");
+    
         btn.innerText = "CREANDO ACCESO...";
         btn.disabled = true;
-
-        // Llamamos a la función mágica que creamos en el SQL
-        const { data, error } = await _supabase.rpc('admin_create_user', {
-            p_email: email,
-            p_password: pass,
-            p_username: name,
-            p_rol: rol
-        });
-
-        if (error) {
-            alert("Error al crear usuario: " + error.message);
-            btn.innerText = "GUARDAR";
-            btn.disabled = false;
-        } else {
-            alert("¡Usuario creado con éxito! Ya puede loguearse.");
+    
+        try {
+            const { data, error } = await _supabase.rpc('admin_create_user', {
+                p_email: email,
+                p_password: pass,
+                p_username: name,
+                p_rol: rol
+            });
+    
+            if (error) throw error;
+    
+            alert("¡Usuario " + name + " creado correctamente!");
             closeModal();
             showPage('usuarios');
+        } catch (err) {
+            console.error(err);
+            alert("Error: " + err.message);
+            btn.innerText = "GUARDAR";
+            btn.disabled = false;
         }
     };
 }
