@@ -67,52 +67,105 @@
         let userPerfil = null;
 
         // --- INICIO: SESIÓN Y ROLES ---
-        async function checkSession() {
-            const { data: { session } } = await _supabase.auth.getSession();
-            if (!session) {
-                document.getElementById('login-screen').classList.remove('hidden');
-                return;
-            }
+        // --- INICIO: SESIÓN Y ROLES (CORREGIDO) ---
+async function checkSession() {
+    // 1. Verificamos si hay una sesión activa en Supabase Auth
+    const { data: { session }, error: sessionError } = await _supabase.auth.getSession();
+    
+    if (sessionError || !session) {
+        // Si no hay sesión, mostramos el login y ocultamos lo demás
+        document.getElementById('login-screen').classList.remove('hidden');
+        document.getElementById('sidebar').classList.add('hidden');
+        document.getElementById('app').classList.add('hidden');
+        return;
+    }
 
-            const { data: perfil } = await _supabase.from('perfiles').select('*').eq('id', session.user.id).single();
-            userPerfil = perfil;
+    // 2. Si llegamos aquí, el login fue exitoso. Ahora buscamos el ROL en la tabla 'perfiles'
+    const { data: perfil, error: perfilError } = await _supabase
+        .from('perfiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
 
-            document.getElementById('login-screen').classList.add('hidden');
-            document.getElementById('sidebar').classList.remove('hidden');
-            document.getElementById('app').classList.remove('hidden');
+    // ERROR CRÍTICO: El usuario existe en Auth pero NO en tu tabla 'perfiles'
+    if (perfilError || !perfil) {
+        console.error("Error de perfil:", perfilError);
+        alert("ERROR DE CONFIGURACIÓN:\nTu usuario existe, pero no tienes una fila en la tabla 'perfiles'.\n\nPor favor, agrega manualmente tu UID en la tabla perfiles con el rol 'admin'.");
+        // Forzamos logout para que no se quede trabado en una sesión sin permisos
+        await _supabase.auth.signOut();
+        window.location.reload();
+        return;
+    }
 
-            renderMenu();
-            // Si es empleado, va directo a su sucursal
-            if (perfil.rol === 'empleado') showPage('admin_stock', perfil.sucursal_id);
-            else showPage('categorias');
+    // 3. Si todo está bien, guardamos el perfil y mostramos la app
+    userPerfil = perfil;
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('sidebar').classList.remove('hidden');
+    document.getElementById('app').classList.remove('hidden');
+
+    renderMenu();
+
+    // 4. Redirección según rol
+    if (userPerfil.rol === 'empleado') {
+        // Si es empleado, debe tener una sucursal_id asignada
+        if (!userPerfil.sucursal_id) {
+            alert("Error: Este usuario empleado no tiene una sucursal asignada.");
+            return;
         }
+        showPage('admin_stock', userPerfil.sucursal_id);
+    } else {
+        // Si es admin, va a categorías por defecto
+        showPage('categorias');
+    }
+}
 
-        async function handleLogin() {
-            const email = document.getElementById('login-email').value;
-            const pass = document.getElementById('login-pass').value;
-            const { error } = await _supabase.auth.signInWithPassword({ email, password: pass });
-            if (error) alert("Credenciales incorrectas");
-            else window.location.reload();
-        }
+async function handleLogin() {
+    const email = document.getElementById('login-email').value;
+    const pass = document.getElementById('login-pass').value;
 
-        async function handleLogout() {
-            await _supabase.auth.signOut();
-            window.location.reload();
-        }
+    if (!email || !pass) {
+        alert("Por favor, completa todos los campos.");
+        return;
+    }
 
-        function renderMenu() {
-            const nav = document.getElementById('menu-nav');
-            if (userPerfil.rol === 'admin') {
-                nav.innerHTML = `
-                    <div onclick="showPage('categorias')" id="m-categorias" class="menu-item active">📁 Categorías</div>
-                    <div onclick="showPage('sabores')" id="m-sabores" class="menu-item">🍨 Sabores</div>
-                    <div onclick="showPage('sucursales')" id="m-sucursales" class="menu-item">🏪 Sucursales</div>
-                    <div onclick="showPage('precios')" id="m-precios" class="menu-item">💰 Precios</div>
-                `;
-            } else {
-                nav.innerHTML = `<div class="menu-item active">🏪 Mi Sucursal</div>`;
-            }
-        }
+    const { data, error } = await _supabase.auth.signInWithPassword({ 
+        email: email, 
+        password: pass 
+    });
+
+    if (error) {
+        // Esto te dirá si la contraseña está mal o si el mail no está confirmado
+        alert("Error de autenticación: " + error.message);
+    } else {
+        // Login exitoso, recargamos para que checkSession haga el resto
+        window.location.reload();
+    }
+}
+
+async function handleLogout() {
+    const { error } = await _supabase.auth.signOut();
+    if (error) console.error("Error al cerrar sesión:", error.message);
+    window.location.reload();
+}
+
+function renderMenu() {
+    const nav = document.getElementById('menu-nav');
+    if (!nav) return;
+
+    if (userPerfil.rol === 'admin') {
+        nav.innerHTML = `
+            <div onclick="showPage('categorias')" id="m-categorias" class="menu-item active font-bold">📁 Categorías</div>
+            <div onclick="showPage('sabores')" id="m-sabores" class="menu-item">🍨 Sabores</div>
+            <div onclick="showPage('sucursales')" id="m-sucursales" class="menu-item">🏪 Sucursales</div>
+            <div onclick="showPage('precios')" id="m-precios" class="menu-item">💰 Precios</div>
+        `;
+    } else {
+        nav.innerHTML = `
+            <div class="menu-item active font-bold text-blue-400">🏪 Gestión de Stock</div>
+            <div class="p-3 text-xs text-gray-500 italic">Sucursal: ${userPerfil.username || 'Asignada'}</div>
+        `;
+    }
+}
 
         // --- LÓGICA DE PÁGINAS ---
         async function showPage(page, params = null) {
