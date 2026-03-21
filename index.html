@@ -1,367 +1,413 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ice Cream OS - Panel Unificado</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body { font-family: 'Inter', sans-serif; background: #0f172a; }
-        .sidebar { background: #1e293b; width: 280px; height: 100vh; position: fixed; color: white; z-index: 50; }
-        .main-content { margin-left: 280px; padding: 40px; min-height: 100vh; background: #f1f5f9; }
-        .menu-item { padding: 12px 20px; cursor: pointer; border-radius: 12px; margin-bottom: 5px; display: flex; align-items: center; gap: 10px; transition: 0.2s; color: #94a3b8; font-weight: bold; }
-        .menu-item:hover { background: #334155; color: white; }
-        .menu-item.active { background: #3b82f6; color: white; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4); }
-        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); align-items: center; justify-content: center; z-index: 100; }
-        .modal.active { display: flex; }
-        .tag { font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; text-transform: uppercase; }
-        .tag-vegano { background: #dcfce7; color: #166534; }
-        .tag-tacc { background: #fef9c3; color: #854d0e; }
-        #login-screen { background: #0f172a; position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HeladoOS-</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #0f172a; }
+        .sidebar { background: #1e293b; width: 280px; height: 100vh; position: fixed; color: white; z-index: 50; }
+        .main-content { margin-left: 280px; padding: 40px; min-height: 100vh; background: #f1f5f9; }
+        .menu-item { padding: 12px 20px; cursor: pointer; border-radius: 12px; margin-bottom: 5px; display: flex; align-items: center; gap: 10px; transition: 0.2s; color: #94a3b8; font-weight: bold; }
+        .menu-item:hover { background: #334155; color: white; }
+        .menu-item.active { background: #3b82f6; color: white; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4); }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); align-items: center; justify-content: center; z-index: 100; }
+        .modal.active { display: flex; }
+        .tag { font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; text-transform: uppercase; }
+        .tag-vegano { background: #dcfce7; color: #166534; }
+        .tag-tacc { background: #fef9c3; color: #854d0e; }
+        #login-screen { background: #0f172a; position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; }
+    </style>
 </head>
 <body>
 
-    <!-- Pantalla de Login -->
-    <div id="login-screen">
-        <div class="bg-white p-10 rounded-3xl shadow-2xl w-96 text-center">
-            <h2 class="text-3xl font-black mb-2 text-gray-800 italic uppercase">Ice Cream OS</h2>
-            <p class="text-gray-400 mb-8 text-sm">Panel Administrativo</p>
-            <input type="email" id="login-email" placeholder="Email" class="w-full border p-4 rounded-2xl mb-4 outline-none focus:ring-2 ring-blue-500 bg-gray-50">
-            <input type="password" id="login-pass" placeholder="Contraseña" class="w-full border p-4 rounded-2xl mb-4 outline-none focus:ring-2 ring-blue-500 bg-gray-50 text-gray-800">
-            
-            <div class="flex items-center mb-6 px-2">
-                <input type="checkbox" id="remember" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
-                <label for="remember" class="ml-2 text-sm font-bold text-gray-500 cursor-pointer">Recordar usuario</label>
-            </div>
+    <!-- Pantalla de Login -->
+    <div id="login-screen">
+        <div class="bg-white p-10 rounded-3xl shadow-2xl w-96 text-center">
+            <h2 class="text-3xl font-black mb-2 text-gray-800 italic uppercase">Ice Cream OS</h2>
+            <p class="text-gray-400 mb-8 text-sm">Panel Administrativo</p>
+            <input type="email" id="login-email" placeholder="Email" class="w-full border p-4 rounded-2xl mb-4 outline-none focus:ring-2 ring-blue-500 bg-gray-50">
+            <input type="password" id="login-pass" placeholder="Contraseña" class="w-full border p-4 rounded-2xl mb-4 outline-none focus:ring-2 ring-blue-500 bg-gray-50 text-gray-800">
+            
+            <div class="flex items-center mb-6 px-2">
+                <input type="checkbox" id="remember" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+                <label for="remember" class="ml-2 text-sm font-bold text-gray-500 cursor-pointer">Recordar usuario</label>
+            </div>
 
-            <button onclick="handleLogin()" id="btn-login" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg hover:bg-blue-700 transition-all active:scale-95">Entrar al Sistema</button>
-        </div>
-    </div>
+            <button onclick="handleLogin()" id="btn-login" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg hover:bg-blue-700 transition-all active:scale-95">Entrar al Sistema</button>
+        </div>
+    </div>
 
-    <!-- Sidebar -->
-    <div id="sidebar" class="sidebar p-6 hidden">
-        <h2 class="text-2xl font-black mb-10 text-blue-400 italic uppercase tracking-tighter text-center">Admin OS</h2>
-        <nav id="menu-nav"></nav>
-        <button onclick="handleLogout()" class="mt-auto absolute bottom-8 left-6 text-red-400 font-bold flex items-center gap-2 hover:text-red-300">
-            <span>✕</span> Cerrar Sesión
-        </button>
-    </div>
+    <!-- Sidebar -->
+    <div id="sidebar" class="sidebar p-6 hidden">
+        <h2 class="text-2xl font-black mb-10 text-blue-400 italic uppercase tracking-tighter text-center">Admin OS</h2>
+        <nav id="menu-nav"></nav>
+        <button onclick="handleLogout()" class="mt-auto absolute bottom-8 left-6 text-red-400 font-bold flex items-center gap-2 hover:text-red-300">
+            <span>✕</span> Cerrar Sesión
+        </button>
+    </div>
 
-    <!-- Contenido Principal -->
-    <div id="app" class="main-content hidden">
-        <div id="view-header" class="flex justify-between items-center mb-10"></div>
-        <div id="view-content"></div>
-    </div>
+    <!-- Contenido Principal -->
+    <div id="app" class="main-content hidden">
+        <div id="view-header" class="flex justify-between items-center mb-10"></div>
+        <div id="view-content"></div>
+    </div>
 
-    <!-- Modal Formulario -->
-    <div id="modal-form" class="modal">
-        <div class="bg-white p-8 rounded-3xl w-full max-lg shadow-2xl relative">
-            <h3 id="modal-title" class="text-2xl font-bold mb-6 text-gray-800 uppercase italic"></h3>
-            <div id="modal-body" class="space-y-4"></div>
-            <div class="flex justify-end gap-3 mt-8 border-t pt-6">
-                <button onclick="closeModal()" class="px-5 font-bold text-slate-400">Cancelar</button>
-                <button id="btn-save" class="px-8 py-3 bg-blue-600 text-white rounded-2xl font-bold shadow-lg hover:bg-blue-700 uppercase italic tracking-widest"></button>
-            </div>
-        </div>
-    </div>
+    <!-- Modal Formulario -->
+    <div id="modal-form" class="modal">
+        <div class="bg-white p-8 rounded-3xl w-full max-w-lg shadow-2xl relative">
+            <h3 id="modal-title" class="text-2xl font-bold mb-6 text-gray-800 uppercase italic"></h3>
+            <div id="modal-body" class="space-y-4"></div>
+            <div class="flex justify-end gap-3 mt-8 border-t pt-6">
+                <button onclick="closeModal()" class="px-5 font-bold text-slate-400">Cancelar</button>
+                <button id="btn-save" class="px-8 py-3 bg-blue-600 text-white rounded-2xl font-bold shadow-lg hover:bg-blue-700 uppercase italic tracking-widest"></button>
+            </div>
+        </div>
+    </div>
 
-    <script>
-        const SUPABASE_URL = 'https://vokwutkpntqtfevvdkei.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZva3d1dGtwbnRxdGZldnZka2VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3OTE4MDMsImV4cCI6MjA4OTM2NzgwM30.FdNLN4PdKAMe4LSdw9lGqjLeV6UzbfFlwZjgkd8nkro';
-        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    <script>
+        const SUPABASE_URL = 'https://vokwutkpntqtfevvdkei.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZva3d1dGtwbnRxdGZldnZka2VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3OTE4MDMsImV4cCI6MjA4OTM2NzgwM30.FdNLN4PdKAMe4LSdw9lGqjLeV6UzbfFlwZjgkd8nkro';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        let userPerfil = null;
-        let currentPage = 'categorias';
+        let userPerfil = null;
+        let currentPage = 'categorias';
 
-        async function checkSession() {
-            try {
-                const { data: { session }, error: sessionError } = await _supabase.auth.getSession();
-                
-                if (sessionError || !session) {
-                    const savedEmail = localStorage.getItem('remembered_email');
-                    if (savedEmail) document.getElementById('login-email').value = savedEmail;
-                    document.getElementById('login-screen').style.display = 'flex';
-                    document.getElementById('sidebar').classList.add('hidden');
-                    document.getElementById('app').classList.add('hidden');
-                    return;
-                }
+        async function checkSession() {
+    try {
+        // 1. Obtener la sesión activa
+        const { data: { session }, error: sessionError } = await _supabase.auth.getSession();
+        
+        if (sessionError || !session) {
+            const savedEmail = localStorage.getItem('remembered_email');
+            if (savedEmail) document.getElementById('login-email').value = savedEmail;
+            
+            // Aseguramos que todo esté oculto excepto el login
+            document.getElementById('login-screen').style.display = 'flex';
+            document.getElementById('sidebar').classList.add('hidden');
+            document.getElementById('app').classList.add('hidden');
+            return;
+        }
 
-                let { data: perfil, error: perfilError } = await _supabase.from('perfiles').select('*').eq('id', session.user.id).single();
+        // 2. Intentar obtener el perfil (con manejo de errores de esquema)
+        let { data: perfil, error: perfilError } = await _supabase
+            .from('perfiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
 
-                if (perfilError && perfilError.message.includes('schema')) {
-                    await new Promise(res => setTimeout(res, 1000));
-                    const retry = await _supabase.from('perfiles').select('*').eq('id', session.user.id).single();
-                    perfil = retry.data;
-                    perfilError = retry.error;
-                }
+        // Si hay error de esquema o permisos, esperamos un momento y reintentamos UNA vez
+        if (perfilError && perfilError.message.includes('schema')) {
+            console.warn("Reintentando lectura de perfil...");
+            await new Promise(res => setTimeout(res, 1000)); // Espera 1 segundo
+            const retry = await _supabase.from('perfiles').select('*').eq('id', session.user.id).single();
+            perfil = retry.data;
+            perfilError = retry.error;
+        }
 
-                if (perfilError || !perfil) {
-                    handleLogout();
-                    return;
-                }
+        if (perfilError || !perfil) {
+            console.error("Error detallado:", perfilError);
+            alert("Error de acceso: No se pudo cargar tu perfil de usuario. Verifica los permisos RLS en Supabase.");
+            handleLogout();
+            return;
+        }
 
-                userPerfil = perfil;
-                document.getElementById('login-screen').style.display = 'none';
-                document.getElementById('sidebar').classList.remove('hidden');
-                document.getElementById('app').classList.remove('hidden');
-                renderMenu();
-                showPage(userPerfil.rol === 'admin' ? 'categorias' : 'sucursales');
-            } catch (err) {
-                document.getElementById('login-screen').style.display = 'flex';
-            }
-        }
+        // 3. Si todo está OK, cargar la interfaz
+        userPerfil = perfil;
+        
+        // Ocultar login y mostrar panel
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('sidebar').classList.remove('hidden');
+        document.getElementById('app').classList.remove('hidden');
 
-        async function handleLogin() {
-            const btn = document.getElementById('btn-login');
-            const email = document.getElementById('login-email').value;
-            const pass = document.getElementById('login-pass').value;
-            const remember = document.getElementById('remember').checked;
+        // Renderizar según el rol
+        renderMenu();
 
-            if (!email || !pass) return alert("Completa los datos");
-            btn.innerText = "VERIFICANDO...";
-            btn.disabled = true;
+        // Redirección inteligente:
+        // Si es admin, va a categorías. Si es empleado, va a su lista de sucursales.
+        if (userPerfil.rol === 'admin') {
+            showPage('categorias');
+        } else {
+            showPage('sucursales');
+        }
 
-            const { data, error } = await _supabase.auth.signInWithPassword({ email, password: pass });
+    } catch (err) {
+        console.error("Error crítico en checkSession:", err);
+        // Evitamos bucles de alerta, solo mandamos al login si algo falla feo
+        document.getElementById('login-screen').style.display = 'flex';
+    }
+}
 
-            if (error) {
-                alert("Fallo: " + error.message);
-                btn.innerText = "Entrar al Sistema";
-                btn.disabled = false;
-            } else {
-                if (remember) localStorage.setItem('remembered_email', email);
-                else localStorage.removeItem('remembered_email');
-                window.location.reload();
-            }
-        }
+        async function handleLogin() {
+            const btn = document.getElementById('btn-login');
+            const email = document.getElementById('login-email').value;
+            const pass = document.getElementById('login-pass').value;
+            const remember = document.getElementById('remember').checked;
 
-        function handleLogout() {
-            _supabase.auth.signOut().then(() => {
-                localStorage.removeItem('supabase.auth.token');
-                window.location.reload();
-            });
-        }
+            if (!email || !pass) return alert("Completa los datos");
 
-        function renderMenu() {
-            const nav = document.getElementById('menu-nav');
-            if (userPerfil.rol === 'admin') {
-                nav.innerHTML = `
-                    <div onclick="showPage('categorias')" id="m-categorias" class="menu-item active">📁 Categorías</div>
-                    <div onclick="showPage('sabores')" id="m-sabores" class="menu-item">🍨 Sabores</div>
-                    <div onclick="showPage('sucursales')" id="m-sucursales" class="menu-item">🏪 Sucursales</div>
-                    <div onclick="showPage('usuarios')" id="m-usuarios" class="menu-item">👥 Usuarios</div>
-                    <div onclick="showPage('precios')" id="m-precios" class="menu-item">💰 Precios</div>
-                `;
-            } else {
-                nav.innerHTML = `<div onclick="showPage('sucursales')" id="m-sucursales" class="menu-item active">🏪 Sucursales</div>`;
-            }
-        }
+            btn.innerText = "VERIFICANDO...";
+            btn.disabled = true;
 
-        async function showPage(page, params = null) {
-            currentPage = page;
-            const container = document.getElementById('view-content');
-            const header = document.getElementById('view-header');
-            document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
-            if(document.getElementById('m-'+page)) document.getElementById('m-'+page).classList.add('active');
+            const { data, error } = await _supabase.auth.signInWithPassword({ email, password: pass });
 
-            if (page === 'categorias') {
-                header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Categorías</h1><button onclick="abrirModal('cat')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ Nueva</button>`;
-                const { data } = await _supabase.from('categorias').select('*').order('orden');
-                container.innerHTML = `<div class="space-y-3">${data.map(c => `<div class="bg-white p-5 rounded-2xl shadow-sm flex justify-between border-l-8 border-blue-500 font-bold text-slate-700">${c.nombre} <div class="flex gap-4"><button onclick='abrirModal("cat", ${JSON.stringify(c)})' class="text-blue-500">Editar</button><button onclick="eliminar('categorias','${c.id}')" class="text-red-300">Borrar</button></div></div>`).join('')}</div>`;
-            }
+            if (error) {
+                alert("Fallo: " + error.message);
+                btn.innerText = "Entrar al Sistema";
+                btn.disabled = false;
+            } else {
+                if (remember) localStorage.setItem('remembered_email', email);
+                else localStorage.removeItem('remembered_email');
+                window.location.reload();
+            }
+        }
 
-            if (page === 'sabores') {
-                header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Sabores</h1><button onclick="abrirModal('sabor')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ Nuevo</button>`;
-                const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
-                const { data: sabs } = await _supabase.from('sabores').select('*');
-                container.innerHTML = '';
-                cats.forEach(c => {
-                    const misSabores = sabs.filter(s => s.categoria_id === c.id);
-                    if (misSabores.length === 0) return;
-                    container.innerHTML += `<div class="mb-8 bg-white p-6 rounded-3xl shadow-sm border-l-8 border-indigo-500"><h3 class="text-xl font-bold text-indigo-600 mb-6 uppercase tracking-widest text-sm">${c.nombre}</h3><div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    ${misSabores.map(s => `<div class="border-2 border-slate-50 p-4 rounded-2xl flex flex-col justify-between h-28 bg-slate-50 relative group">
-                    <div class="flex gap-1 flex-wrap">${s.es_vegano ? '<span class="tag tag-vegano">Veg</span>':''}${s.es_sintacc ? '<span class="tag tag-tacc">TACC</span>':''}</div><span class="font-bold text-slate-700">${s.nombre}</span>
-                    <div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition"><button onclick='abrirModal("sabor", ${JSON.stringify(s)})' class="text-blue-500 font-bold text-[10px]">EDIT</button><button onclick="eliminar('sabores','${s.id}')" class="text-red-400 font-bold text-[10px]">BORRAR</button></div></div>`).join('')}</div></div>`;
-                });
-            }
+        function handleLogout() {
+            _supabase.auth.signOut().then(() => {
+                localStorage.removeItem('supabase.auth.token');
+                window.location.reload();
+            });
+        }
 
-            if (page === 'sucursales') {
-                header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Sucursales</h1>${userPerfil.rol === 'admin' ? '<button onclick="abrirModal(\'sucursal\')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ Nueva</button>' : ''}`;
-                const { data: sucs } = await _supabase.rpc('obtener_sucursales_por_permiso', { p_usuario_id: userPerfil.id, p_rol: userPerfil.rol });
-                container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">${sucs.map(s => `
-                    <div class="bg-white p-6 rounded-3xl shadow-lg border-t-8 border-blue-500 text-center">
-                        <h3 class="text-xl font-black mb-6 text-slate-800 uppercase italic">${s.nombre}</h3>
-                        <button onclick="showPage('admin_stock', '${s.id}')" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-black hover:bg-blue-600 transition uppercase text-xs tracking-widest">Gestionar Stock</button>
-                        ${userPerfil.rol === 'admin' ? `<div class="flex justify-between mt-6 px-2"><button onclick='abrirModal("sucursal", ${JSON.stringify(s)})' class="text-xs text-slate-400 font-bold uppercase">Editar</button><button onclick="eliminar('sucursales','${s.id}')" class="text-xs text-red-300 font-bold uppercase">Eliminar</button></div>` : ''}
-                    </div>`).join('')}</div>`;
-            }
+        function renderMenu() {
+            const nav = document.getElementById('menu-nav');
+            if (userPerfil.rol === 'admin') {
+                nav.innerHTML = `
+                    <div onclick="showPage('categorias')" id="m-categorias" class="menu-item active">📁 Categorías</div>
+                    <div onclick="showPage('sabores')" id="m-sabores" class="menu-item">🍨 Sabores</div>
+                    <div onclick="showPage('sucursales')" id="m-sucursales" class="menu-item">🏪 Sucursales</div>
+                    <div onclick="showPage('usuarios')" id="m-usuarios" class="menu-item">👥 Usuarios</div>
+                    <div onclick="showPage('precios')" id="m-precios" class="menu-item">💰 Precios</div>
+                `;
+            } else {
+                nav.innerHTML = `<div onclick="showPage('sucursales')" id="m-sucursales" class="menu-item active">🏪 Sucursales</div>`;
+            }
+        }
 
-            if (page === 'admin_stock') {
-                const sucId = params;
-                const { data: suc } = await _supabase.from('sucursales').select('nombre').eq('id', sucId).single();
-                const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
-                const { data: sabs } = await _supabase.from('sabores').select('*');
-                const { data: vis } = await _supabase.from('visibilidad_sabores').select('*').eq('sucursal_id', sucId);
-                header.innerHTML = `<div class="flex items-center gap-4"><button onclick="showPage('sucursales')" class="text-slate-400 text-2xl font-black">←</button><h1 class="text-3xl font-black text-slate-800 uppercase italic">${suc.nombre}</h1></div>
-                <div class="flex gap-2"><button onclick="bulkStock('${sucId}', true)" class="bg-green-500 text-white px-4 py-2 rounded-xl font-bold text-xs">TODO DISPONIBLE</button><button onclick="bulkStock('${sucId}', false)" class="bg-red-500 text-white px-4 py-2 rounded-xl font-bold text-xs">TODO AGOTADO</button></div>`;
-                container.innerHTML = '';
-                cats.forEach(c => {
-                    const misSabores = sabs.filter(s => s.categoria_id === c.id);
-                    if (misSabores.length === 0) return;
-                    container.innerHTML += `<div class="mb-10"><h4 class="font-black text-blue-500 mb-4 ml-2 uppercase tracking-widest text-sm">${c.nombre}</h4><div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    ${misSabores.map(s => {
-                        const isOk = vis.find(v => v.sabor_id === s.id)?.disponible !== false;
-                        return `<button onclick="toggleStock('${sucId}', '${s.id}', ${isOk})" class="p-5 rounded-2xl border-2 font-bold shadow-sm transition-all active:scale-95 ${isOk ? 'bg-white border-blue-500 text-blue-700':'bg-slate-200 border-transparent text-slate-400 line-through'}">${s.nombre}</button>`;
-                    }).join('')}</div></div>`;
-                });
-            }
+        async function showPage(page, params = null) {
+            currentPage = page;
+            const container = document.getElementById('view-content');
+            const header = document.getElementById('view-header');
+            document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
+            if(document.getElementById('m-'+page)) document.getElementById('m-'+page).classList.add('active');
 
-            if (page === 'usuarios') {
-                header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 tracking-tighter uppercase italic">Usuarios</h1><button onclick="abrirModal('usuario')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold tracking-widest">+ CREAR</button>`;
-                const { data: users } = await _supabase.from('perfiles').select('*');
-                const { data: sucs } = await _supabase.from('sucursales').select('*');
-                const { data: vinc } = await _supabase.from('usuario_sucursales').select('*');
-                container.innerHTML = `<div class="grid gap-4">${users.map(u => {
-                    const misSucs = vinc.filter(v => v.usuario_id === u.id).map(v => sucs.find(s => s.id === v.sucursal_id)?.nombre || '');
-                    const labelSucs = u.rol === 'admin' ? 'TODAS (ADMIN)' : (misSucs.join(', ') || 'NINGUNA');
-                    return `
-                    <div class="bg-white p-6 rounded-3xl shadow-sm border-l-8 ${u.rol === 'admin' ? 'border-amber-400' : 'border-emerald-400'} flex justify-between items-center">
-                        <div><span class="font-black text-slate-700 text-xl uppercase italic">${u.username}</span><span class="ml-2 text-xs font-bold bg-slate-100 px-2 py-1 rounded text-slate-500 uppercase">${u.rol}</span>
-                        <p class="text-xs text-slate-400 font-bold mt-1 uppercase tracking-tighter">Accesos: ${labelSucs}</p></div>
-                        <div class="flex gap-2">
-                            ${u.rol !== 'admin' ? `<button onclick='gestionarAccesos("${u.id}", "${u.username}")' class="bg-slate-900 text-white px-5 py-2 rounded-xl font-bold text-xs uppercase italic shadow-lg">Permisos</button>` : ''}
-                            <button onclick='abrirModal("usuario", ${JSON.stringify(u)})' class="text-blue-500 font-bold text-xs p-2">Editar</button>
-                            <button onclick="eliminar('perfiles','${u.id}')" class="text-red-300 font-bold text-xs p-2">Borrar</button>
-                        </div>
-                    </div>`;
-                }).join('')}</div>`;
-            }
+            if (page === 'categorias') {
+                header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Categorías</h1><button onclick="abrirModal('cat')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ Nueva</button>`;
+                const { data } = await _supabase.from('categorias').select('*').order('orden');
+                container.innerHTML = `<div class="space-y-3">${data.map(c => `<div class="bg-white p-5 rounded-2xl shadow-sm flex justify-between border-l-8 border-blue-500 font-bold text-slate-700">${c.nombre} <div class="flex gap-4"><button onclick='abrirModal("cat", ${JSON.stringify(c)})' class="text-blue-500">Editar</button><button onclick="eliminar('categorias','${c.id}')" class="text-red-300">Borrar</button></div></div>`).join('')}</div>`;
+            }
 
-            if (page === 'precios') {
-                header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Precios</h1><button onclick="abrirModal('precio')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ Nuevo</button>`;
-                const { data } = await _supabase.from('precios_globales').select('*').order('orden');
-                container.innerHTML = `<div class="bg-white p-8 rounded-[40px] shadow-sm max-w-xl">${data.map(p => `<div class="flex items-center gap-4 mb-5 border-b border-slate-50 pb-5">
-                <span class="w-1/3 font-bold text-slate-600 text-lg uppercase">${p.label}</span>
-                <input type="number" value="${p.valor}" onchange="updatePrecio('${p.id}', this.value)" class="border-2 p-3 rounded-2xl w-full bg-slate-50 font-black text-blue-600 text-center text-xl shadow-inner outline-none">
-                <button onclick='abrirModal("precio", ${JSON.stringify(p)})' class="text-blue-400 font-bold ml-2">✏️</button></div>`).join('')}</div>`;
-            }
-        }
+            if (page === 'sabores') {
+                header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Sabores</h1><button onclick="abrirModal('sabor')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ Nuevo</button>`;
+                const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
+                const { data: sabs } = await _supabase.from('sabores').select('*');
+                container.innerHTML = '';
+                cats.forEach(c => {
+                    const misSabores = sabs.filter(s => s.categoria_id === c.id);
+                    if (misSabores.length === 0) return;
+                    container.innerHTML += `<div class="mb-8 bg-white p-6 rounded-3xl shadow-sm border-l-8 border-indigo-500"><h3 class="text-xl font-bold text-indigo-600 mb-6 uppercase tracking-widest text-sm">${c.nombre}</h3><div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    ${misSabores.map(s => `<div class="border-2 border-slate-50 p-4 rounded-2xl flex flex-col justify-between h-28 bg-slate-50 relative group">
+                    <div class="flex gap-1 flex-wrap">${s.es_vegano ? '<span class="tag tag-vegano">Veg</span>':''}${s.es_sintacc ? '<span class="tag tag-tacc">TACC</span>':''}</div><span class="font-bold text-slate-700">${s.nombre}</span>
+                    <div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition"><button onclick='abrirModal("sabor", ${JSON.stringify(s)})' class="text-blue-500 font-bold text-[10px]">EDIT</button><button onclick="eliminar('sabores','${s.id}')" class="text-red-400 font-bold text-[10px]">BORRAR</button></div></div>`).join('')}</div></div>`;
+                });
+            }
 
-        async function abrirModal(type, data = null) {
-            const body = document.getElementById('modal-body');
-            const title = document.getElementById('modal-title');
-            const btn = document.getElementById('btn-save');
-            body.innerHTML = '';
-            const esEdicion = !!data;
-            title.innerText = (esEdicion ? 'EDITAR ' : 'NUEVO ') + type.toUpperCase();
-            btn.innerText = esEdicion ? "ACTUALIZAR" : "GUARDAR";
-            btn.disabled = false;
-            document.getElementById('modal-form').classList.add('active');
+            if (page === 'sucursales') {
+                header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Sucursales</h1>${userPerfil.rol === 'admin' ? '<button onclick="abrirModal(\'sucursal\')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ Nueva</button>' : ''}`;
+                
+                const { data: sucs } = await _supabase.rpc('obtener_sucursales_por_permiso', {
+                    p_usuario_id: userPerfil.id,
+                    p_rol: userPerfil.rol
+                });
 
-            if (type === 'cat') {
-                body.innerHTML = `<input id="f-nom" value="${data?.nombre || ''}" placeholder="Nombre" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none focus:ring-2 ring-blue-500"><input id="f-ord" type="number" value="${data?.orden || ''}" placeholder="Orden" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none focus:ring-2 ring-blue-500">`;
-                btn.onclick = async () => {
-                    const row = { nombre: document.getElementById('f-nom').value, orden: parseInt(document.getElementById('f-ord').value) };
-                    if(data) await _supabase.from('categorias').update(row).eq('id', data.id);
-                    else await _supabase.from('categorias').insert([row]);
-                    closeModal(); showPage('categorias');
-                };
-            }
-            if (type === 'sabor') {
-                const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
-                body.innerHTML = `<input id="f-nom" value="${data?.nombre || ''}" placeholder="Nombre" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none focus:ring-2 ring-blue-500"><select id="f-cat" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none focus:ring-2 ring-blue-500">${cats.map(c => `<option value="${c.id}" ${data?.categoria_id === c.id ? 'selected':''}>${c.nombre}</option>`)}</select>
-                <div class="flex gap-6 p-2"><label class="flex items-center gap-2 font-bold text-green-700 cursor-pointer"><input type="checkbox" id="f-veg" ${data?.es_vegano ? 'checked':''}> Vegano</label><label class="flex items-center gap-2 font-bold text-yellow-600 cursor-pointer"><input type="checkbox" id="f-tacc" ${data?.es_sintacc ? 'checked':''}> Sin TACC</label></div>`;
-                btn.onclick = async () => {
-                    const row = { nombre: document.getElementById('f-nom').value, categoria_id: document.getElementById('f-cat').value, es_vegano: document.getElementById('f-veg').checked, es_sintacc: document.getElementById('f-tacc').checked };
-                    if(data) await _supabase.from('sabores').update(row).eq('id', data.id);
-                    else await _supabase.from('sabores').insert([row]);
-                    closeModal(); showPage('sabores');
-                };
-            }
-            if (type === 'sucursal') {
-                body.innerHTML = `<input id="f-nom" value="${data?.nombre || ''}" placeholder="Nombre Sucursal" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none focus:ring-2 ring-blue-500"><input id="f-tid" value="${data?.id_texto || ''}" placeholder="pacheco" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none focus:ring-2 ring-blue-500">`;
-                btn.onclick = async () => {
-                    const row = { nombre: document.getElementById('f-nom').value, id_texto: document.getElementById('f-tid').value };
-                    if(data) await _supabase.from('sucursales').update(row).eq('id', data.id);
-                    else await _supabase.from('sucursales').insert([row]);
-                    closeModal(); showPage('sucursales');
-                };
-            }
-            if (type === 'usuario') {
-                body.innerHTML = `
-                    <input id="u-name" value="${data?.username || ''}" placeholder="Nombre / Apodo" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
-                    <input id="u-email" type="email" value="${data?.username || ''}" placeholder="email@heladeria.com" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none" ${esEdicion ? 'disabled' : ''}>
-                    ${!esEdicion ? '<input id="u-pass" type="text" placeholder="Contraseña Temporal" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">' : ''}
-                    <select id="u-rol" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
-                        <option value="empleado" ${data?.rol === 'empleado' ? 'selected':''}>Empleado (Solo Stock)</option>
-                        <option value="admin" ${data?.rol === 'admin' ? 'selected':''}>Administrador (Todo)</option>
-                    </select>`;
-                btn.onclick = async () => {
-                    const name = document.getElementById('u-name').value;
-                    const rol = document.getElementById('u-rol').value;
-                    if (!name) return alert("Completa los datos");
-                    btn.innerText = "PROCESANDO..."; btn.disabled = true;
-                    if (esEdicion) {
-                        await _supabase.from('perfiles').update({ username: name, rol: rol }).eq('id', data.id);
-                        closeModal(); showPage('usuarios');
-                    } else {
-                        const email = document.getElementById('u-email').value;
-                        const pass = document.getElementById('u-pass').value;
-                        const { error } = await _supabase.rpc('admin_create_user', { p_email: email, p_password: pass, p_username: name, p_rol: rol });
-                        if (error) { alert(error.message); btn.innerText = "GUARDAR"; btn.disabled = false; }
-                        else { closeModal(); showPage('usuarios'); }
-                    }
-                };
-            }
-            if (type === 'precio') {
-                body.innerHTML = `<input id="f-lab" value="${data?.label || ''}" placeholder="Etiqueta" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><input id="f-val" type="number" value="${data?.valor || ''}" placeholder="Precio" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><input id="f-ord" type="number" value="${data?.orden || ''}" placeholder="Orden" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">`;
-                btn.onclick = async () => {
-                    const row = { label: document.getElementById('f-lab').value, valor: parseFloat(document.getElementById('f-val').value), orden: parseInt(document.getElementById('f-ord').value) };
-                    if(data) await _supabase.from('precios_globales').update(row).eq('id', data.id);
-                    else await _supabase.from('precios_globales').insert([row]);
-                    closeModal(); showPage('precios');
-                };
-            }
-        }
+                container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">${sucs.map(s => `
+                    <div class="bg-white p-6 rounded-3xl shadow-lg border-t-8 border-blue-500 text-center">
+                        <h3 class="text-xl font-black mb-6 text-slate-800 uppercase italic">${s.nombre}</h3>
+                        <button onclick="showPage('admin_stock', '${s.id}')" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-black hover:bg-blue-600 transition uppercase text-xs tracking-widest">Gestionar Stock</button>
+                        ${userPerfil.rol === 'admin' ? `<div class="flex justify-between mt-6 px-2"><button onclick='abrirModal("sucursal", ${JSON.stringify(s)})' class="text-xs text-slate-400 font-bold uppercase">Editar</button><button onclick="eliminar('sucursales','${s.id}')" class="text-xs text-red-300 font-bold uppercase">Eliminar</button></div>` : ''}
+                    </div>`).join('')}</div>`;
+            }
 
-        async function gestionarAccesos(userId, name) {
-            const { data: sucs } = await _supabase.from('sucursales').select('*').order('nombre');
-            const { data: vinc } = await _supabase.from('usuario_sucursales').select('sucursal_id').eq('usuario_id', userId);
-            const checkIds = vinc ? vinc.map(v => v.sucursal_id) : [];
-            const body = document.getElementById('modal-body');
-            const title = document.getElementById('modal-title');
-            const btn = document.getElementById('btn-save');
-            title.innerText = "ACCESOS DE " + name.toUpperCase();
-            btn.innerText = "GUARDAR CAMBIOS"; btn.disabled = false;
-            body.innerHTML = `<div class="space-y-2 max-h-60 overflow-y-auto">${sucs.map(s => `<label class="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-slate-100"><input type="checkbox" class="suc-check w-6 h-6 text-blue-600" value="${s.id}" ${checkIds.includes(s.id) ? 'checked' : ''}><span class="font-black text-slate-700 uppercase italic text-sm">${s.nombre}</span></label>`).join('')}</div>`;
-            document.getElementById('modal-form').classList.add('active');
-            btn.onclick = async () => {
-                btn.innerText = "GUARDANDO..."; btn.disabled = true;
-                await _supabase.from('usuario_sucursales').delete().eq('usuario_id', userId);
-                const selected = Array.from(document.querySelectorAll('.suc-check:checked')).map(c => c.value);
-                if (selected.length > 0) await _supabase.from('usuario_sucursales').insert(selected.map(sid => ({ usuario_id: userId, sucursal_id: sid })));
-                closeModal(); showPage('usuarios');
-            };
-        }
+            if (page === 'admin_stock') {
+                const sucId = params;
+                const { data: suc } = await _supabase.from('sucursales').select('nombre').eq('id', sucId).single();
+                const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
+                const { data: sabs } = await _supabase.from('sabores').select('*');
+                const { data: vis } = await _supabase.from('visibilidad_sabores').select('*').eq('sucursal_id', sucId);
 
-        async function toggleStock(sucId, saborId, current) {
-            await _supabase.from('visibilidad_sabores').upsert({ sucursal_id: sucId, sabor_id: saborId, disponible: !current });
-            showPage('admin_stock', sucId);
-        }
+                header.innerHTML = `<div class="flex items-center gap-4"><button onclick="showPage('sucursales')" class="text-slate-400 text-2xl font-black">←</button><h1 class="text-3xl font-black text-slate-800 uppercase italic">${suc.nombre}</h1></div>
+                <div class="flex gap-2"><button onclick="bulkStock('${sucId}', true)" class="bg-green-500 text-white px-4 py-2 rounded-xl font-bold text-xs">TODO DISPONIBLE</button><button onclick="bulkStock('${sucId}', false)" class="bg-red-500 text-white px-4 py-2 rounded-xl font-bold text-xs">TODO AGOTADO</button></div>`;
 
-        async function bulkStock(sucId, estado) {
-            if(confirm(`¿Deseas poner TODO como ${estado ? 'Disponible' : 'Agotado'}?`)) {
-                await _supabase.rpc('bulk_update_stock', { pid_sucursal: sucId, p_estado: estado });
-                showPage('admin_stock', sucId);
-            }
-        }
+                container.innerHTML = '';
+                cats.forEach(c => {
+                    const misSabores = sabs.filter(s => s.categoria_id === c.id);
+                    if (misSabores.length === 0) return;
+                    container.innerHTML += `<div class="mb-10"><h4 class="font-black text-blue-500 mb-4 ml-2 uppercase tracking-widest text-sm">${c.nombre}</h4><div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    ${misSabores.map(s => {
+                        const isOk = vis.find(v => v.sabor_id === s.id)?.disponible !== false;
+                        return `<button onclick="toggleStock('${sucId}', '${s.id}', ${isOk})" class="p-5 rounded-2xl border-2 font-bold shadow-sm transition-all active:scale-95 ${isOk ? 'bg-white border-blue-500 text-blue-700':'bg-slate-200 border-transparent text-slate-400 line-through'}">${s.nombre}</button>`;
+                    }).join('')}</div></div>`;
+                });
+            }
 
-        function closeModal() { document.getElementById('modal-form').classList.remove('active'); }
-        async function eliminar(t, id) { if(confirm('¿Eliminar?')) { await _supabase.from(t).delete().eq('id', id); showPage(currentPage); } }
-        async function updatePrecio(id, val) { await _supabase.from('precios_globales').update({ valor: val }).eq('id', id); }
+            if (page === 'usuarios') {
+                header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 tracking-tighter uppercase italic">Usuarios</h1><button onclick="abrirModal('usuario')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold tracking-widest">+ CREAR</button>`;
+                const { data: users } = await _supabase.from('perfiles').select('*');
+                const { data: sucs } = await _supabase.from('sucursales').select('*');
+                const { data: vinc } = await _supabase.from('usuario_sucursales').select('*');
 
-        checkSession();
-    </script>
+                container.innerHTML = `<div class="grid gap-4">${users.map(u => {
+                    const misSucs = vinc.filter(v => v.usuario_id === u.id).map(v => sucs.find(s => s.id === v.sucursal_id)?.nombre || '');
+                    const labelSucs = u.rol === 'admin' ? 'TODAS (ADMIN)' : (misSucs.join(', ') || 'NINGUNA');
+                    return `
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border-l-8 ${u.rol === 'admin' ? 'border-amber-400' : 'border-emerald-400'} flex justify-between items-center">
+                        <div><span class="font-black text-slate-700 text-xl uppercase italic">${u.username}</span><span class="ml-2 text-xs font-bold bg-slate-100 px-2 py-1 rounded text-slate-500 uppercase">${u.rol}</span>
+                        <p class="text-xs text-slate-400 font-bold mt-1 uppercase tracking-tighter">Accesos: ${labelSucs}</p></div>
+                        <div class="flex gap-2">
+                            ${u.rol !== 'admin' ? `<button onclick='gestionarAccesos("${u.id}", "${u.username}")' class="bg-slate-900 text-white px-5 py-2 rounded-xl font-bold text-xs uppercase italic shadow-lg">Permisos</button>` : ''}
+                            <button onclick='abrirModal("usuario", ${JSON.stringify(u)})' class="text-blue-500 font-bold text-xs p-2">Editar</button>
+                            <button onclick="eliminar('perfiles','${u.id}')" class="text-red-300 font-bold text-xs p-2">Borrar</button>
+                        </div>
+                    </div>`;
+                }).join('')}</div>`;
+            }
+
+            if (page === 'precios') {
+                header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Precios</h1><button onclick="abrirModal('precio')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ Nuevo</button>`;
+                const { data } = await _supabase.from('precios_globales').select('*').order('orden');
+                container.innerHTML = `<div class="bg-white p-8 rounded-[40px] shadow-sm max-w-xl">${data.map(p => `<div class="flex items-center gap-4 mb-5 border-b border-slate-50 pb-5">
+                <span class="w-1/3 font-bold text-slate-600 text-lg uppercase">${p.label}</span>
+                <input type="number" value="${p.valor}" onchange="updatePrecio('${p.id}', this.value)" class="border-2 p-3 rounded-2xl w-full bg-slate-50 font-black text-blue-600 text-center text-xl shadow-inner outline-none">
+                <button onclick='abrirModal("precio", ${JSON.stringify(p)})' class="text-blue-400 font-bold ml-2">✏️</button></div>`).join('')}</div>`;
+            }
+        }
+
+        async function abrirModal(type, data = null) {
+            const body = document.getElementById('modal-body');
+            const title = document.getElementById('modal-title');
+            const btn = document.getElementById('btn-save');
+            body.innerHTML = '';
+            title.innerText = (data ? 'EDITAR ' : 'NUEVO ') + type.toUpperCase();
+            btn.innerText = "GUARDAR";
+            btn.disabled = false;
+            document.getElementById('modal-form').classList.add('active');
+
+            if (type === 'cat') {
+                body.innerHTML = `<input id="f-nom" value="${data?.nombre || ''}" placeholder="Nombre" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none focus:ring-2 ring-blue-500"><input id="f-ord" type="number" value="${data?.orden || ''}" placeholder="Orden" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none focus:ring-2 ring-blue-500">`;
+                btn.onclick = async () => {
+                    const row = { nombre: document.getElementById('f-nom').value, orden: parseInt(document.getElementById('f-ord').value) };
+                    if(data) await _supabase.from('categorias').update(row).eq('id', data.id);
+                    else await _supabase.from('categorias').insert([row]);
+                    closeModal(); showPage('categorias');
+                };
+            }
+            if (type === 'sabor') {
+                const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
+                body.innerHTML = `<input id="f-nom" value="${data?.nombre || ''}" placeholder="Nombre" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none focus:ring-2 ring-blue-500"><select id="f-cat" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none focus:ring-2 ring-blue-500">${cats.map(c => `<option value="${c.id}" ${data?.categoria_id === c.id ? 'selected':''}>${c.nombre}</option>`)}</select>
+                <div class="flex gap-6 p-2"><label class="flex items-center gap-2 font-bold text-green-700 cursor-pointer"><input type="checkbox" id="f-veg" ${data?.es_vegano ? 'checked':''}> Vegano</label><label class="flex items-center gap-2 font-bold text-yellow-600 cursor-pointer"><input type="checkbox" id="f-tacc" ${data?.es_sintacc ? 'checked':''}> Sin TACC</label></div>`;
+                btn.onclick = async () => {
+                    const row = { nombre: document.getElementById('f-nom').value, categoria_id: document.getElementById('f-cat').value, es_vegano: document.getElementById('f-veg').checked, es_sintacc: document.getElementById('f-tacc').checked };
+                    if(data) await _supabase.from('sabores').update(row).eq('id', data.id);
+                    else await _supabase.from('sabores').insert([row]);
+                    closeModal(); showPage('sabores');
+                };
+            }
+            if (type === 'sucursal') {
+                body.innerHTML = `<input id="f-nom" value="${data?.nombre || ''}" placeholder="Nombre Sucursal" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none focus:ring-2 ring-blue-500"><input id="f-tid" value="${data?.id_texto || ''}" placeholder="pacheco" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none focus:ring-2 ring-blue-500">`;
+                btn.onclick = async () => {
+                    const row = { nombre: document.getElementById('f-nom').value, id_texto: document.getElementById('f-tid').value };
+                    if(data) await _supabase.from('sucursales').update(row).eq('id', data.id);
+                    else await _supabase.from('sucursales').insert([row]);
+                    closeModal(); showPage('sucursales');
+                };
+            }
+            if (type === 'usuario') {
+                if (!data) {
+                    body.innerHTML = `
+                        <input id="u-name" placeholder="Nombre / Apodo" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
+                        <input id="u-email" type="email" placeholder="email@heladeria.com" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
+                        <input id="u-pass" type="text" placeholder="Contraseña Temporal" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
+                        <select id="u-rol" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none text-gray-800">
+                            <option value="empleado">Empleado (Solo Stock)</option>
+                            <option value="admin">Administrador (Todo)</option>
+                        </select>`;
+                    btn.innerText = "CREAR USUARIO";
+                    btn.onclick = async () => {
+                        const email = document.getElementById('u-email').value;
+                        const pass = document.getElementById('u-pass').value;
+                        const name = document.getElementById('u-name').value;
+                        const rol = document.getElementById('u-rol').value;
+                        if (!email || !pass || !name) return alert("Completa los datos");
+                        btn.innerText = "CREANDO..."; btn.disabled = true;
+                        try {
+                            const { data: res, error } = await _supabase.rpc('admin_create_user', { p_email: email, p_password: pass, p_username: name, p_rol: rol });
+                            if (error) throw error;
+                            alert("Usuario creado!"); closeModal(); showPage('usuarios');
+                        } catch (e) { alert(e.message); btn.innerText = "CREAR USUARIO"; btn.disabled = false; }
+                    };
+                } else {
+                    body.innerHTML = `
+                        <input id="u-name" value="${data.username}" placeholder="Nombre" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
+                        <select id="u-rol" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
+                            <option value="empleado" ${data.rol === 'empleado' ? 'selected':''}>Empleado</option>
+                            <option value="admin" ${data.rol === 'admin' ? 'selected':''}>Administrador</option>
+                        </select>`;
+                    btn.onclick = async () => {
+                        await _supabase.from('perfiles').update({ username: document.getElementById('u-name').value, rol: document.getElementById('u-rol').value }).eq('id', data.id);
+                        closeModal(); showPage('usuarios');
+                    };
+                }
+            }
+            if (type === 'precio') {
+                body.innerHTML = `<input id="f-lab" value="${data?.label || ''}" placeholder="Etiqueta" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><input id="f-val" type="number" value="${data?.valor || ''}" placeholder="Precio" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><input id="f-ord" type="number" value="${data?.orden || ''}" placeholder="Orden" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">`;
+                btn.onclick = async () => {
+                    const row = { label: document.getElementById('f-lab').value, valor: parseFloat(document.getElementById('f-val').value), orden: parseInt(document.getElementById('f-ord').value) };
+                    if(data) await _supabase.from('precios_globales').update(row).eq('id', data.id);
+                    else await _supabase.from('precios_globales').insert([row]);
+                    closeModal(); showPage('precios');
+                };
+            }
+        }
+
+        async function gestionarAccesos(userId, name) {
+            const { data: sucs } = await _supabase.from('sucursales').select('*').order('nombre');
+            const { data: vinc } = await _supabase.from('usuario_sucursales').select('sucursal_id').eq('usuario_id', userId);
+            const checkIds = vinc ? vinc.map(v => v.sucursal_id) : [];
+            const body = document.getElementById('modal-body');
+            const title = document.getElementById('modal-title');
+            const btn = document.getElementById('btn-save');
+            title.innerText = "ACCESOS DE " + name.toUpperCase();
+            btn.innerText = "GUARDAR CAMBIOS"; btn.disabled = false;
+            body.innerHTML = `<div class="space-y-2">${sucs.map(s => `<label class="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-slate-100"><input type="checkbox" class="suc-check w-6 h-6 text-blue-600" value="${s.id}" ${checkIds.includes(s.id) ? 'checked' : ''}><span class="font-black text-slate-700 uppercase italic text-sm">${s.nombre}</span></label>`).join('')}</div>`;
+            document.getElementById('modal-form').classList.add('active');
+            btn.onclick = async () => {
+                btn.innerText = "GUARDANDO..."; btn.disabled = true;
+                await _supabase.from('usuario_sucursales').delete().eq('usuario_id', userId);
+                const selected = Array.from(document.querySelectorAll('.suc-check:checked')).map(c => c.value);
+                if (selected.length > 0) await _supabase.from('usuario_sucursales').insert(selected.map(sid => ({ usuario_id: userId, sucursal_id: sid })));
+                closeModal(); showPage('usuarios');
+            };
+        }
+
+        async function toggleStock(sucId, saborId, current) {
+            await _supabase.from('visibilidad_sabores').upsert({ sucursal_id: sucId, sabor_id: saborId, disponible: !current });
+            showPage('admin_stock', sucId);
+        }
+
+        async function bulkStock(sucId, estado) {
+            if(confirm(`¿Deseas poner TODO como ${estado ? 'Disponible' : 'Agotado'}?`)) {
+                await _supabase.rpc('bulk_update_stock', { pid_sucursal: sucId, p_estado: estado });
+                showPage('admin_stock', sucId);
+            }
+        }
+
+        function closeModal() { document.getElementById('modal-form').classList.remove('active'); }
+        async function eliminar(t, id) { if(confirm('¿Eliminar?')) { await _supabase.from(t).delete().eq('id', id); showPage(currentPage); } }
+        async function updatePrecio(id, val) { await _supabase.from('precios_globales').update({ valor: val }).eq('id', id); }
+
+        checkSession();
+    </script>
 </body>
 </html>
