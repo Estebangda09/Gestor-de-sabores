@@ -1,7 +1,10 @@
 function renderMenu() {
     const nav = document.getElementById('menu-nav');
+    const p = userPerfil.permisos || {};
+    let html = '';
+
     if (userPerfil.rol === 'admin') {
-        nav.innerHTML = `
+        html = `
             <div onclick="showPage('categorias')" id="m-categorias" class="menu-item">📁 Categorías</div>
             <div onclick="showPage('sabores')" id="m-sabores" class="menu-item">🍨 Sabores</div>
             <div onclick="showPage('sucursales')" id="m-sucursales" class="menu-item">🏪 Sucursales</div>
@@ -10,8 +13,21 @@ function renderMenu() {
             <div onclick="showPage('precios')" id="m-precios" class="menu-item">💰 Precios</div>
         `;
     } else {
-        nav.innerHTML = `<div onclick="showPage('sucursales')" id="m-sucursales" class="menu-item active">🏪 Sucursales</div>`;
+        if (p.categorias) html += `<div onclick="showPage('categorias')" id="m-categorias" class="menu-item">📁 Categorías</div>`;
+        if (p.sabores) html += `<div onclick="showPage('sabores')" id="m-sabores" class="menu-item">🍨 Sabores</div>`;
+        if (p.sucursales) html += `<div onclick="showPage('sucursales')" id="m-sucursales" class="menu-item">🏪 Sucursales</div>`;
+        if (p.pantallas) html += `<div onclick="showPage('pantallas')" id="m-pantallas" class="menu-item">📺 Pantallas</div>`;
+        if (p.precios) html += `<div onclick="showPage('precios')" id="m-precios" class="menu-item">💰 Precios</div>`;
     }
+    
+    // Botón Mi Perfil (al final)
+    html += `
+        <div class="mt-10 pt-4 border-t border-slate-700/50">
+            <div onclick="abrirMiPerfil()" class="menu-item text-blue-400">👤 Mi Perfil</div>
+        </div>
+    `;
+    
+    nav.innerHTML = html;
 }
 
 async function showPage(page, params = null) {
@@ -169,93 +185,112 @@ async function showPage(page, params = null) {
 
 // --- LOGICA DE USUARIOS ---
 
-window.abrirModalUsuario = async function(u = null) {
+// js/admin.js
+
+// Función para que cualquier usuario abra su propio perfil
+window.abrirMiPerfil = () => {
+    abrirModalUsuario(userPerfil, true); // true indica que es "auto-edición"
+};
+
+window.abrirModalUsuario = async function(u = null, esMiPerfil = false) {
     const body = document.getElementById('modal-body');
     const btn = document.getElementById('btn-save');
-    // Cargamos sucursales para el selector
-    const { data: sucs } = await _supabase.from('sucursales').select('*').order('nombre');
+    
+    // Si estamos editando un usuario existente, traemos sus datos actuales
+    const p = u?.permisos || { categorias: false, sabores: false, sucursales: true, pantallas: false, precios: false };
+    const emailActual = u?.email_acceso || "";
 
     document.getElementById('modal-tabs').classList.add('hidden');
     document.getElementById('modal-form').classList.add('active');
-    document.getElementById('modal-title').innerText = u ? "EDITAR USUARIO" : "NUEVO USUARIO";
-    btn.innerText = u ? "ACTUALIZAR" : "CONFIRMAR";
     
+    document.getElementById('modal-title').innerText = esMiPerfil ? "MI PERFIL" : (u ? "EDITAR USUARIO" : "NUEVO USUARIO");
+    btn.innerText = u ? "GUARDAR CAMBIOS" : "CREAR USUARIO";
+
     body.innerHTML = `
         <div class="space-y-4">
             <div>
-                <label class="text-[10px] font-bold text-slate-400 uppercase">Nombre para mostrar</label>
-                <input id="u-name" value="${u?.username || ''}" placeholder="Ej: Esteban - Sucursal Troncos" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
+                <label class="text-[10px] font-bold text-slate-400 uppercase">Nombre de Usuario</label>
+                <input id="u-name" value="${u?.username || ''}" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
             </div>
+            
             <div>
-                <label class="text-[10px] font-bold text-slate-400 uppercase">Email de acceso (ID único)</label>
-                <input id="u-email" type="email" value="${u?.username || ''}" placeholder="troncos@gmail.com" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none" ${u ? 'disabled' : ''}>
+                <label class="text-[10px] font-bold text-slate-400 uppercase">Correo Electrónico</label>
+                <input id="u-email" type="email" value="${emailActual}" placeholder="correo@ejemplo.com" 
+                       class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none ${u ? 'opacity-50' : ''}" 
+                       ${u ? 'readonly' : ''}>
+                ${u ? '<p class="text-[9px] text-slate-400 mt-1 italic">* El correo no se puede cambiar por seguridad</p>' : ''}
             </div>
-            ${u ? '' : `
+
             <div>
-                <label class="text-[10px] font-bold text-slate-400 uppercase">Contraseña</label>
-                <input id="u-pass" type="text" placeholder="123456" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
-            </div>`}
-            <div>
-                <label class="text-[10px] font-bold text-slate-400 uppercase">Rol del Sistema</label>
-                <select id="u-rol" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none" onchange="document.getElementById('suc-selector-container').classList.toggle('hidden', this.value === 'admin')">
-                    <option value="empleado" ${u?.rol === 'empleado' ? 'selected' : ''}>Empleado (Solo ve su sucursal)</option>
-                    <option value="admin" ${u?.rol === 'admin' ? 'selected' : ''}>Admin (Ve todo)</option>
-                </select>
+                <label class="text-[10px] font-bold text-slate-400 uppercase">${u ? 'Cambiar Contraseña' : 'Contraseña'}</label>
+                <input id="u-pass" type="password" placeholder="${u ? 'Dejar en blanco para no cambiar' : 'Contraseña'}" 
+                       class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
             </div>
-            <div id="suc-selector-container" class="${u?.rol === 'admin' ? 'hidden' : ''}">
-                <label class="text-[10px] font-bold text-slate-400 uppercase">Asignar Sucursal Inicial</label>
-                <select id="u-suc-inicial" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
-                    <option value="">Seleccionar sucursal...</option>
-                    ${sucs.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('')}
-                </select>
+
+            <!-- SECCIÓN DE PERMISOS: Solo visible/editable por Admin y si NO es su propio perfil -->
+            <div id="permisos-section" class="${esMiPerfil ? 'opacity-50 pointer-events-none' : ''} ${userPerfil.rol !== 'admin' ? 'hidden' : ''}">
+                <div class="p-4 bg-blue-50 rounded-3xl mt-4">
+                    <p class="text-[10px] font-black uppercase mb-3 text-blue-600">Permisos de Acceso</p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <label class="flex items-center gap-2 text-xs font-bold"><input type="checkbox" id="p-cat" ${p.categorias ? 'checked' : ''}> CATEGORÍAS</label>
+                        <label class="flex items-center gap-2 text-xs font-bold"><input type="checkbox" id="p-sab" ${p.sabores ? 'checked' : ''}> SABORES</label>
+                        <label class="flex items-center gap-2 text-xs font-bold"><input type="checkbox" id="p-suc" ${p.sucursales ? 'checked' : ''}> SUCURSALES</label>
+                        <label class="flex items-center gap-2 text-xs font-bold"><input type="checkbox" id="p-pan" ${p.pantallas ? 'checked' : ''}> PANTALLAS</label>
+                        <label class="flex items-center gap-2 text-xs font-bold"><input type="checkbox" id="p-pre" ${p.precios ? 'checked' : ''}> PRECIOS</label>
+                    </div>
+                </div>
             </div>
         </div>`;
 
     btn.onclick = async () => {
-        const username = document.getElementById('u-name').value;
-        const email = document.getElementById('u-email').value;
-        const rol = document.getElementById('u-rol').value;
-        const sucId = document.getElementById('u-suc-inicial').value;
+        const nuevoNombre = document.getElementById('u-name').value.trim();
+        const password = document.getElementById('u-pass').value;
+        
+        // Capturar permisos solo si es el admin editando a otro
+        const permisos = esMiPerfil ? p : {
+            categorias: document.getElementById('p-cat').checked,
+            sabores: document.getElementById('p-sab').checked,
+            sucursales: document.getElementById('p-suc').checked,
+            pantallas: document.getElementById('p-pan').checked,
+            precios: document.getElementById('p-pre').checked
+        };
 
         try {
             if (u) {
-                // Actualizar usuario existente
-                const { error: errUpd } = await _supabase.from('perfiles').update({ username, rol }).eq('id', u.id);
+                // 1. Actualizar datos en tabla Perfiles
+                const { error: errUpd } = await _supabase.from('perfiles').update({ 
+                    username: nuevoNombre,
+                    permisos: permisos 
+                }).eq('id', u.id);
+                
                 if (errUpd) throw errUpd;
-            } else {
-                // CREAR USUARIO NUEVO
-                const password = document.getElementById('u-pass').value;
-                if (!password) return alert("Debes ingresar una contraseña");
 
-                // 1. Llamamos al RPC (Asegúrate de haber ejecutado el último SQL que te pasé con encrypted_password)
+                // 2. Si hay nueva contraseña, actualizarla en Auth
+                if (password.length > 0) {
+                    const { error: errPass } = await _supabase.auth.updateUser({ password: password });
+                    if (errPass) throw errPass;
+                    alert("Contraseña actualizada correctamente");
+                }
+
+                alert("Datos actualizados");
+            } else {
+                // Lógica de creación (RPC)
+                const email = document.getElementById('u-email').value;
                 const { error: errRpc } = await _supabase.rpc('admin_create_user', { 
                     p_email: email, 
                     p_password: password, 
-                    p_username: username, 
-                    p_rol: rol 
+                    p_username: nuevoNombre, 
+                    p_rol: 'empleado',
+                    p_permisos: permisos
                 });
-                
                 if (errRpc) throw errRpc;
-
-                // 2. Vinculación de sucursal inmediata si es empleado
-                if (rol === 'empleado' && sucId) {
-                    // Buscamos el ID recién creado en perfiles
-                    const { data: newUser, error: errSearch } = await _supabase
-                        .from('perfiles')
-                        .select('id')
-                        .eq('username', username)
-                        .single();
-
-                    if (newUser) {
-                        await _supabase.from('usuario_sucursales').insert([{ 
-                            usuario_id: newUser.id, 
-                            sucursal_id: sucId 
-                        }]);
-                    }
-                }
             }
+            
             closeModal();
-            showPage('usuarios');
+            // Si el usuario se editó a sí mismo, recargar para aplicar cambios de nombre
+            if (esMiPerfil) window.location.reload();
+            else showPage('usuarios');
+            
         } catch (err) {
             alert("Error: " + err.message);
         }
