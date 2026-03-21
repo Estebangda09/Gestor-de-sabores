@@ -60,76 +60,122 @@
         let userPerfil = null;
         let currentPage = 'categorias';
 
-        async function checkSession() {
-            const { data: { session }, error: authError } = await _supabase.auth.getSession();
-            
-            if (authError || !session) {
-                document.getElementById('login-screen').classList.remove('hidden');
-                return;
-            }
-
-            // Buscamos el perfil
-            const { data: perfil, error: perfilError } = await _supabase
-                .from('perfiles')
-                .select('*')
-                .eq('id', session.user.id)
-                .single();
-            
-            if (perfilError || !perfil) {
-                console.error("Perfil no encontrado:", perfilError);
-                alert("ERROR: Tu usuario no tiene un perfil en la tabla 'perfiles'. \n\nVerifica que el ID en la tabla coincida con tu User UID.");
-                await _supabase.auth.signOut();
-                window.location.reload();
-                return;
-            }
-
-            userPerfil = perfil;
-            document.getElementById('login-screen').classList.add('hidden');
-            document.getElementById('sidebar').classList.remove('hidden');
-            document.getElementById('app').classList.remove('hidden');
-
-            renderMenu();
-            if (perfil.rol === 'empleado') showPage('admin_stock', perfil.sucursal_id);
-            else showPage('categorias');
+       // --- INICIO: SESIÓN Y ROLES (VERSIÓN EDITADA) ---
+async function checkSession() {
+    try {
+        const { data: { session }, error: authError } = await _supabase.auth.getSession();
+        
+        if (authError || !session) {
+            document.getElementById('login-screen').classList.remove('hidden');
+            document.getElementById('sidebar').classList.add('hidden');
+            document.getElementById('app').classList.add('hidden');
+            return;
         }
 
-        async function handleLogin() {
-            const btn = document.getElementById('btn-login');
-            btn.innerText = "Cargando...";
-            btn.disabled = true;
-
-            const email = document.getElementById('login-email').value;
-            const pass = document.getElementById('login-pass').value;
-
-            const { error } = await _supabase.auth.signInWithPassword({ email, password: pass });
-            
-            if (error) {
-                alert("Error: " + error.message);
-                btn.innerText = "Entrar al Sistema";
-                btn.disabled = false;
-            } else {
-                checkSession();
-            }
+        // Buscamos el perfil con manejo de errores detallado
+        const { data: perfil, error: perfilError } = await _supabase
+            .from('perfiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+        
+        if (perfilError) {
+            // Si hay un error aquí, es 99% probable que sea por las políticas RLS
+            console.error("Error de Supabase al leer perfil:", perfilError);
+            alert("ERROR DE PERFIL: " + perfilError.message + 
+                  "\n\n1. Revisa que el ID en la tabla 'perfiles' sea: " + session.user.id + 
+                  "\n2. Revisa que la política SELECT en 'perfiles' sea TRUE para todos.");
+            await handleLogout();
+            return;
         }
 
-        async function handleLogout() {
-            await _supabase.auth.signOut();
-            window.location.reload();
+        if (!perfil) {
+            alert("USUARIO SIN ROL: Tu cuenta no existe en la tabla 'perfiles'.");
+            await handleLogout();
+            return;
         }
 
-        function renderMenu() {
-            const nav = document.getElementById('menu-nav');
-            if (userPerfil.rol === 'admin') {
-                nav.innerHTML = `
-                    <div onclick="showPage('categorias')" id="m-categorias" class="menu-item active font-bold">📁 Categorías</div>
-                    <div onclick="showPage('sabores')" id="m-sabores" class="menu-item">🍨 Sabores</div>
-                    <div onclick="showPage('sucursales')" id="m-sucursales" class="menu-item">🏪 Sucursales</div>
-                    <div onclick="showPage('precios')" id="m-precios" class="menu-item">💰 Precios</div>
-                `;
-            } else {
-                nav.innerHTML = `<div class="menu-item active font-bold text-blue-400">🏪 Gestión de Stock</div>`;
-            }
+        // Si llegamos aquí, todo está OK
+        userPerfil = perfil;
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('sidebar').classList.remove('hidden');
+        document.getElementById('app').classList.remove('hidden');
+
+        renderMenu();
+
+        // Redirección inteligente
+        if (userPerfil.rol === 'empleado') {
+            showPage('admin_stock', userPerfil.sucursal_id);
+        } else {
+            showPage('categorias');
         }
+
+    } catch (err) {
+        console.error("Error inesperado:", err);
+        alert("Ocurrió un error inesperado al verificar la sesión.");
+    }
+}
+
+async function handleLogin() {
+    const btn = document.getElementById('btn-login');
+    const email = document.getElementById('login-email').value;
+    const pass = document.getElementById('login-pass').value;
+
+    if (!email || !pass) {
+        alert("Ingresa email y contraseña");
+        return;
+    }
+
+    // Bloqueamos el botón
+    btn.innerText = "Verificando...";
+    btn.disabled = true;
+
+    const { data, error } = await _supabase.auth.signInWithPassword({ email, password: pass });
+    
+    if (error) {
+        alert("Error de acceso: " + error.message);
+        btn.innerText = "Entrar al Sistema";
+        btn.disabled = false;
+    } else {
+        // En lugar de recargar, llamamos directamente a checkSession
+        // para manejar el flujo sin perder el estado
+        await checkSession();
+        
+        // Si después de checkSession seguimos en el login (por error de perfil)
+        // rehabilitamos el botón por si acaso
+        if (!document.getElementById('login-screen').classList.contains('hidden')) {
+            btn.innerText = "Entrar al Sistema";
+            btn.disabled = false;
+        }
+    }
+}
+
+async function handleLogout() {
+    // Limpiamos todo rastro de sesión para evitar bucles
+    await _supabase.auth.signOut();
+    localStorage.clear(); 
+    window.location.reload();
+}
+
+function renderMenu() {
+    const nav = document.getElementById('menu-nav');
+    if (!nav) return;
+
+    if (userPerfil.rol === 'admin') {
+        nav.innerHTML = `
+            <div onclick="showPage('categorias')" id="m-categorias" class="menu-item active font-bold">📁 Categorías</div>
+            <div onclick="showPage('sabores')" id="m-sabores" class="menu-item">🍨 Sabores</div>
+            <div onclick="showPage('sucursales')" id="m-sucursales" class="menu-item">🏪 Sucursales</div>
+            <div onclick="showPage('precios')" id="m-precios" class="menu-item">💰 Precios</div>
+        `;
+    } else {
+        // Si es empleado, mostramos un menú simplificado
+        nav.innerHTML = `
+            <div class="menu-item active font-bold text-blue-400">🏪 Panel de Stock</div>
+            <div class="px-5 py-2 text-xs text-gray-400">Usuario: ${userPerfil.username || 'Empleado'}</div>
+        `;
+    }
+}
 
         // --- LÓGICA DE PÁGINAS ---
         async function showPage(page, params = null) {
