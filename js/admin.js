@@ -15,6 +15,12 @@ function renderMenu() {
 }
 
 async function showPage(page, params = null) {
+
+    const paginasProhibidas = ['categorias', 'sabores', 'usuarios', 'precios', 'pantallas'];
+    if (userPerfil.rol !== 'admin' && paginasProhibidas.includes(page)) {
+        page = 'sucursales'; 
+    }
+  
     currentPage = page;
     const container = document.getElementById('view-content');
     const header = document.getElementById('view-header');
