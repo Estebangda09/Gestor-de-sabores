@@ -42,15 +42,49 @@ async function showPage(page, params = null) {
         container.innerHTML = `<div class="space-y-3">${data.map(c => `<div class="bg-white p-5 rounded-2xl shadow-sm flex justify-between border-l-8 border-blue-500 font-bold">${c.nombre} <button onclick='abrirModal("cat", ${JSON.stringify(c)})' class="text-blue-500 text-xs">EDITAR</button></div>`).join('')}</div>`;
     }
 
-    if (page === 'sabores') {
-        header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Sabores</h1><button onclick="abrirModal('sabor')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ Nuevo</button>`;
-        const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
-        const { data: sabs } = await _supabase.from('sabores').select('*');
-        container.innerHTML = cats.map(c => {
-            const ms = sabs.filter(s => s.categoria_id === c.id);
-            return `<div class="mb-8 bg-white p-6 rounded-3xl shadow-sm border-l-8 border-indigo-500"><h3 class="text-xl font-bold text-indigo-600 mb-6 uppercase text-sm">${c.nombre}</h3><div class="grid grid-cols-2 md:grid-cols-4 gap-4">${ms.map(s => `<div class="border-2 p-4 rounded-2xl h-28 bg-slate-50 flex flex-col justify-between group"><div>${s.es_vegano ? 'V ':''}${s.es_sintacc ? 'T':''}</div><span class="font-bold text-xs uppercase">${s.nombre}</span><button onclick='abrirModal("sabor", ${JSON.stringify(s)})' class="hidden group-hover:block text-blue-500 text-[10px]">EDITAR</button></div>`).join('')}</div></div>`;
-        }).join('');
-    }
+    // MODULO SABORES (Actualizado con tu mejora de UX)
+if (page === 'sabores') {
+    header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Gestión de Sabores</h1>`;
+    
+    const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
+    const { data: sabs } = await _supabase.from('sabores').select('*').order('nombre');
+
+    container.innerHTML = cats.map(c => {
+        const saboresDeEstaCat = sabs.filter(s => s.categoria_id === c.id);
+        
+        return `
+            <div class="mb-10 bg-white p-6 rounded-[32px] shadow-sm border border-slate-100">
+                <div class="flex justify-between items-center mb-6 border-b pb-4">
+                    <div>
+                        <h3 class="text-xl font-black text-indigo-600 uppercase italic">${c.nombre}</h3>
+                        <p class="text-[10px] font-bold text-slate-400">${saboresDeEstaCat.length} SABORES ACTIVOS</p>
+                    </div>
+                    <button onclick="abrirModalSaborDirecto('${c.id}', '${c.nombre}')" 
+                            class="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100">
+                        + AGREGAR A ${c.nombre}
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                    ${saboresDeEstaCat.map(s => `
+                        <div class="relative border-2 border-slate-50 p-4 rounded-2xl bg-slate-50/50 hover:bg-white hover:border-indigo-200 transition-all group">
+                            <div class="flex gap-1 mb-2">
+                                ${s.es_vegano ? '<span class="bg-green-100 text-green-700 text-[9px] px-1.5 py-0.5 rounded font-black">V</span>' : ''}
+                                ${s.es_sintacc ? '<span class="bg-amber-100 text-amber-700 text-[9px] px-1.5 py-0.5 rounded font-black">T</span>' : ''}
+                            </div>
+                            <p class="font-bold text-xs uppercase text-slate-700 leading-tight mb-4">${s.nombre}</p>
+                            
+                            <div class="flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onclick='abrirModalSaborExistente(${JSON.stringify(s)})' class="text-indigo-500 text-[10px] font-black uppercase">Editar</button>
+                                <button onclick="eliminar('sabores', '${s.id}')" class="text-red-400 text-[10px]">✕</button>
+                            </div>
+                        </div>
+                    `).join('')}
+                    ${saboresDeEstaCat.length === 0 ? '<p class="text-slate-300 text-xs italic p-4">Sin sabores en esta categoría...</p>' : ''}
+                </div>
+            </div>`;
+    }).join('');
+}
 
     if (page === 'precios') {
         header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Precios</h1><div class="flex gap-2"><button onclick="abrirModal('cat_precio')" class="bg-slate-800 text-white px-4 py-2 rounded-xl font-bold text-xs">+ CAT</button><button onclick="abrirModal('precio')" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-xs">+ PRECIO</button></div>`;
@@ -103,4 +137,88 @@ function closeModal() {
 }
 async function eliminar(t, id) { 
     if(confirm('¿BORRAR?')) { await _supabase.from(t).delete().eq('id', id); showPage(currentPage); } 
+}
+// Función para agregar nuevo sabor sabiendo ya la categoría
+function abrirModalSaborDirecto(catId, catNombre) {
+    const modal = document.getElementById('modal-form');
+    const title = document.getElementById('modal-title');
+    const body = document.getElementById('modal-body');
+    const btn = document.getElementById('btn-save');
+
+    title.innerText = `NUEVO EN: ${catNombre}`;
+    
+    body.innerHTML = `
+        <input type="hidden" id="f-cat-id" value="${catId}">
+        <div class="space-y-4">
+            <div>
+                <label class="text-[10px] font-black text-slate-400 uppercase">Nombre del Sabor</label>
+                <input id="f-nombre" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none focus:border-indigo-500" placeholder="Ej: Chocolate Suizo">
+            </div>
+            <div class="flex gap-4 p-2">
+                <label class="flex items-center gap-2 cursor-pointer font-bold text-xs">
+                    <input type="checkbox" id="f-vegano" class="w-4 h-4"> VEGANO
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer font-bold text-xs">
+                    <input type="checkbox" id="f-sintacc" class="w-4 h-4"> SIN TACC
+                </label>
+            </div>
+        </div>
+    `;
+
+    modal.classList.add('active');
+
+    btn.onclick = async () => {
+        const payload = {
+            nombre: document.getElementById('f-nombre').value,
+            categoria_id: document.getElementById('f-cat-id').value,
+            es_vegano: document.getElementById('f-vegano').checked,
+            es_sintacc: document.getElementById('f-sintacc').checked
+        };
+
+        if(!payload.nombre) return alert("Ponle un nombre al sabor");
+
+        const { error } = await _supabase.from('sabores').insert([payload]);
+        if(error) alert("Error: " + error.message);
+        
+        closeModal();
+        showPage('sabores');
+    };
+}
+
+// Función para editar sabor existente
+function abrirModalSaborExistente(sabor) {
+    const modal = document.getElementById('modal-form');
+    const title = document.getElementById('modal-title');
+    const body = document.getElementById('modal-body');
+    const btn = document.getElementById('btn-save');
+
+    title.innerText = "EDITAR SABOR";
+    
+    body.innerHTML = `
+        <div class="space-y-4">
+            <input id="f-nombre" value="${sabor.nombre}" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none focus:border-indigo-500">
+            <div class="flex gap-4 p-2">
+                <label class="flex items-center gap-2 cursor-pointer font-bold text-xs">
+                    <input type="checkbox" id="f-vegano" ${sabor.es_vegano ? 'checked' : ''}> VEGANO
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer font-bold text-xs">
+                    <input type="checkbox" id="f-sintacc" ${sabor.es_sintacc ? 'checked' : ''}> SIN TACC
+                </label>
+            </div>
+        </div>
+    `;
+
+    modal.classList.add('active');
+
+    btn.onclick = async () => {
+        const { error } = await _supabase.from('sabores').update({
+            nombre: document.getElementById('f-nombre').value,
+            es_vegano: document.getElementById('f-vegano').checked,
+            es_sintacc: document.getElementById('f-sintacc').checked
+        }).eq('id', sabor.id);
+
+        if(error) alert("Error al actualizar");
+        closeModal();
+        showPage('sabores');
+    };
 }
