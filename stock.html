@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Gestión de Stock</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="config.js"></script>
+</head>
+<body class="bg-slate-100 font-sans min-h-screen">
+    <div class="p-6 bg-white shadow-md flex justify-between items-center sticky top-0 z-50">
+        <div class="flex items-center gap-4">
+            <button onclick="history.back()" class="text-slate-400 font-black text-2xl">←</button>
+            <h1 id="suc-name" class="text-2xl font-black text-slate-800 uppercase italic">Cargando...</h1>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="bulk(true)" class="bg-green-500 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase">Todo Disponible</button>
+            <button onclick="bulk(false)" class="bg-red-500 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase">Todo Agotado</button>
+        </div>
+    </div>
+
+    <div id="stock-container" class="p-8 max-w-6xl mx-auto space-y-10"></div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const SUC_ID = urlParams.get('id');
+
+        async function loadStock() {
+            const { data: suc } = await _supabase.from('sucursales').select('nombre').eq('id', SUC_ID).single();
+            document.getElementById('suc-name').innerText = suc.nombre;
+
+            const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
+            const { data: sabs } = await _supabase.from('sabores').select('*');
+            const { data: vis } = await _supabase.from('visibilidad_sabores').select('*').eq('sucursal_id', SUC_ID);
+
+            const container = document.getElementById('stock-container');
+            container.innerHTML = '';
+
+            cats.forEach(c => {
+                const misSabores = sabs.filter(s => s.categoria_id === c.id);
+                if (misSabores.length === 0) return;
+
+                container.innerHTML += `
+                    <div>
+                        <h2 class="text-blue-500 font-black uppercase tracking-widest text-sm mb-4 ml-2">${c.nombre}</h2>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            ${misSabores.map(s => {
+                                const isOk = vis.find(v => v.sabor_id === s.id)?.disponible !== false;
+                                return `<button onclick="toggle('${s.id}', ${isOk})" class="p-5 rounded-2xl border-2 font-bold transition-all active:scale-90 ${isOk ? 'bg-white border-blue-500 text-blue-700 shadow-md':'bg-slate-200 border-transparent text-slate-400 line-through'}">${s.nombre}</button>`;
+                            }).join('')}
+                        </div>
+                    </div>`;
+            });
+        }
+
+        async function toggle(sid, cur) {
+            await _supabase.from('visibilidad_sabores').upsert({ sucursal_id: SUC_ID, sabor_id: sid, disponible: !cur });
+            loadStock();
+        }
+
+        async function bulk(val) {
+            if(confirm('¿Cambiar el estado de TODOS los sabores?')) {
+                await _supabase.rpc('bulk_update_stock', { pid_sucursal: SUC_ID, p_estado: val });
+                loadStock();
+            }
+        }
+
+        loadStock();
+    </script>
+</body>
+</html>
