@@ -85,26 +85,27 @@
     </div>
 
     <script>
-        const SUPABASE_URL = 'https://vokwutkpntqtfevvdkei.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZva3d1dGtwbnRxdGZldnZka2VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3OTE4MDMsImV4cCI6MjA4OTM2NzgwM30.FdNLN4PdKAMe4LSdw9lGqjLeV6UzbfFlwZjgkd8nkro';
-        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const SUPABASE_URL = 'https://vokwutkpntqtfevvdkei.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZva3d1dGtwbnRxdGZldnZka2VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3OTE4MDMsImV4cCI6MjA4OTM2NzgwM30.FdNLN4PdKAMe4LSdw9lGqjLeV6UzbfFlwZjgkd8nkro';
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        let userPerfil = null;
-        let currentPage = 'categorias';
-        let currentTvData = null;
-        let activeTab = 'config';
+    let userPerfil = null;
+    let currentPage = 'categorias';
+    let currentTvData = null;
+    let activeTab = 'config';
 
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('mode') === 'tv') {
-            const tvId = urlParams.get('id');
-            document.body.innerHTML = '<div id="tv-container" class="tv-mode"></div>';
-            renderPantallaTV(tvId);
-            setInterval(() => renderPantallaTV(tvId), 10000);
-        } else {
-            checkSession();
-        }
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('mode') === 'tv') {
+        const tvId = urlParams.get('id');
+        document.body.innerHTML = '<div id="tv-container" class="tv-mode"></div>';
+        renderPantallaTV(tvId);
+        setInterval(() => renderPantallaTV(tvId), 10000);
+    } else {
+        checkSession();
+    }
 
-        async function checkSession() {
+    async function checkSession() {
+        try {
             const { data: { session } } = await _supabase.auth.getSession();
             if (!session) return;
             const { data: perfil } = await _supabase.from('perfiles').select('*').eq('id', session.user.id).single();
@@ -114,110 +115,114 @@
             document.getElementById('app').classList.remove('hidden');
             renderMenu();
             showPage('categorias');
+        } catch (e) { console.error(e); }
+    }
+
+    async function handleLogin() {
+        const email = document.getElementById('login-email').value;
+        const pass = document.getElementById('login-pass').value;
+        const { error } = await _supabase.auth.signInWithPassword({ email, password: pass });
+        if (error) alert(error.message); else window.location.reload();
+    }
+
+    function handleLogout() { _supabase.auth.signOut().then(() => window.location.reload()); }
+
+    function renderMenu() {
+        const nav = document.getElementById('menu-nav');
+        if (userPerfil.rol === 'admin') {
+            nav.innerHTML = `
+                <div onclick="showPage('categorias')" id="m-categorias" class="menu-item">📁 Categorías</div>
+                <div onclick="showPage('sabores')" id="m-sabores" class="menu-item">🍨 Sabores</div>
+                <div onclick="showPage('sucursales')" id="m-sucursales" class="menu-item">🏪 Sucursales</div>
+                <div onclick="showPage('pantallas')" id="m-pantallas" class="menu-item">📺 Pantallas</div>
+                <div onclick="showPage('usuarios')" id="m-usuarios" class="menu-item">👥 Usuarios</div>
+                <div onclick="showPage('precios')" id="m-precios" class="menu-item">💰 Precios</div>
+            `;
+        } else {
+            nav.innerHTML = `<div onclick="showPage('sucursales')" id="m-sucursales" class="menu-item active">🏪 Sucursales</div>`;
+        }
+    }
+
+    async function showPage(page, params = null) {
+        currentPage = page;
+        const container = document.getElementById('view-content');
+        const header = document.getElementById('view-header');
+        document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
+        if(document.getElementById('m-'+page)) document.getElementById('m-'+page).classList.add('active');
+
+        if (page === 'categorias') {
+            header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Categorías</h1><button onclick="abrirModal('cat')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ Nueva</button>`;
+            const { data } = await _supabase.from('categorias').select('*').order('orden');
+            container.innerHTML = `<div class="space-y-3">${data.map(c => `<div class="bg-white p-5 rounded-2xl shadow-sm flex justify-between items-center border-l-8 border-blue-500 font-bold text-slate-700">${c.nombre} <div class="flex gap-4"><button onclick='abrirModal("cat", ${JSON.stringify(c)})' class="text-blue-500 text-xs">EDITAR</button><button onclick="eliminar('categorias','${c.id}')" class="text-red-300 text-xs">BORRAR</button></div></div>`).join('')}</div>`;
         }
 
-        async function handleLogin() {
-            const email = document.getElementById('login-email').value;
-            const pass = document.getElementById('login-pass').value;
-            const { error } = await _supabase.auth.signInWithPassword({ email, password: pass });
-            if (error) alert(error.message); else window.location.reload();
+        if (page === 'sabores') {
+            header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Sabores</h1><button onclick="abrirModal('sabor')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ Nuevo</button>`;
+            const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
+            const { data: sabs } = await _supabase.from('sabores').select('*');
+            container.innerHTML = cats.map(c => {
+                const ms = sabs.filter(s => s.categoria_id === c.id);
+                return `<div class="mb-8 bg-white p-6 rounded-3xl shadow-sm border-l-8 border-indigo-500"><h3 class="text-xl font-bold text-indigo-600 mb-6 uppercase tracking-widest text-sm">${c.nombre}</h3><div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                ${ms.map(s => `<div class="border-2 border-slate-50 p-4 rounded-2xl flex flex-col justify-between h-28 bg-slate-50 relative group">
+                <div class="flex gap-1 flex-wrap">${s.es_vegano ? '<span class="text-xs font-bold text-green-600">V</span>':''}${s.es_sintacc ? '<span class="text-xs font-bold text-amber-600">T</span>':''}</div><span class="font-bold text-slate-700 uppercase italic text-xs">${s.nombre}</span>
+                <div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition"><button onclick='abrirModal("sabor", ${JSON.stringify(s)})' class="text-blue-500 font-bold text-[10px]">EDIT</button><button onclick="eliminar('sabores','${s.id}')" class="text-red-400 font-bold text-[10px]">BORRAR</button></div></div>`).join('')}</div></div>`;
+            }).join('');
         }
 
-        function handleLogout() { _supabase.auth.signOut().then(() => window.location.reload()); }
-
-        function renderMenu() {
-            const nav = document.getElementById('menu-nav');
-            if (userPerfil.rol === 'admin') {
-                nav.innerHTML = `
-                    <div onclick="showPage('categorias')" id="m-categorias" class="menu-item">📁 Categorías</div>
-                    <div onclick="showPage('sabores')" id="m-sabores" class="menu-item">🍨 Sabores</div>
-                    <div onclick="showPage('sucursales')" id="m-sucursales" class="menu-item">🏪 Sucursales</div>
-                    <div onclick="showPage('pantallas')" id="m-pantallas" class="menu-item">📺 Pantallas</div>
-                    <div onclick="showPage('usuarios')" id="m-usuarios" class="menu-item">👥 Usuarios</div>
-                    <div onclick="showPage('precios')" id="m-precios" class="menu-item">💰 Precios</div>
-                `;
-            } else {
-                nav.innerHTML = `<div onclick="showPage('sucursales')" id="m-sucursales" class="menu-item active">🏪 Sucursales</div>`;
-            }
+        if (page === 'usuarios') {
+            header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Usuarios</h1><button onclick="abrirModal('usuario')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ Nuevo</button>`;
+            const { data: users } = await _supabase.from('perfiles').select('*');
+            container.innerHTML = `<div class="grid gap-4">${users.map(u => `<div class="bg-white p-6 rounded-3xl shadow-sm flex justify-between items-center border-l-8 ${u.rol === 'admin' ? 'border-amber-400':'border-emerald-400'}">
+            <div><p class="font-black text-slate-700 text-xl uppercase italic">${u.username}</p><p class="text-xs text-slate-400 font-bold uppercase">${u.rol}</p></div>
+            <div class="flex gap-4"><button onclick='gestionarAccesos("${u.id}", "${u.username}")' class="bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-bold">ACCESOS</button><button onclick='abrirModal("usuario", ${JSON.stringify(u)})' class="text-blue-500 font-bold text-xs p-2">EDITAR</button><button onclick="eliminar('perfiles','${u.id}')" class="text-red-300 font-bold text-xs p-2">BORRAR</button></div></div>`).join('')}</div>`;
         }
 
-        async function showPage(page, params = null) {
-            currentPage = page;
-            const container = document.getElementById('view-content');
-            const header = document.getElementById('view-header');
-            document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
-            if(document.getElementById('m-'+page)) document.getElementById('m-'+page).classList.add('active');
-
-            if (page === 'categorias') {
-                header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Categorías Sabores</h1><button onclick="abrirModal('cat')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ Nueva</button>`;
-                const { data } = await _supabase.from('categorias').select('*').order('orden');
-                container.innerHTML = `<div class="space-y-3">${data.map(c => `<div class="bg-white p-5 rounded-2xl shadow-sm flex justify-between items-center border-l-8 border-blue-500 font-bold text-slate-700">${c.nombre} <button onclick='abrirModal("cat", ${JSON.stringify(c)})' class="text-blue-500 text-xs">EDITAR</button></div>`).join('')}</div>`;
+        if (page === 'precios') {
+            header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Precios</h1>
+            <div class="flex gap-2"><button onclick="abrirModal('cat_precio')" class="bg-slate-800 text-white px-4 py-2 rounded-xl font-bold text-xs">+ CATEGORÍA</button>
+            <button onclick="abrirModal('precio')" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-xs">+ PRECIO</button></div>`;
+            const { data: cats } = await _supabase.from('categorias_precios').select('*').order('orden');
+            const { data: prices } = await _supabase.from('precios_globales').select('*').order('orden');
+            if(!cats || cats.length === 0) {
+                container.innerHTML = `<div class="text-center p-20 bg-white rounded-3xl text-slate-400 font-bold">Crea una categoría de precios primero.</div>`;
+                return;
             }
+            container.innerHTML = cats.map(c => {
+                const ms = prices ? prices.filter(p => p.categoria_precio_id === c.id) : [];
+                return `<div class="mb-10"><div class="flex justify-between items-center mb-4 border-b-2 border-slate-200 pb-2"><h3 class="text-xl font-black text-slate-800 uppercase italic">${c.nombre}</h3><button onclick='abrirModal("cat_precio", ${JSON.stringify(c)})' class="text-blue-400 font-bold text-xs">EDITAR</button></div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">${ms.map(p => `
+                <div class="bg-white p-5 rounded-3xl shadow-sm flex justify-between items-center border-l-8 border-amber-400">
+                    <div class="flex items-center gap-3">${p.imagen_url ? `<img src="${p.imagen_url}" class="w-12 h-12 object-contain rounded-lg">` : `<div class="w-12 h-12 bg-slate-100 rounded-lg"></div>`}
+                    <div><p class="text-[10px] font-bold text-slate-400 uppercase">${p.label}</p><p class="text-lg font-black text-slate-800">$${p.valor}</p></div></div>
+                    <div class="flex flex-col gap-1"><button onclick='abrirModal("precio", ${JSON.stringify(p)})' class="text-blue-500 font-bold text-[10px]">EDITAR</button><button onclick="eliminar('precios_globales','${p.id}')" class="text-red-300 font-bold text-[10px]">✕</button></div>
+                </div>`).join('')}</div></div>`;
+            }).join('');
+        }
 
-            if (page === 'sabores') {
-                header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Sabores</h1><button onclick="abrirModal('sabor')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ Nuevo</button>`;
-                const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
-                const { data: sabs } = await _supabase.from('sabores').select('*');
-                container.innerHTML = cats.map(c => {
-                    const ms = sabs.filter(s => s.categoria_id === c.id);
-                    return `<div class="mb-8 bg-white p-6 rounded-3xl shadow-sm border-l-8 border-indigo-500"><h3 class="text-xl font-bold text-indigo-600 mb-6 uppercase tracking-widest text-sm">${c.nombre}</h3><div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    ${ms.map(s => `<div class="border-2 border-slate-50 p-4 rounded-2xl flex flex-col justify-between h-28 bg-slate-50 relative group">
-                    <div class="flex gap-1 flex-wrap">${s.es_vegano ? '<span class="text-xs font-bold text-green-600">V</span>':''}${s.es_sintacc ? '<span class="text-xs font-bold text-amber-600">T</span>':''}</div><span class="font-bold text-slate-700 uppercase italic text-xs">${s.nombre}</span>
-                    <div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition"><button onclick='abrirModal("sabor", ${JSON.stringify(s)})' class="text-blue-500 font-bold text-[10px]">EDIT</button></div></div>`).join('')}</div></div>`;
-                }).join('');
-            }
+        if (page === 'pantallas') {
+            header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Digital Signage</h1>`;
+            const { data: sucs } = await _supabase.from('sucursales').select('*');
+            container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-6">${sucs.map(s => `<div class="bg-white p-6 rounded-3xl shadow-lg border-l-8 border-blue-500"><h3 class="text-xl font-black text-slate-800 uppercase mb-4">${s.nombre}</h3><button onclick="verPantallasSucursal('${s.id}', '${s.nombre}')" class="w-full bg-slate-900 text-white py-3 rounded-xl font-bold uppercase text-xs">PANTALLAS</button></div>`).join('')}</div>`;
+        }
 
-            if (page === 'usuarios') {
-                header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Usuarios</h1><button onclick="abrirModal('usuario')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ Nuevo</button>`;
-                const { data: users } = await _supabase.from('perfiles').select('*');
-                container.innerHTML = `<div class="grid gap-4">${users.map(u => `<div class="bg-white p-6 rounded-3xl shadow-sm flex justify-between items-center border-l-8 ${u.rol === 'admin' ? 'border-amber-400':'border-emerald-400'}">
-                <div><p class="font-black text-slate-700 text-xl uppercase italic">${u.username}</p><p class="text-xs text-slate-400 font-bold uppercase">${u.rol}</p></div>
-                <div class="flex gap-4"><button onclick='gestionarAccesos("${u.id}", "${u.username}")' class="bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-bold">ACCESOS</button><button onclick='abrirModal("usuario", ${JSON.stringify(u)})' class="text-blue-500 font-bold text-xs p-2">EDITAR</button><button onclick="eliminar('perfiles','${u.id}')" class="text-red-300 font-bold text-xs p-2">BORRAR</button></div></div>`).join('')}</div>`;
-            }
+        if (page === 'sucursales') {
+            header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Sucursales</h1><button onclick="abrirModal('sucursal')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ Nueva</button>`;
+            const { data: sucs } = await _supabase.from('sucursales').select('*');
+            container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-3 gap-6">${sucs.map(s => `<div class="bg-white p-6 rounded-3xl shadow-lg border-t-8 border-blue-500 text-center"><h3 class="text-xl font-black mb-4 uppercase italic text-slate-800">${s.nombre}</h3><button onclick="showPage('admin_stock', '${s.id}')" class="w-full bg-slate-900 text-white py-3 rounded-xl font-black text-xs hover:bg-blue-600 transition">GESTIONAR STOCK</button><div class="mt-4 flex justify-center gap-4"><button onclick='abrirModal("sucursal", ${JSON.stringify(s)})' class="text-[10px] text-blue-400 font-bold">EDITAR</button><button onclick="eliminar('sucursales','${s.id}')" class="text-[10px] text-red-300 font-bold">BORRAR</button></div></div>`).join('')}</div>`;
+        }
 
-            if (page === 'precios') {
-                header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Gestión de Precios</h1>
-                <div class="flex gap-2"><button onclick="abrirModal('cat_precio')" class="bg-slate-800 text-white px-4 py-2 rounded-xl font-bold text-xs">+ CATEGORÍA</button>
-                <button onclick="abrirModal('precio')" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-xs">+ PRECIO</button></div>`;
-                const { data: cats } = await _supabase.from('categorias_precios').select('*').order('orden');
-                const { data: prices } = await _supabase.from('precios_globales').select('*').order('orden');
-                container.innerHTML = cats.map(c => {
-                    const ms = prices.filter(p => p.categoria_precio_id === c.id);
-                    return `<div class="mb-10"><div class="flex justify-between items-center mb-4 border-b-2 border-slate-200 pb-2"><h3 class="text-xl font-black text-slate-800 uppercase italic">${c.nombre}</h3><button onclick='abrirModal("cat_precio", ${JSON.stringify(c)})' class="text-blue-400 font-bold text-xs">EDITAR</button></div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">${ms.map(p => `
-                    <div class="price-card-admin flex justify-between items-center">
-                        <div class="flex items-center gap-3">${p.imagen_url ? `<img src="${p.imagen_url}" class="w-12 h-12 object-contain rounded-lg">` : `<div class="w-12 h-12 bg-slate-100 rounded-lg"></div>`}
-                        <div><p class="text-[10px] font-bold text-slate-400 uppercase">${p.label}</p><p class="text-lg font-black text-slate-800">$${p.valor}</p></div></div>
-                        <div class="flex flex-col gap-1"><button onclick='abrirModal("precio", ${JSON.stringify(p)})' class="text-blue-500 font-bold text-[10px]">EDITAR</button><button onclick="eliminar('precios_globales','${p.id}')" class="text-red-300 font-bold text-[10px]">✕</button></div>
-                    </div>`).join('')}</div></div>`;
-                }).join('');
-            }
-
-            if (page === 'pantallas') {
-                header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Digital Signage</h1>`;
-                const { data: sucs } = await _supabase.from('sucursales').select('*');
-                container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-6">${sucs.map(s => `<div class="bg-white p-6 rounded-3xl shadow-lg border-l-8 border-blue-500"><h3 class="text-xl font-black text-slate-800 uppercase mb-4">${s.nombre}</h3><button onclick="verPantallasSucursal('${s.id}', '${s.nombre}')" class="w-full bg-slate-900 text-white py-3 rounded-xl font-bold uppercase text-xs">PANTALLAS</button></div>`).join('')}</div>`;
-            }
-
-            if (page === 'sucursales') {
-                header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Sucursales</h1><button onclick="abrirModal('sucursal')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ Nueva</button>`;
-                const { data: sucs } = await _supabase.from('sucursales').select('*');
-                container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-3 gap-6">${sucs.map(s => `<div class="bg-white p-6 rounded-3xl shadow-lg border-t-8 border-blue-500 text-center"><h3 class="text-xl font-black mb-4 uppercase italic text-slate-800">${s.nombre}</h3><button onclick="showPage('admin_stock', '${s.id}')" class="w-full bg-slate-900 text-white py-3 rounded-xl font-black text-xs hover:bg-blue-600 transition">GESTIONAR STOCK</button></div>`).join('')}</div>`;
-            }
-
-            if (page === 'admin_stock') {
-                const sucId = params;
-                const { data: suc } = await _supabase.from('sucursales').select('nombre').eq('id', sucId).single();
-                const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
-                const { data: sabs } = await _supabase.from('sabores').select('*');
-                const { data: vis } = await _supabase.from('visibilidad_sabores').select('*').eq('sucursal_id', sucId);
-                header.innerHTML = `<div class="flex items-center gap-4"><button onclick="showPage('sucursales')" class="text-slate-400 text-2xl">←</button><h1 class="text-3xl font-black text-slate-800 italic uppercase">${suc.nombre}</h1></div>`;
-                container.innerHTML = cats.map(c => {
-                    const ms = sabs.filter(s => s.categoria_id === c.id);
-                    if(!ms.length) return '';
-                    return `<div class="mb-10 bg-white p-8 rounded-[40px] shadow-sm"><div class="flex justify-between items-center mb-6"><h4 class="font-black text-slate-800 uppercase text-lg italic">${c.nombre}</h4><div class="flex gap-2"><button onclick="masterStock('${sucId}', ${JSON.stringify(ms.map(m=>m.id))}, true)" class="text-[10px] bg-emerald-100 text-emerald-600 px-3 py-1 rounded-full font-bold">HABILITAR TODO</button><button onclick="masterStock('${sucId}', ${JSON.stringify(ms.map(m=>m.id))}, false)" class="text-[10px] bg-red-100 text-red-600 px-3 py-1 rounded-full font-bold">PAUSAR TODO</button></div></div><div class="grid grid-cols-2 md:grid-cols-4 gap-3">${ms.map(s => { const isOk = vis.find(v => v.sabor_id === s.id)?.disponible !== false; return `<button onclick="toggleStock('${sucId}', '${s.id}', ${isOk})" class="p-5 rounded-2xl border-2 font-bold transition-all ${isOk ? 'bg-white border-blue-500 text-blue-700 shadow-md':'bg-slate-100 border-transparent text-slate-400 line-through'}">${s.nombre}</button>`; }).join('')}</div></div>`;
-                }).join('');
-            }
+        if (page === 'admin_stock') {
+            const sucId = params;
+            const { data: suc } = await _supabase.from('sucursales').select('nombre').eq('id', sucId).single();
+            const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
+            const { data: sabs } = await _supabase.from('sabores').select('*');
+            const { data: vis } = await _supabase.from('visibilidad_sabores').select('*').eq('sucursal_id', sucId);
+            header.innerHTML = `<div class="flex items-center gap-4"><button onclick="showPage('sucursales')" class="text-slate-400 text-2xl">←</button><h1 class="text-3xl font-black text-slate-800 italic uppercase">${suc.nombre}</h1></div>`;
+            container.innerHTML = cats.map(c => {
+                const ms = sabs.filter(s => s.categoria_id === c.id);
+                if(!ms.length) return '';
+                return `<div class="mb-10 bg-white p-8 rounded-[40px] shadow-sm"><div class="flex justify-between items-center mb-6"><h4 class="font-black text-slate-800 uppercase text-lg italic">${c.nombre}</h4><div class="flex gap-2"><button onclick="masterStock('${sucId}', ${JSON.stringify(ms.map(m=>m.id))}, true)" class="text-[10px] bg-emerald-500 text-white px-3 py-1 rounded-full font-bold">HABILITAR TODO</button><button onclick="masterStock('${sucId}', ${JSON.stringify(ms.map(m=>m.id))}, false)" class="text-[10px] bg-red-500 text-white px-3 py-1 rounded-full font-bold">PAUSAR TODO</button></div></div><div class="grid grid-cols-2 md:grid-cols-4 gap-3">${ms.map(s => { const isOk = vis.find(v => v.sabor_id === s.id)?.disponible !== false; return `<button onclick="toggleStock('${sucId}', '${s.id}', ${isOk})" class="p-5 rounded-2xl border-2 font-bold transition-all ${isOk ? 'bg-white border-blue-500 text-blue-700 shadow-md':'bg-slate-100 border-transparent text-slate-400 line-through'}">${s.nombre}</button>`; }).join('')}</div></div>`;
+            }).join('');
         }
 
         async function masterStock(sucId, ids, status) {
@@ -226,7 +231,6 @@
             showPage('admin_stock', sucId);
         }
 
-        // --- PANTALLAS ---
         async function verPantallasSucursal(sucId, sucName) {
             const container = document.getElementById('view-content');
             const header = document.getElementById('view-header');
@@ -267,7 +271,7 @@
                         <option value="sabores" ${currentTvData?.tipo === 'sabores' ? 'selected':''}>Sabores</option>
                         <option value="precios" ${currentTvData?.tipo === 'precios' ? 'selected':''}>Precios</option>
                     </select>
-                    <p class="text-xs font-bold text-slate-400 mt-4 uppercase">Categorías a mostrar:</p>
+                    <p class="text-xs font-bold text-slate-400 mt-4 uppercase">Contenido a mostrar:</p>
                     <div id="content-list" class="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 bg-slate-50 rounded-2xl border"></div>
                 `;
 
@@ -325,7 +329,7 @@
                 }
                 if (currentTvData) await _supabase.from('pantallas').update(updateData).eq('id', currentTvData.id);
                 else {
-                    updateData.sucursal_id = window.location.search.split('id=')[1] || currentTvData?.sucursal_id;
+                    updateData.sucursal_id = currentTvData?.sucursal_id || window.location.search.split('id=')[1];
                     await _supabase.from('pantallas').insert([updateData]);
                 }
                 closeModal(); showPage('pantallas');
@@ -337,7 +341,7 @@
         async function renderPantallaTV(id) {
             const { data: pant } = await _supabase.from('pantallas').select('*').eq('id', id).single();
             if(!pant) return;
-            const style = pant.estilo || { font: 'Inter', bg: '#fdfbf7', catColor: '#64748b', saborColor: '#1e293b', catSize: '1.2', saborSize: '1.6', marquesinaActiva: true, marquesinaBg: '#1e293b', marquesinaColor: '#ffffff', marquesinaTexto: 'BIENVENIDOS' };
+            const style = pant.estilo || { font: 'Inter', bg: '#fdfbf7', catColor: '#64748b', saborColor: '#1e293b', catSize: '1.2', saborSize: '1.6', marquesinaActiva: true, marquesinaBg: '#1e293b', marquesinaColor: '#ffffff', marquesinaTexto: 'HELADOS ARTESANALES' };
             const tv = document.getElementById('tv-container');
             tv.classList.remove('hidden');
             tv.style.backgroundColor = style.bg;
@@ -393,7 +397,6 @@
             }
         }
 
-        // --- ABML MAESTRO ---
         async function abrirModal(type, data = null) {
             const body = document.getElementById('modal-body');
             const btn = document.getElementById('btn-save');
@@ -457,6 +460,7 @@
         async function toggleStock(sucId, saborId, current) { await _supabase.from('visibilidad_sabores').upsert({ sucursal_id: sucId, sabor_id: saborId, disponible: !current }); showPage('admin_stock', sucId); }
         function closeModal() { document.getElementById('modal-form').classList.remove('active'); }
         async function eliminar(t, id) { if(confirm('¿BORRAR?')) { await _supabase.from(t).delete().eq('id', id); showPage(currentPage); } }
+        async function eliminarTV(id, sucId, sucName) { if(confirm('¿BORRAR TV?')) { await _supabase.from('pantallas').delete().eq('id', id); verPantallasSucursal(sucId, sucName); } }
     </script>
 </body>
 </html>
