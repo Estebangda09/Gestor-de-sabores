@@ -6,47 +6,11 @@
     <title>Ice Cream OS - Sistema Integral</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Fugaz+One&family=Inter:wght@400;700;900&family=Montserrat:wght@900&family=Oswald:wght@700&display=swap');
-        
-        body { font-family: 'Inter', sans-serif; background: #0f172a; margin: 0; overflow-x: hidden; }
-        
-        /* Layout Admin */
-        .sidebar { background: #1e293b; width: 280px; height: 100vh; position: fixed; color: white; z-index: 50; transition: 0.3s; }
-        .main-content { margin-left: 280px; padding: 40px; min-height: 100vh; background: #f1f5f9; transition: 0.3s; }
-        
-        @media (max-width: 768px) {
-            .sidebar { width: 100%; height: auto; position: relative; padding: 15px !important; }
-            .main-content { margin-left: 0; padding: 20px; }
-        }
-
-        .menu-item { padding: 12px 20px; cursor: pointer; border-radius: 12px; margin-bottom: 5px; display: flex; align-items: center; gap: 10px; color: #94a3b8; font-weight: bold; }
-        .menu-item.active { background: #3b82f6; color: white; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4); }
-        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); align-items: center; justify-content: center; z-index: 100; padding: 20px; }
-        .modal.active { display: flex; }
-
-        /* MODO TV */
-        .tv-mode { position: fixed; inset: 0; z-index: 9999; overflow: hidden; display: flex; flex-direction: column; padding: 60px; }
-        .tv-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; flex-grow: 1; align-content: start; }
-        .tv-column { display: flex; flex-direction: column; gap: 40px; }
-        .tv-cat-header { border-bottom: 1px solid rgba(0,0,0,0.1); margin-bottom: 15px; padding-bottom: 5px; text-transform: lowercase; }
-        .tv-flavor-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; row-gap: 5px; }
-        .tv-flavor-item { font-weight: 900; display: flex; align-items: center; gap: 10px; white-space: nowrap; }
-        .tv-dot { color: #3b82f6; font-size: 1.5rem; line-height: 0; }
-        
-        .tv-ticker { position: absolute; bottom: 0; left: 0; width: 100%; padding: 12px 0; font-weight: 900; text-transform: uppercase; overflow: hidden; white-space: nowrap; font-style: italic; }
-        .ticker-content { display: inline-block; animation: ticker 25s linear infinite; }
-        @keyframes ticker { 0% { transform: translate(100%, 0); } 100% { transform: translate(-100%, 0); } }
-
-        /* Precios Layout */
-        .price-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px dashed rgba(0,0,0,0.1); padding: 10px 0; }
-        .price-card-admin { background: white; border-radius: 20px; padding: 15px; border-left: 6px solid #fbbf24; }
-
-        #login-screen { background: #0f172a; position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; }
-    </style>
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
+    <!-- Pantalla de Login -->
     <div id="login-screen">
         <div class="bg-white p-10 rounded-3xl shadow-2xl w-96 text-center">
             <h2 class="text-3xl font-black mb-6 text-gray-800 italic uppercase">HELADO OS</h2>
@@ -56,19 +20,23 @@
         </div>
     </div>
 
+    <!-- Sidebar Admin -->
     <div id="sidebar" class="sidebar p-6 hidden">
-        <h2 class="text-2xl font-black mb-10 text-blue-400 italic text-center uppercase">ADMIN PANEL</h2>
+        <h2 class="text-2xl font-black mb-10 text-blue-400 italic text-center uppercase tracking-tighter">ADMIN PANEL</h2>
         <nav id="menu-nav"></nav>
         <button onclick="handleLogout()" class="mt-auto absolute bottom-8 left-6 text-red-400 font-bold flex items-center gap-2 hover:text-red-300 transition">✕ Salir</button>
     </div>
 
+    <!-- Contenido Admin -->
     <div id="app" class="main-content hidden">
         <div id="view-header" class="flex justify-between items-center mb-10"></div>
         <div id="view-content"></div>
     </div>
 
+    <!-- Contenedor TV -->
     <div id="tv-container" class="tv-mode hidden"></div>
 
+    <!-- Modal Unificado -->
     <div id="modal-form" class="modal">
         <div class="bg-white p-8 rounded-3xl w-full max-w-2xl shadow-2xl relative overflow-y-auto max-h-[90vh]">
             <div class="flex gap-4 mb-6 border-b pb-2 hidden" id="modal-tabs">
@@ -78,327 +46,15 @@
             <h3 id="modal-title" class="text-2xl font-bold mb-6 text-gray-800 uppercase italic"></h3>
             <div id="modal-body" class="space-y-4"></div>
             <div class="flex justify-end gap-3 mt-8 border-t pt-6">
-                <button onclick="closeModal()" class="px-5 font-bold text-slate-400 uppercase">Cancelar</button>
-                <button id="btn-save" class="px-8 py-3 bg-blue-600 text-white rounded-2xl font-bold uppercase italic"></button>
+                <button onclick="closeModal()" class="px-5 font-bold text-slate-400 uppercase text-sm">Cancelar</button>
+                <button id="btn-save" class="px-8 py-3 bg-blue-600 text-white rounded-2xl font-bold uppercase italic text-sm"></button>
             </div>
         </div>
     </div>
 
-    <script>
-const SUPABASE_URL = 'https://vokwutkpntqtfevvdkei.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZva3d1dGtwbnRxdGZldnZka2VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3OTE4MDMsImV4cCI6MjA4OTM2NzgwM30.FdNLN4PdKAMe4LSdw9lGqjLeV6UzbfFlwZjgkd8nkro';
-const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-let userPerfil = null;
-let currentPage = 'categorias';
-let currentTvData = null;
-let activeTab = 'config';
-
-const urlParams = new URLSearchParams(window.location.search);
-if (urlParams.get('mode') === 'tv') {
-    const tvId = urlParams.get('id');
-    document.body.innerHTML = '<div id="tv-container" class="tv-mode"></div>';
-    renderPantallaTV(tvId);
-    setInterval(() => renderPantallaTV(tvId), 10000);
-} else {
-    checkSession();
-}
-
-async function checkSession() {
-    try {
-        const { data: { session } } = await _supabase.auth.getSession();
-        if (!session) return;
-        const { data: perfil } = await _supabase.from('perfiles').select('*').eq('id', session.user.id).single();
-        userPerfil = perfil;
-        document.getElementById('login-screen').style.display = 'none';
-        document.getElementById('sidebar').classList.remove('hidden');
-        document.getElementById('app').classList.remove('hidden');
-        renderMenu();
-        showPage('categorias');
-    } catch (e) { console.error(e); }
-}
-
-async function handleLogin() {
-    const email = document.getElementById('login-email').value;
-    const pass = document.getElementById('login-pass').value;
-    const { error } = await _supabase.auth.signInWithPassword({ email, password: pass });
-    if (error) alert(error.message); else window.location.reload();
-}
-
-function handleLogout() { _supabase.auth.signOut().then(() => window.location.reload()); }
-
-function renderMenu() {
-    const nav = document.getElementById('menu-nav');
-    if (userPerfil.rol === 'admin') {
-        nav.innerHTML = `
-            <div onclick="showPage('categorias')" id="m-categorias" class="menu-item">📁 Categorías</div>
-            <div onclick="showPage('sabores')" id="m-sabores" class="menu-item">🍨 Sabores</div>
-            <div onclick="showPage('sucursales')" id="m-sucursales" class="menu-item">🏪 Sucursales</div>
-            <div onclick="showPage('pantallas')" id="m-pantallas" class="menu-item">📺 Pantallas</div>
-            <div onclick="showPage('usuarios')" id="m-usuarios" class="menu-item">👥 Usuarios</div>
-            <div onclick="showPage('precios')" id="m-precios" class="menu-item">💰 Precios</div>
-        `;
-    } else {
-        nav.innerHTML = `<div onclick="showPage('sucursales')" id="m-sucursales" class="menu-item active">🏪 Sucursales</div>`;
-    }
-}
-
-async function showPage(page, params = null) {
-    currentPage = page;
-    const container = document.getElementById('view-content');
-    const header = document.getElementById('view-header');
-    document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
-    if(document.getElementById('m-'+page)) document.getElementById('m-'+page).classList.add('active');
-
-    if (page === 'categorias') {
-        header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Categorías</h1><button onclick="abrirModal('cat')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ Nueva</button>`;
-        const { data } = await _supabase.from('categorias').select('*').order('orden');
-        container.innerHTML = `<div class="space-y-3">${data.map(c => `<div class="bg-white p-5 rounded-2xl shadow-sm flex justify-between border-l-8 border-blue-500 font-bold">${c.nombre} <button onclick='abrirModal("cat", ${JSON.stringify(c)})' class="text-blue-500 text-xs">EDITAR</button></div>`).join('')}</div>`;
-    }
-
-    if (page === 'sabores') {
-        header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Sabores</h1><button onclick="abrirModal('sabor')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ Nuevo</button>`;
-        const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
-        const { data: sabs } = await _supabase.from('sabores').select('*');
-        container.innerHTML = cats.map(c => {
-            const ms = sabs.filter(s => s.categoria_id === c.id);
-            return `<div class="mb-8 bg-white p-6 rounded-3xl shadow-sm border-l-8 border-indigo-500"><h3 class="text-xl font-bold text-indigo-600 mb-6 uppercase text-sm">${c.nombre}</h3><div class="grid grid-cols-2 md:grid-cols-4 gap-4">${ms.map(s => `<div class="border-2 p-4 rounded-2xl h-28 bg-slate-50 flex flex-col justify-between group"><div>${s.es_vegano ? 'V ':''}${s.es_sintacc ? 'T':''}</div><span class="font-bold text-xs uppercase">${s.nombre}</span><button onclick='abrirModal("sabor", ${JSON.stringify(s)})' class="hidden group-hover:block text-blue-500 text-[10px]">EDITAR</button></div>`).join('')}</div></div>`;
-        }).join('');
-    }
-
-    if (page === 'precios') {
-        header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Precios</h1><div class="flex gap-2"><button onclick="abrirModal('cat_precio')" class="bg-slate-800 text-white px-4 py-2 rounded-xl font-bold text-xs">+ CAT</button><button onclick="abrirModal('precio')" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-xs">+ PRECIO</button></div>`;
-        const { data: cats } = await _supabase.from('categorias_precios').select('*').order('orden');
-        const { data: prices } = await _supabase.from('precios_globales').select('*').order('orden');
-        container.innerHTML = cats.map(c => {
-            const ms = prices.filter(p => p.categoria_precio_id === c.id);
-            return `<div class="mb-10"><h3 class="text-xl font-black border-b-2 mb-4">${c.nombre}</h3><div class="grid grid-cols-1 md:grid-cols-3 gap-4">${ms.map(p => `<div class="price-card-admin flex justify-between items-center"><div><p class="text-[10px] font-bold text-slate-400 uppercase">${p.label}</p><p class="text-lg font-black text-slate-800">$${p.valor}</p></div><button onclick='abrirModal("precio", ${JSON.stringify(p)})' class="text-blue-500 text-xs">EDITAR</button></div>`).join('')}</div></div>`;
-        }).join('');
-    }
-
-    if (page === 'usuarios') {
-        header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Usuarios</h1><button onclick="abrirModal('usuario')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ Nuevo</button>`;
-        const { data: users } = await _supabase.from('perfiles').select('*');
-        container.innerHTML = `<div class="grid gap-4">${users.map(u => `<div class="bg-white p-5 rounded-2xl flex justify-between"><div><p class="font-black">${u.username}</p><p class="text-xs uppercase">${u.rol}</p></div><div class="flex gap-2"><button onclick='gestionarAccesos("${u.id}", "${u.username}")' class="text-xs bg-slate-100 p-2 rounded-lg">ACCESOS</button><button onclick='abrirModal("usuario", ${JSON.stringify(u)})' class="text-blue-500 text-xs">EDITAR</button></div></div>`).join('')}</div>`;
-    }
-
-    if (page === 'pantallas') {
-        header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">TVs</h1>`;
-        const { data: sucs } = await _supabase.from('sucursales').select('*');
-        container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-6">${sucs.map(s => `<div class="bg-white p-6 rounded-3xl shadow-lg border-l-8 border-blue-500"><h3>${s.nombre}</h3><button onclick="verPantallasSucursal('${s.id}', '${s.nombre}')" class="w-full bg-slate-900 text-white py-3 rounded-xl mt-4 font-bold text-xs">CONFIGURAR PANTALLAS</button></div>`).join('')}</div>`;
-    }
-
-    if (page === 'sucursales') {
-        header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Sucursales</h1><button onclick="abrirModal('sucursal')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ Nueva</button>`;
-        const { data: sucs } = await _supabase.from('sucursales').select('*');
-        container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-3 gap-6">${sucs.map(s => `<div class="bg-white p-6 rounded-3xl text-center"><h3 class="font-black uppercase">${s.nombre}</h3><button onclick="showPage('admin_stock', '${s.id}')" class="w-full bg-slate-900 text-white py-3 rounded-xl font-bold text-xs mt-4">STOCK</button></div>`).join('')}</div>`;
-    }
-
-    if (page === 'admin_stock') {
-        const sucId = params;
-        const { data: suc } = await _supabase.from('sucursales').select('nombre').eq('id', sucId).single();
-        const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
-        const { data: sabs } = await _supabase.from('sabores').select('*');
-        const { data: vis } = await _supabase.from('visibilidad_sabores').select('*').eq('sucursal_id', sucId);
-        header.innerHTML = `<h1 class="text-2xl font-black uppercase tracking-tighter">${suc.nombre}</h1>`;
-        container.innerHTML = cats.map(c => {
-            const ms = sabs.filter(s => s.categoria_id === c.id);
-            if(!ms.length) return '';
-            return `<div class="mb-10 bg-white p-8 rounded-[40px] shadow-sm"><div class="flex justify-between items-center mb-6"><h4>${c.nombre}</h4><div class="flex gap-2"><button onclick="masterStock('${sucId}', ${JSON.stringify(ms.map(m=>m.id))}, true)" class="bg-emerald-500 text-white px-3 py-1 rounded-full text-[10px]">HABILITAR TODO</button><button onclick="masterStock('${sucId}', ${JSON.stringify(ms.map(m=>m.id))}, false)" class="bg-red-500 text-white px-3 py-1 rounded-full text-[10px]">PAUSAR TODO</button></div></div><div class="grid grid-cols-2 md:grid-cols-4 gap-3">${ms.map(s => { const isOk = vis.find(v => v.sabor_id === s.id)?.disponible !== false; return `<button onclick="toggleStock('${sucId}', '${s.id}', ${isOk})" class="p-5 rounded-2xl border-2 font-bold ${isOk ? 'bg-white border-blue-500 text-blue-700':'bg-slate-100 text-slate-400 line-through'}">${s.nombre}</button>`; }).join('')}</div></div>`;
-        }).join('');
-    }
-}
-
-async function masterStock(sucId, ids, status) {
-    const batch = ids.map(id => ({ sucursal_id: sucId, sabor_id: id, disponible: status }));
-    await _supabase.from('visibilidad_sabores').upsert(batch);
-    showPage('admin_stock', sucId);
-}
-
-async function verPantallasSucursal(sucId, sucName) {
-    const { data: pants } = await _supabase.from('pantallas').select('*').eq('sucursal_id', sucId);
-    const container = document.getElementById('view-content');
-    const header = document.getElementById('view-header');
-    header.innerHTML = `<h1 class="text-xl font-black uppercase italic">${sucName}</h1><button onclick="abrirModalPantalla('${sucId}')" class="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold">+ TV</button>`;
-    container.innerHTML = pants.map(p => `
-        <div class="bg-white p-5 rounded-2xl shadow-sm flex justify-between items-center border-2 mb-4">
-            <div><p class="font-bold">${p.nombre}</p><p class="text-[10px] text-blue-500 uppercase font-black">${p.tipo}</p></div>
-            <div class="flex gap-2"><button onclick="window.open('?mode=tv&id=${p.id}', '_blank')" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold">VER</button><button onclick='abrirModalPantalla("${sucId}", ${JSON.stringify(p)})' class="bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-bold">DISEÑO</button><button onclick="eliminar('pantallas','${p.id}')" class="text-red-500 text-xs">✕</button></div>
-        </div>`).join('');
-}
-
-async function abrirModalPantalla(sucId, data = null) {
-    currentTvData = data;
-    activeTab = 'config';
-    document.getElementById('modal-tabs').classList.remove('hidden');
-    document.getElementById('modal-form').classList.add('active');
-    renderModalContent();
-}
-
-async function renderModalContent() {
-    const body = document.getElementById('modal-body');
-    const btn = document.getElementById('btn-save');
-    const title = document.getElementById('modal-title');
-    title.innerText = currentTvData ? "EDITOR DE TV" : "NUEVA PANTALLA";
-    btn.innerText = "GUARDAR CAMBIOS";
-    
-    document.getElementById('tab-config').className = activeTab === 'config' ? 'font-bold text-blue-600 border-b-2 border-blue-600 pb-1' : 'font-bold text-slate-400 pb-1';
-    document.getElementById('tab-style').className = activeTab === 'style' ? 'font-bold text-blue-600 border-b-2 border-blue-600 pb-1' : 'font-bold text-slate-400 pb-1';
-
-    if (activeTab === 'config') {
-        const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
-        const { data: prices } = await _supabase.from('categorias_precios').select('*').order('orden');
-        const configActiva = currentTvData?.config_categorias || [];
-        body.innerHTML = `<input id="p-nom" value="${currentTvData?.nombre || ''}" placeholder="Nombre TV" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><select id="p-tipo" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><option value="sabores" ${currentTvData?.tipo === 'sabores' ? 'selected':''}>Sabores</option><option value="precios" ${currentTvData?.tipo === 'precios' ? 'selected':''}>Precios</option></select><div id="list-cont" class="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 bg-slate-50 rounded-2xl border">${(currentTvData?.tipo === 'precios' ? prices : cats).map(i => `<label class="flex items-center gap-2 p-2 bg-white rounded-xl cursor-pointer"><input type="checkbox" class="tv-check" value="${i.id}" ${configActiva.includes(i.id) ? 'checked' : ''}> <span class="text-[10px] font-bold uppercase">${i.nombre}</span></label>`).join('')}</div>`;
-    } else {
-        const est = currentTvData?.estilo || { font: 'Inter', bg: '#fdfbf7', catColor: '#64748b', saborColor: '#1e293b', catSize: '1.2', saborSize: '1.6', marquesinaActiva: true, marquesinaBg: '#1e293b', marquesinaColor: '#ffffff', marquesinaTexto: 'BIENVENIDOS' };
-        body.innerHTML = `<div class="grid grid-cols-2 gap-4">
-            <div><label class="text-[10px] font-bold">FUENTES</label><select id="s-font" class="w-full border p-2 rounded-xl"><option value="Inter" ${est.font==='Inter'?'selected':''}>Inter</option><option value="Oswald" ${est.font==='Oswald'?'selected':''}>Oswald</option><option value="Montserrat" ${est.font==='Montserrat'?'selected':''}>Montserrat</option></select></div>
-            <div><label class="text-[10px] font-bold">FONDO</label><input type="color" id="s-bg" value="${est.bg}" class="w-full h-10"></div>
-            <div><label class="text-[10px] font-bold">COLOR CAT</label><input type="color" id="s-catC" value="${est.catColor}" class="w-full h-10"></div>
-            <div><label class="text-[10px] font-bold">COLOR SAB</label><input type="color" id="s-sabC" value="${est.saborColor}" class="w-full h-10"></div>
-            <div><label class="text-[10px] font-bold">TAMAÑO CAT</label><input type="number" step="0.1" id="s-catS" value="${est.catSize}" class="w-full border p-2"></div>
-            <div><label class="text-[10px] font-bold">TAMAÑO SAB</label><input type="number" step="0.1" id="s-sabS" value="${est.saborSize}" class="w-full border p-2"></div>
-            <div class="col-span-2 border-t pt-4">
-                <label class="flex items-center gap-2"><input type="checkbox" id="s-mqA" ${est.marquesinaActiva?'checked':''}> MARQUESINA</label>
-                <div class="grid grid-cols-2 gap-2 mt-2">
-                    <input type="color" id="s-mqB" value="${est.marquesinaBg}" class="w-full h-10">
-                    <input type="color" id="s-mqC" value="${est.marquesinaColor}" class="w-full h-10">
-                </div>
-                <input id="s-mqT" value="${est.marquesinaTexto}" class="w-full border p-3 rounded-xl mt-2 text-xs">
-            </div>
-        </div>`;
-    }
-    btn.onclick = async () => {
-        let upd = {};
-        if (activeTab === 'config') {
-            upd = { nombre: document.getElementById('p-nom').value, tipo: document.getElementById('p-tipo').value, config_categorias: Array.from(document.querySelectorAll('.tv-check:checked')).map(c => c.value) };
-        } else {
-            upd = { estilo: { font: document.getElementById('s-font').value, bg: document.getElementById('s-bg').value, catColor: document.getElementById('s-catC').value, saborColor: document.getElementById('s-sabC').value, catSize: document.getElementById('s-catS').value, saborSize: document.getElementById('s-sabS').value, marquesinaActiva: document.getElementById('s-mqA').checked, marquesinaBg: document.getElementById('s-mqB').value, marquesinaColor: document.getElementById('s-mqC').value, marquesinaTexto: document.getElementById('s-mqT').value } };
-        }
-        if (currentTvData) await _supabase.from('pantallas').update(upd).eq('id', currentTvData.id);
-        else await _supabase.from('pantallas').insert([{ ...upd, sucursal_id: sucId }]);
-        closeModal(); showPage('pantallas');
-    };
-}
-
-function switchTab(tab) { activeTab = tab; renderModalContent(); }
-
-async function renderPantallaTV(id) {
-    const { data: pant } = await _supabase.from('pantallas').select('*').eq('id', id).single();
-    if(!pant) return;
-    const style = pant.estilo || { font: 'Inter', bg: '#fdfbf7', catColor: '#64748b', saborColor: '#1e293b', catSize: '1.2', saborSize: '1.6', marquesinaActiva: true, marquesinaBg: '#1e293b', marquesinaColor: '#ffffff', marquesinaTexto: 'HELADOS ARTESANALES' };
-    const tv = document.getElementById('tv-container');
-    tv.classList.remove('hidden');
-    tv.style.backgroundColor = style.bg;
-    tv.style.fontFamily = style.font;
-
-    if (pant.tipo === 'precios') {
-        const { data: catPrecios } = await _supabase.from('categorias_precios').select('*').in('id', pant.config_categorias || []).order('orden');
-        const { data: prices } = await _supabase.from('precios_globales').select('*').order('orden');
-        let html = `<div class="tv-layout">`;
-        const mid = Math.ceil(catPrecios.length / 2);
-        [catPrecios.slice(0, mid), catPrecios.slice(mid)].forEach(colCats => {
-            html += `<div class="tv-column">`;
-            colCats.forEach(c => {
-                const items = prices.filter(p => p.categoria_precio_id === c.id);
-                html += `<div class="tv-cat-header" style="color:${style.catColor}; font-size:${style.catSize}rem">${c.nombre}</div>`;
-                items.forEach(p => {
-                    html += `<div class="price-row" style="border-color:${style.catColor}44">
-                        <div class="flex items-center gap-4">${p.imagen_url ? `<img src="${p.imagen_url}" class="h-16 w-16 object-contain">` : ''}<span class="price-label" style="color:${style.catColor}; font-size:${style.saborSize}rem">${p.label}</span></div>
-                        <span class="price-value" style="color:${style.saborColor}; font-size:${style.saborSize}rem">$${p.valor}</span>
-                    </div>`;
-                });
-            });
-            html += `</div>`;
-        });
-        tv.innerHTML = html + `</div>`;
-    } else {
-        const { data: cats } = await _supabase.from('categorias').select('*').in('id', pant.config_categorias || []).order('orden');
-        const { data: sabs } = await _supabase.from('sabores').select('*');
-        const { data: vis } = await _supabase.from('visibilidad_sabores').select('*').eq('sucursal_id', pant.sucursal_id);
-        let html = `<div class="tv-layout">`;
-        const mid = Math.ceil(cats.length / 2);
-        [cats.slice(0, mid), cats.slice(mid)].forEach(colCats => {
-            html += `<div class="tv-column">`;
-            colCats.forEach(c => {
-                const disponibles = sabs.filter(s => s.categoria_id === c.id).filter(s => {
-                    const v = vis.find(v => v.sabor_id === s.id);
-                    return v ? v.disponible !== false : true;
-                });
-                if(disponibles.length) {
-                    html += `<div class="tv-cat-header" style="color:${style.catColor}; font-size:${style.catSize}rem">${c.nombre}</div>
-                    <div class="tv-flavor-list">${disponibles.map(s => `<div class="tv-flavor-item" style="color:${style.saborColor}; font-size:${style.saborSize}rem"><span class="tv-dot">•</span> ${s.nombre} ${s.es_sintacc ? 'T':''} ${s.es_vegano ? 'V':''}</div>`).join('')}</div>`;
-                }
-            });
-            html += `</div>`;
-        });
-        tv.innerHTML = html + `</div>`;
-    }
-    if (style.marquesinaActiva) {
-        tv.innerHTML += `<div class="tv-ticker" style="background:${style.marquesinaBg}; color:${style.marquesinaColor}"><div class="ticker-content">${style.marquesinaTexto} • ${style.marquesinaTexto}</div></div>`;
-    }
-}
-
-async function abrirModal(type, data = null) {
-    const body = document.getElementById('modal-body');
-    const btn = document.getElementById('btn-save');
-    const title = document.getElementById('modal-title');
-    document.getElementById('modal-tabs').classList.add('hidden');
-    document.getElementById('modal-form').classList.add('active');
-    body.innerHTML = '';
-    title.innerText = (data ? "EDITAR " : "NUEVO ") + type.toUpperCase();
-    btn.innerText = "GUARDAR";
-
-    if (type === 'cat') {
-        body.innerHTML = `<input id="f-nom" value="${data?.nombre || ''}" placeholder="Nombre" class="w-full border-2 p-4 rounded-2xl bg-slate-50">`;
-        btn.onclick = async () => { await _supabase.from('categorias').upsert({ id: data?.id, nombre: document.getElementById('f-nom').value }); closeModal(); showPage('categorias'); };
-    }
-    if (type === 'sabor') {
-        const { data: cats } = await _supabase.from('categorias').select('*');
-        body.innerHTML = `<input id="f-nom" value="${data?.nombre || ''}" placeholder="Nombre" class="w-full border-2 p-4 rounded-2xl bg-slate-50"><select id="f-cat" class="w-full border-2 p-4 rounded-2xl bg-slate-50">${cats.map(c => `<option value="${c.id}" ${data?.categoria_id === c.id ? 'selected':''}>${c.nombre}</option>`)}</select><div class="flex gap-4 p-2 font-bold"><label><input type="checkbox" id="f-veg" ${data?.es_vegano ? 'checked':''}> VEG</label><label><input type="checkbox" id="f-tacc" ${data?.es_sintacc ? 'checked':''}> TACC</label></div>`;
-        btn.onclick = async () => { await _supabase.from('sabores').upsert({ id: data?.id, nombre: document.getElementById('f-nom').value, categoria_id: document.getElementById('f-cat').value, es_vegano: document.getElementById('f-veg').checked, es_sintacc: document.getElementById('f-tacc').checked }); closeModal(); showPage('sabores'); };
-    }
-    if (type === 'usuario') {
-        body.innerHTML = `<input id="u-name" value="${data?.username || ''}" placeholder="Nombre" class="w-full border-2 p-4 rounded-2xl bg-slate-50"><input id="u-email" type="email" value="${data?.username || ''}" placeholder="Email" class="w-full border-2 p-4 rounded-2xl bg-slate-50" ${data?'disabled':''}><select id="u-rol" class="w-full border-2 p-4 rounded-2xl bg-slate-50"><option value="empleado" ${data?.rol === 'empleado' ? 'selected':''}>Empleado</option><option value="admin" ${data?.rol === 'admin' ? 'selected':''}>Admin</option></select>`;
-        btn.onclick = async () => {
-            if (data) await _supabase.from('perfiles').update({ username: document.getElementById('u-name').value, rol: document.getElementById('u-rol').value }).eq('id', data.id);
-            else await _supabase.rpc('admin_create_user', { p_email: document.getElementById('u-email').value, p_username: document.getElementById('u-name').value, p_rol: document.getElementById('u-rol').value });
-            closeModal(); showPage('usuarios');
-        };
-    }
-    if (type === 'cat_precio') {
-        body.innerHTML = `<input id="f-nom" value="${data?.nombre || ''}" placeholder="Categoría Precios" class="w-full border-2 p-4 rounded-2xl bg-slate-50">`;
-        btn.onclick = async () => { await _supabase.from('categorias_precios').upsert({ id: data?.id, nombre: document.getElementById('f-nom').value }); closeModal(); showPage('precios'); };
-    }
-    if (type === 'precio') {
-        const { data: cp } = await _supabase.from('categorias_precios').select('*');
-        body.innerHTML = `<select id="f-cp" class="w-full border-2 p-4 rounded-2xl bg-slate-50">${cp.map(c => `<option value="${c.id}" ${data?.categoria_precio_id === c.id ? 'selected':''}>${c.nombre}</option>`)}</select><input id="f-lab" value="${data?.label || ''}" placeholder="Etiqueta" class="w-full border-2 p-4 rounded-2xl bg-slate-50"><input id="f-val" type="number" value="${data?.valor || ''}" placeholder="Precio" class="w-full border-2 p-4 rounded-2xl bg-slate-50"><input id="f-img" value="${data?.imagen_url || ''}" placeholder="URL Imagen" class="w-full border-2 p-4 rounded-2xl bg-slate-50">`;
-        btn.onclick = async () => { await _supabase.from('precios_globales').upsert({ id: data?.id, categoria_precio_id: document.getElementById('f-cp').value, label: document.getElementById('f-lab').value, valor: document.getElementById('f-val').value, imagen_url: document.getElementById('f-img').value }); closeModal(); showPage('precios'); };
-    }
-}
-
-async function gestionarAccesos(userId, name) {
-    const { data: sucs } = await _supabase.from('sucursales').select('*').order('nombre');
-    const { data: vinc } = await _supabase.from('usuario_sucursales').select('sucursal_id').eq('usuario_id', userId);
-    const checkIds = vinc ? vinc.map(v => v.sucursal_id) : [];
-    const body = document.getElementById('modal-body');
-    const btn = document.getElementById('btn-save');
-    document.getElementById('modal-title').innerText = "ACCESOS: " + name;
-    body.innerHTML = `<div class="space-y-2 text-gray-700">${sucs.map(s => `<label class="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl"><input type="checkbox" class="suc-check" value="${s.id}" ${checkIds.includes(s.id) ? 'checked' : ''}> <span>${s.nombre}</span></label>`).join('')}</div>`;
-    document.getElementById('modal-form').classList.add('active');
-    btn.onclick = async () => {
-        await _supabase.from('usuario_sucursales').delete().eq('usuario_id', userId);
-        const sel = Array.from(document.querySelectorAll('.suc-check:checked')).map(c => ({ usuario_id: userId, sucursal_id: c.value }));
-        if (sel.length) await _supabase.from('usuario_sucursales').insert(sel);
-        closeModal(); showPage('usuarios');
-    };
-}
-
-async function toggleStock(sucId, saborId, current) { await _supabase.from('visibilidad_sabores').upsert({ sucursal_id: sucId, sabor_id: saborId, disponible: !current }); showPage('admin_stock', sucId); }
-function closeModal() { document.getElementById('modal-form').classList.remove('active'); }
-async function eliminar(t, id) { if(confirm('¿BORRAR?')) { await _supabase.from(t).delete().eq('id', id); showPage(currentPage); } }
-async function eliminarTV(id, sucId, sucName) { if(confirm('¿ELIMINAR TV?')) { await _supabase.from('pantallas').delete().eq('id', id); verPantallasSucursal(sucId, sucName); } }
-</script>
+    <!-- Carga de Scripts en Orden -->
+    <script src="js/auth.js"></script>
+    <script src="js/admin.js"></script>
+    <script src="js/tv.js"></script>
 </body>
 </html>
