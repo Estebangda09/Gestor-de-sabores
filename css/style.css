@@ -1,0 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=Fugaz+One&family=Inter:wght@400;700;900&family=Montserrat:wght@900&family=Oswald:wght@700&display=swap');
+
+body { font-family: 'Inter', sans-serif; background: #0f172a; margin: 0; overflow-x: hidden; }
+
+/* Admin UI */
+.sidebar { background: #1e293b; width: 280px; height: 100vh; position: fixed; color: white; z-index: 50; transition: 0.3s; }
+.main-content { margin-left: 280px; padding: 40px; min-height: 100vh; background: #f1f5f9; transition: 0.3s; }
+
+@media (max-width: 768px) {
+    .sidebar { width: 100%; height: auto; position: relative; padding: 15px !important; }
+    .main-content { margin-left: 0; padding: 20px; }
+}
+
+.menu-item { padding: 12px 20px; cursor: pointer; border-radius: 12px; margin-bottom: 5px; display: flex; align-items: center; gap: 10px; color: #94a3b8; font-weight: bold; }
+.menu-item.active { background: #3b82f6; color: white; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4); }
+.modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+.modal.active { display: flex; }
+
+/* TV UI */
+.tv-mode { position: fixed; inset: 0; z-index: 9999; overflow: hidden; display: flex; flex-direction: column; padding: 60px; }
+.tv-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; flex-grow: 1; align-content: start; }
+.tv-column { display: flex; flex-direction: column; gap: 40px; }
+.tv-cat-header { border-bottom: 1px solid rgba(0,0,0,0.1); margin-bottom: 15px; padding-bottom: 5px; text-transform: lowercase; }
+.tv-flavor-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; row-gap: 5px; }
+.tv-flavor-item { font-weight: 900; display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+.tv-dot { color: #3b82f6; font-size: 1.5rem; line-height: 0; }
+
+/* Marquesina */
+.tv-ticker { position: absolute; bottom: 0; left: 0; width: 100%; padding: 12px 0; font-weight: 900; text-transform: uppercase; overflow: hidden; white-space: nowrap; font-style: italic; }
+.ticker-content { display: inline-block; animation: ticker 25s linear infinite; }
+@keyframes ticker { 0% { transform: translate(100%, 0); } 100% { transform: translate(-100%, 0); } }
+
+.price-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px dashed rgba(0,0,0,0.1); padding: 10px 0; }
+.price-card-admin { background: white; border-radius: 20px; padding: 15px; border-left: 6px solid #fbbf24; }
+
+#login-screen { background: #0f172a; position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; }
