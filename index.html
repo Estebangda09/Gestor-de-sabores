@@ -281,24 +281,107 @@
         }
 
         async function abrirModalPantalla(sucId) {
-            const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
-            const { data: precios } = await _supabase.from('precios_globales').select('*').order('orden');
-            const body = document.getElementById('modal-body');
-            const btn = document.getElementById('btn-save');
-            document.getElementById('modal-title').innerText = "NUEVA PANTALLA";
-            btn.innerText = "CREAR TV";
-            body.innerHTML = `<input id="p-nom" placeholder="Nombre TV" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><select id="p-tipo" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none" onchange="toggleTvConfig(this.value)"><option value="sabores">Sabores</option><option value="precios">Precios</option></select><select id="p-ori" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><option value="16:9">16:9</option><option value="9:16">9:16</option></select>
-            <div id="config-sabores" class="space-y-2"><p class="text-xs font-bold text-slate-400 uppercase italic">Categorías:</p><div class="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 bg-slate-50 rounded-2xl">${cats.map(c => `<label class="flex items-center gap-2 p-2 bg-white rounded-xl"><input type="checkbox" class="cat-check" value="${c.id}"> <span class="text-[10px] font-bold uppercase">${c.nombre}</span></label>`).join('')}</div></div>
-            <div id="config-precios" class="space-y-2 hidden"><p class="text-xs font-bold text-slate-400 uppercase italic">Precios:</p><div class="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 bg-slate-50 rounded-2xl">${precios.map(p => `<label class="flex items-center gap-2 p-2 bg-white rounded-xl"><input type="checkbox" class="price-check" value="${p.id}"> <span class="text-[10px] font-bold uppercase">${p.label}</span></label>`).join('')}</div></div>`;
-            window.toggleTvConfig = (v) => { document.getElementById('config-sabores').classList.toggle('hidden', v !== 'sabores'); document.getElementById('config-precios').classList.toggle('hidden', v !== 'precios'); };
-            document.getElementById('modal-form').classList.add('active');
-            btn.onclick = async () => {
-                const tipo = document.getElementById('p-tipo').value;
-                const config = tipo === 'sabores' ? Array.from(document.querySelectorAll('.cat-check:checked')).map(c => c.value) : Array.from(document.querySelectorAll('.price-check:checked')).map(c => c.value);
-                await _supabase.from('pantallas').insert([{ sucursal_id: sucId, nombre: document.getElementById('p-nom').value, tipo: tipo, orientacion: document.getElementById('p-ori').value, config_categorias: config }]);
-                closeModal(); verPantallasSucursal(sucId, 'Actualizado');
-            };
+    const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
+    const { data: precios } = await _supabase.from('precios_globales').select('*').order('orden');
+    const body = document.getElementById('modal-body');
+    const btn = document.getElementById('btn-save');
+    const title = document.getElementById('modal-title');
+
+    title.innerText = "NUEVA PANTALLA";
+    btn.innerText = "CREAR TV";
+    btn.disabled = false;
+
+    body.innerHTML = `
+        <div class="space-y-4">
+            <input id="p-nom" placeholder="Nombre TV (ej: Mostrador Principal)" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none focus:ring-2 ring-blue-500 text-gray-800">
+            
+            <select id="p-tipo" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none text-gray-800" onchange="toggleTvConfig(this.value)">
+                <option value="sabores">Menú de Sabores</option>
+                <option value="precios">Lista de Precios</option>
+            </select>
+
+            <select id="p-ori" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none text-gray-800">
+                <option value="16:9">Horizontal (16:9)</option>
+                <option value="9:16">Vertical (9:16)</option>
+            </select>
+            
+            <!-- Configuración de Sabores -->
+            <div id="config-sabores" class="space-y-2">
+                <p class="text-xs font-bold text-slate-400 uppercase italic">Categorías a mostrar:</p>
+                <div class="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 bg-slate-50 rounded-2xl border">
+                    ${cats.map(c => `
+                        <label class="flex items-center gap-2 p-3 bg-white rounded-xl shadow-sm cursor-pointer border-2 border-transparent hover:border-blue-200 transition">
+                            <input type="checkbox" class="cat-check w-5 h-5 rounded text-blue-600" value="${c.id}"> 
+                            <span class="text-[10px] font-black uppercase text-slate-600">${c.nombre}</span>
+                        </label>
+                    `).join('')}
+                </div>
+            </div>
+
+            <!-- Configuración de Precios -->
+            <div id="config-precios" class="space-y-2 hidden">
+                <p class="text-xs font-bold text-slate-400 uppercase italic">Precios a mostrar:</p>
+                <div class="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 bg-slate-50 rounded-2xl border">
+                    ${precios.map(p => `
+                        <label class="flex items-center gap-2 p-3 bg-white rounded-xl shadow-sm cursor-pointer border-2 border-transparent hover:border-blue-200 transition">
+                            <input type="checkbox" class="price-check w-5 h-5 rounded text-blue-600" value="${p.id}"> 
+                            <span class="text-[10px] font-black uppercase text-slate-600">${p.label}</span>
+                        </label>
+                    `).join('')}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Función global para cambiar entre Sabores y Precios
+    window.toggleTvConfig = (val) => {
+        document.getElementById('config-sabores').classList.toggle('hidden', val !== 'sabores');
+        document.getElementById('config-precios').classList.toggle('hidden', val !== 'precios');
+    };
+
+    document.getElementById('modal-form').classList.add('active');
+
+    btn.onclick = async () => {
+        const nombre = document.getElementById('p-nom').value;
+        const tipo = document.getElementById('p-tipo').value;
+        const orientacion = document.getElementById('p-ori').value;
+
+        if (!nombre) return alert("Por favor, ponle un nombre a la TV.");
+
+        let config = [];
+        if (tipo === 'sabores') {
+            config = Array.from(document.querySelectorAll('.cat-check:checked')).map(c => c.value);
+            if (config.length === 0) return alert("Debes elegir al menos una categoría.");
+        } else {
+            config = Array.from(document.querySelectorAll('.price-check:checked')).map(p => p.value);
+            if (config.length === 0) return alert("Debes elegir al menos un precio.");
         }
+
+        btn.innerText = "CREANDO...";
+        btn.disabled = true;
+
+        try {
+            const { error } = await _supabase.from('pantallas').insert([{ 
+                sucursal_id: sucId, 
+                nombre: nombre, 
+                tipo: tipo, 
+                orientacion: orientacion, 
+                config_categorias: config 
+            }]);
+
+            if (error) throw error;
+
+            alert("TV Creada con éxito");
+            closeModal();
+            verPantallasSucursal(sucId, "Sucursal");
+        } catch (err) {
+            console.error(err);
+            alert("Error: " + err.message);
+            btn.innerText = "CREAR TV";
+            btn.disabled = false;
+        }
+    };
+}
 
         async function renderPantallaTV(id) {
             const { data: pant } = await _supabase.from('pantallas').select('*').eq('id', id).single();
