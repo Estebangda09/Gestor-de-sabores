@@ -76,28 +76,69 @@
         let currentPage = 'categorias';
 
         async function checkSession() {
-            const { data: { session } } = await _supabase.auth.getSession();
-            if (!session) {
-                const savedEmail = localStorage.getItem('remembered_email');
-                if (savedEmail) document.getElementById('login-email').value = savedEmail;
-                document.getElementById('login-screen').style.display = 'flex';
-                return;
-            }
-
-            const { data: perfil, error } = await _supabase.from('perfiles').select('*').eq('id', session.user.id).single();
-            if (error || !perfil) {
-                alert("Error: Perfil no encontrado.");
-                handleLogout();
-                return;
-            }
-
-            userPerfil = perfil;
-            document.getElementById('login-screen').style.display = 'none';
-            document.getElementById('sidebar').classList.remove('hidden');
-            document.getElementById('app').classList.remove('hidden');
-            renderMenu();
-            showPage(userPerfil.rol === 'admin' ? 'categorias' : 'sucursales');
+    try {
+        // 1. Obtener la sesión activa
+        const { data: { session }, error: sessionError } = await _supabase.auth.getSession();
+        
+        if (sessionError || !session) {
+            const savedEmail = localStorage.getItem('remembered_email');
+            if (savedEmail) document.getElementById('login-email').value = savedEmail;
+            
+            // Aseguramos que todo esté oculto excepto el login
+            document.getElementById('login-screen').style.display = 'flex';
+            document.getElementById('sidebar').classList.add('hidden');
+            document.getElementById('app').classList.add('hidden');
+            return;
         }
+
+        // 2. Intentar obtener el perfil (con manejo de errores de esquema)
+        let { data: perfil, error: perfilError } = await _supabase
+            .from('perfiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+        // Si hay error de esquema o permisos, esperamos un momento y reintentamos UNA vez
+        if (perfilError && perfilError.message.includes('schema')) {
+            console.warn("Reintentando lectura de perfil...");
+            await new Promise(res => setTimeout(res, 1000)); // Espera 1 segundo
+            const retry = await _supabase.from('perfiles').select('*').eq('id', session.user.id).single();
+            perfil = retry.data;
+            perfilError = retry.error;
+        }
+
+        if (perfilError || !perfil) {
+            console.error("Error detallado:", perfilError);
+            alert("Error de acceso: No se pudo cargar tu perfil de usuario. Verifica los permisos RLS en Supabase.");
+            handleLogout();
+            return;
+        }
+
+        // 3. Si todo está OK, cargar la interfaz
+        userPerfil = perfil;
+        
+        // Ocultar login y mostrar panel
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('sidebar').classList.remove('hidden');
+        document.getElementById('app').classList.remove('hidden');
+
+        // Renderizar según el rol
+        renderMenu();
+
+        // Redirección inteligente:
+        // Si es admin, va a categorías. Si es empleado, va a su lista de sucursales.
+        if (userPerfil.rol === 'admin') {
+            showPage('categorias');
+        } else {
+            showPage('sucursales');
+        }
+
+    } catch (err) {
+        console.error("Error crítico en checkSession:", err);
+        // Evitamos bucles de alerta, solo mandamos al login si algo falla feo
+        document.getElementById('login-screen').style.display = 'flex';
+    }
+}
 
         async function handleLogin() {
             const btn = document.getElementById('btn-login');
