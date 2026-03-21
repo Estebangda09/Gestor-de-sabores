@@ -1,42 +1,36 @@
-let currentTvData = null;
-let activeTab = 'config';
-
-async function verPantallasSucursal(sucId, sucName) {
-    // Guardamos la sucursal actual para cuando creemos una nueva TV
-    window.lastSucId = sucId;
-    window.lastSucName = sucName;
-
-    const { data: pants } = await _supabase.from('pantallas').select('*').eq('sucursal_id', sucId);
+window.verPantallasSucursal = async function(sucId, sucName) {
+    window.currentSucId = sucId;
+    window.currentSucName = sucName;
+    
     const container = document.getElementById('view-content');
     const header = document.getElementById('view-header');
+    
+    const { data: pants } = await _supabase.from('pantallas').select('*').eq('sucursal_id', sucId);
     
     header.innerHTML = `
         <div class="flex items-center gap-4">
             <button onclick="showPage('pantallas')" class="text-slate-400 text-2xl">←</button>
             <h1 class="text-xl font-black uppercase italic">${sucName}</h1>
         </div>
-        <button onclick="abrirModalPantalla('${sucId}')" class="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase shadow-lg">+ NUEVA TV</button>`;
+        <button onclick="abrirModalPantalla('${sucId}')" class="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold">+ NUEVA TV</button>`;
     
-    container.innerHTML = pants.map(p => `
-        <div class="bg-white p-5 rounded-2xl shadow-sm flex justify-between items-center border-2 mb-4 border-slate-100">
-            <div>
-                <p class="font-black italic uppercase text-slate-700">${p.nombre}</p>
-                <p class="text-[10px] text-blue-500 uppercase font-black">${p.tipo}</p>
-            </div>
-            <div class="flex gap-2">
-                <button onclick="window.open('?mode=tv&id=${p.id}', '_blank')" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase">VER</button>
-                <button onclick='abrirModalPantalla("${sucId}", ${JSON.stringify(p)})' class="bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase">DISEÑO</button>
-                <button onclick="eliminarTV('${p.id}', '${sucId}', '${sucName}')" class="text-red-500 text-xs font-black">✕</button>
-            </div>
-        </div>`).join('');
+    container.innerHTML = `<div class="grid gap-4">
+        ${pants.map(p => `
+            <div class="bg-white p-5 rounded-2xl shadow-sm flex justify-between items-center border-2 border-slate-100">
+                <div><p class="font-black italic text-slate-700">${p.nombre}</p><p class="text-[10px] text-blue-500 uppercase font-black">${p.tipo}</p></div>
+                <div class="flex gap-2">
+                    <button onclick="window.open('?mode=tv&id=${p.id}', '_blank')" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase">VER</button>
+                    <button onclick='abrirModalPantalla("${sucId}", ${JSON.stringify(p)})' class="bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase">DISEÑO</button>
+                    <button onclick="eliminarTV('${p.id}')" class="text-red-500 text-xs font-black">✕</button>
+                </div>
+            </div>`).join('')}
+    </div>`;
 }
 
-async function abrirModalPantalla(sucId, data = null) {
+window.abrirModalPantalla = async function(sucId, data = null) {
     currentTvData = data;
     activeTab = 'config';
-    window.currentSucId = sucId; 
-    
-    // Solo mostrar pestañas si estamos editando
+    window.currentSucId = sucId;
     document.getElementById('modal-tabs').classList.toggle('hidden', !data);
     document.getElementById('modal-form').classList.add('active');
     renderModalContent();
@@ -46,9 +40,7 @@ async function renderModalContent() {
     const body = document.getElementById('modal-body');
     const btn = document.getElementById('btn-save');
     const title = document.getElementById('modal-title');
-    
     title.innerText = currentTvData ? "EDITOR DE TV" : "NUEVA PANTALLA";
-    btn.innerText = "GUARDAR CAMBIOS";
     
     document.getElementById('tab-config').className = activeTab === 'config' ? 'font-bold text-blue-600 border-b-2 border-blue-600 pb-1' : 'font-bold text-slate-400 pb-1';
     document.getElementById('tab-style').className = activeTab === 'style' ? 'font-bold text-blue-600 border-b-2 border-blue-600 pb-1' : 'font-bold text-slate-400 pb-1';
@@ -57,87 +49,59 @@ async function renderModalContent() {
         const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
         const { data: prices } = await _supabase.from('categorias_precios').select('*').order('orden');
         const configActiva = currentTvData?.config_categorias || [];
-        
         body.innerHTML = `
             <input id="p-nom" value="${currentTvData?.nombre || ''}" placeholder="Nombre TV" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
             <select id="p-tipo" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none" onchange="toggleContentList(this.value)">
                 <option value="sabores" ${currentTvData?.tipo === 'sabores' ? 'selected':''}>Sabores</option>
                 <option value="precios" ${currentTvData?.tipo === 'precios' ? 'selected':''}>Precios</option>
             </select>
-            <p class="text-[10px] font-black uppercase text-slate-400 mt-2">Mostrar categorías:</p>
-            <div id="list-cont" class="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 bg-slate-50 rounded-2xl border"></div>`;
-
-        window.toggleContentList = (val) => {
-            const items = val === 'sabores' ? cats : prices;
-            document.getElementById('list-cont').innerHTML = items.map(i => `
-                <label class="flex items-center gap-2 p-2 bg-white rounded-xl cursor-pointer">
-                    <input type="checkbox" class="tv-check" value="${i.id}" ${configActiva.includes(i.id) ? 'checked' : ''}> 
-                    <span class="text-[10px] font-bold uppercase">${i.nombre}</span>
-                </label>`).join('');
-        };
-        toggleContentList(currentTvData?.tipo || 'sabores');
+            <div id="list-cont" class="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 bg-slate-50 rounded-2xl border">
+                ${(currentTvData?.tipo === 'precios' ? prices : cats).map(i => `
+                    <label class="flex items-center gap-2 p-2 bg-white rounded-xl cursor-pointer">
+                        <input type="checkbox" class="tv-check" value="${i.id}" ${configActiva.includes(i.id) ? 'checked' : ''}> 
+                        <span class="text-[10px] font-bold uppercase">${i.nombre}</span>
+                    </label>`).join('')}
+            </div>`;
+            
+            window.toggleContentList = async (val) => {
+                const { data: items } = val === 'sabores' ? await _supabase.from('categorias').select('*').order('orden') : await _supabase.from('categorias_precios').select('*').order('orden');
+                document.getElementById('list-cont').innerHTML = items.map(i => `<label class="flex items-center gap-2 p-2 bg-white rounded-xl cursor-pointer"><input type="checkbox" class="tv-check" value="${i.id}"> <span class="text-[10px] font-bold uppercase">${i.nombre}</span></label>`).join('');
+            };
     } else {
         const est = currentTvData?.estilo || { font: 'Inter', bg: '#fdfbf7', catColor: '#64748b', saborColor: '#1e293b', catSize: '1.2', saborSize: '1.6', marquesinaActiva: true, marquesinaBg: '#1e293b', marquesinaColor: '#ffffff', marquesinaTexto: 'BIENVENIDOS' };
         body.innerHTML = `<div class="grid grid-cols-2 gap-4">
-            <div><label class="text-[10px] font-bold uppercase">Tipografía</label><select id="s-font" class="w-full border p-2 rounded-xl"><option value="Inter" ${est.font==='Inter'?'selected':''}>Inter</option><option value="Oswald" ${est.font==='Oswald'?'selected':''}>Oswald</option><option value="Montserrat" ${est.font==='Montserrat'?'selected':''}>Montserrat</option></select></div>
-            <div><label class="text-[10px] font-bold uppercase">Color Fondo</label><input type="color" id="s-bg" value="${est.bg}" class="w-full h-10 border-none"></div>
-            <div><label class="text-[10px] font-bold uppercase">Color Categoría</label><input type="color" id="s-catC" value="${est.catColor}" class="w-full h-10 border-none"></div>
-            <div><label class="text-[10px] font-bold uppercase">Color Sabores</label><input type="color" id="s-sabC" value="${est.saborColor}" class="w-full h-10 border-none"></div>
-            <div><label class="text-[10px] font-bold uppercase">Tamaño Cat (rem)</label><input type="number" step="0.1" id="s-catS" value="${est.catSize}" class="w-full border p-2 rounded-xl"></div>
-            <div><label class="text-[10px] font-bold uppercase">Tamaño Sabor (rem)</label><input type="number" step="0.1" id="s-sabS" value="${est.saborSize}" class="w-full border p-2 rounded-xl"></div>
+            <div><label class="text-[10px] font-bold">FUENTES</label><select id="s-font" class="w-full border p-2 rounded-xl"><option value="Inter">Inter</option><option value="Oswald">Oswald</option><option value="Montserrat">Montserrat</option></select></div>
+            <div><label class="text-[10px] font-bold">FONDO</label><input type="color" id="s-bg" value="${est.bg}" class="w-full h-10"></div>
+            <div><label class="text-[10px] font-bold">COLOR CAT</label><input type="color" id="s-catC" value="${est.catColor}" class="w-full h-10"></div>
+            <div><label class="text-[10px] font-bold">COLOR SAB</label><input type="color" id="s-sabC" value="${est.saborColor}" class="w-full h-10"></div>
+            <div><label class="text-[10px] font-bold">TAMAÑO CAT</label><input type="number" step="0.1" id="s-catS" value="${est.catSize}" class="w-full border p-2"></div>
+            <div><label class="text-[10px] font-bold">TAMAÑO SAB</label><input type="number" step="0.1" id="s-sabS" value="${est.saborSize}" class="w-full border p-2"></div>
             <div class="col-span-2 border-t pt-4">
-                <label class="flex items-center gap-2 font-black italic text-xs"><input type="checkbox" id="s-mqA" ${est.marquesinaActiva?'checked':''}> HABILITAR MARQUESINA</label>
-                <div class="grid grid-cols-2 gap-2 mt-2">
-                    <input type="color" id="s-mqB" value="${est.marquesinaBg}" class="w-full h-10 border-none">
-                    <input type="color" id="s-mqC" value="${est.marquesinaColor}" class="w-full h-10 border-none">
-                </div>
-                <input id="s-mqT" value="${est.marquesinaTexto}" class="w-full border p-3 rounded-xl mt-2 text-xs" placeholder="Texto de la marquesina...">
+                <label class="flex items-center gap-2"><input type="checkbox" id="s-mqA" ${est.marquesinaActiva?'checked':''}> MARQUESINA</label>
+                <div class="grid grid-cols-2 gap-2 mt-2"><input type="color" id="s-mqB" value="${est.marquesinaBg}" class="w-full h-10"><input type="color" id="s-mqC" value="${est.marquesinaColor}" class="w-full h-10"></div>
+                <input id="s-mqT" value="${est.marquesinaTexto}" class="w-full border p-3 rounded-xl mt-2 text-xs">
             </div>
         </div>`;
     }
 
     btn.onclick = async () => {
-        let payload = {};
+        let upd = {};
         if (activeTab === 'config') {
-            payload = { 
-                nombre: document.getElementById('p-nom').value, 
-                tipo: document.getElementById('p-tipo').value, 
-                config_categorias: Array.from(document.querySelectorAll('.tv-check:checked')).map(c => c.value) 
-            };
+            upd = { nombre: document.getElementById('p-nom').value, tipo: document.getElementById('p-tipo').value, config_categorias: Array.from(document.querySelectorAll('.tv-check:checked')).map(c => c.value) };
         } else {
-            payload = { 
-                estilo: { 
-                    font: document.getElementById('s-font').value, 
-                    bg: document.getElementById('s-bg').value, 
-                    catColor: document.getElementById('s-catC').value, 
-                    saborColor: document.getElementById('s-sabC').value, 
-                    catSize: document.getElementById('s-catS').value, 
-                    saborSize: document.getElementById('s-sabS').value, 
-                    marquesinaActiva: document.getElementById('s-mqA').checked, 
-                    marquesinaBg: document.getElementById('s-mqB').value, 
-                    marquesinaColor: document.getElementById('s-mqC').value, 
-                    marquesinaTexto: document.getElementById('s-mqT').value 
-                } 
-            };
+            upd = { estilo: { font: document.getElementById('s-font').value, bg: document.getElementById('s-bg').value, catColor: document.getElementById('s-catC').value, saborColor: document.getElementById('s-sabC').value, catSize: document.getElementById('s-catS').value, saborSize: document.getElementById('s-sabS').value, marquesinaActiva: document.getElementById('s-mqA').checked, marquesinaBg: document.getElementById('s-mqB').value, marquesinaColor: document.getElementById('s-mqC').value, marquesinaTexto: document.getElementById('s-mqT').value } };
         }
-
-        if (currentTvData) {
-            await _supabase.from('pantallas').update(payload).eq('id', currentTvData.id);
-        } else {
-            payload.sucursal_id = window.currentSucId;
-            await _supabase.from('pantallas').insert([payload]);
-        }
+        if (currentTvData) await _supabase.from('pantallas').update(upd).eq('id', currentTvData.id);
+        else await _supabase.from('pantallas').insert([{ ...upd, sucursal_id: window.currentSucId }]);
         closeModal();
-        verPantallasSucursal(window.currentSucId, window.lastSucName);
+        verPantallasSucursal(window.currentSucId, window.currentSucName);
     };
 }
 
-function switchTab(tab) { activeTab = tab; renderModalContent(); }
-
-async function renderPantallaTV(id) {
+window.renderPantallaTV = async function(id) {
     const { data: pant } = await _supabase.from('pantallas').select('*').eq('id', id).single();
     if(!pant) return;
-    const style = pant.estilo || { font: 'Inter', bg: '#fdfbf7', catColor: '#64748b', saborColor: '#1e293b', catSize: '1.2', saborSize: '1.6', marquesinaActiva: true, marquesinaBg: '#1e293b', marquesinaColor: '#ffffff', marquesinaTexto: 'HELADOS ARTESANALES' };
+    const style = pant.estilo || { font: 'Inter', bg: '#fdfbf7', catColor: '#64748b', saborColor: '#1e293b', catSize: '1.2', saborSize: '1.6', marquesinaActiva: true, marquesinaBg: '#1e293b', marquesinaColor: '#ffffff', marquesinaTexto: 'BIENVENIDOS' };
     const tv = document.getElementById('tv-container');
     tv.classList.remove('hidden');
     tv.style.backgroundColor = style.bg;
@@ -190,9 +154,10 @@ async function renderPantallaTV(id) {
     }
 }
 
-async function eliminarTV(id, sucId, sucName) { 
-    if(confirm('¿ELIMINAR TV?')) { 
+window.eliminarTV = async function(id) { 
+    if(confirm('¿BORRAR TV?')) { 
         await _supabase.from('pantallas').delete().eq('id', id); 
-        verPantallasSucursal(sucId, sucName); 
+        verPantallasSucursal(window.currentSucId, window.currentSucName); 
     } 
 }
+function switchTab(tab) { activeTab = tab; renderModalContent(); }
