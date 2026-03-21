@@ -3,11 +3,18 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let userPerfil = null;
-let currentPage = 'categorias';
 
-const urlParams = new URLSearchParams(window.location.search);
 
-window.onload = () => {
+document.addEventListener('DOMContentLoaded', () => {
+ 
+    const savedUser = localStorage.getItem('remembered_username');
+    if (savedUser && document.getElementById('login-user')) {
+        document.getElementById('login-user').value = savedUser;
+        document.getElementById('remember-me').checked = true;
+    }
+
+    // Si es modo TV, renderizar directamente
+    const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('mode') === 'tv') {
         const tvId = urlParams.get('id');
         document.body.innerHTML = '<div id="tv-container" class="tv-mode"></div>';
@@ -16,39 +23,104 @@ window.onload = () => {
     } else {
         checkSession();
     }
-};
+});
 
 async function checkSession() {
     try {
         const { data: { session } } = await _supabase.auth.getSession();
         if (!session) return;
+
         
-        const { data: perfil } = await _supabase.from('perfiles').select('*').eq('id', session.user.id).single();
+        const { data: perfil, error } = await _supabase
+            .from('perfiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+        if (error) throw error;
         userPerfil = perfil;
-        
+
+        // Ocultar login y mostrar app
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('sidebar').classList.remove('hidden');
         document.getElementById('app').classList.remove('hidden');
-        
+
         renderMenu();
 
-        // REDIRECCIÓN SEGÚN ROL
+      
         if (userPerfil.rol === 'admin') {
             showPage('categorias');
         } else {
-            showPage('sucursales'); 
+           
+            const p = userPerfil.permisos;
+            if (p.sucursales) showPage('sucursales');
+            else if (p.sabores) showPage('sabores');
+            else if (p.pantallas) showPage('pantallas');
+            else if (p.precios) showPage('precios');
+            else if (p.categorias) showPage('categorias');
         }
-        
-    } catch (e) { 
-        console.error("Error de sesión:", e); 
+
+    } catch (e) {
+        console.error("Error de sesión:", e.message);
     }
 }
 
 async function handleLogin() {
-    const email = document.getElementById('login-email').value;
+    const userInput = document.getElementById('login-user').value.trim();
     const pass = document.getElementById('login-pass').value;
-    const { error } = await _supabase.auth.signInWithPassword({ email, password: pass });
-    if (error) alert(error.message); else window.location.reload();
+    const remember = document.getElementById('remember-me').checked;
+
+    if (!userInput || !pass) return alert("Completa todos los campos");
+
+    let emailFinal = userInput;
+
+    if (!userInput.includes('@')) {
+        const { data: p, error } = await _supabase
+            .from('perfiles')
+            .select('email_acceso') 
+            .eq('username', userInput)
+            .maybeSingle();
+        
+        if (p && p.email_acceso) {
+            emailFinal = p.email_acceso;
+        } else {
+            
+            emailFinal = userInput; 
+        }
+    }
+
+    const { data, error } = await _supabase.auth.signInWithPassword({
+        email: emailFinal,
+        password: pass
+    });
+
+    if (error) {
+        return alert("Error: Usuario o contraseña incorrectos");
+    }
+
+    if (remember) {
+        localStorage.setItem('remembered_username', userInput);
+    } else {
+        localStorage.removeItem('remembered_username');
+    }
+
+    window.location.reload();
 }
 
-function handleLogout() { _supabase.auth.signOut().then(() => window.location.reload()); }
+async function recuperarClave() {
+    const email = prompt("Ingresa tu correo electrónico para enviarte un enlace de recuperación:");
+    if (!email) return;
+
+    const { error } = await _supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin,
+    });
+
+    if (error) alert("Error: " + error.message);
+    else alert("¡Listo! Revisa tu correo electrónico para restablecer tu clave.");
+}
+
+function handleLogout() {
+    _supabase.auth.signOut().then(() => {
+        window.location.reload();
+    });
+}
