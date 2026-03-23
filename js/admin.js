@@ -32,10 +32,20 @@ function renderMenu() {
 }
 
 async function showPage(page, params = null) {
+if (!userPerfil) {
+        setTimeout(() => showPage(page, params), 100);
+        return;
+    }
 
     const paginasProhibidas = ['categorias', 'sabores', 'usuarios', 'precios', 'pantallas'];
+    
+    // Si no es admin, redirigir solo si intenta entrar a lo prohibido
     if (userPerfil.rol !== 'admin' && paginasProhibidas.includes(page)) {
-        page = 'sucursales'; 
+        // Verificar si tiene permiso específico antes de mandar a sucursales
+        const p = userPerfil.permisos || {};
+        if (!p[page]) {
+            page = 'sucursales'; 
+        }
     }
   
     currentPage = page;
