@@ -5,21 +5,21 @@ const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let userPerfil = null;
 
-// EVENTO DE INICIO ÚNICO
 window.addEventListener('load', async () => {
     const urlParams = new URLSearchParams(window.location.search);
     
-    // 1. SI ES MODO TV (Público)
+    // MODO TV: Público y Realtime
     if (urlParams.get('mode') === 'tv') {
         const tvId = urlParams.get('id');
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('tv-container').classList.remove('hidden');
-        renderPantallaTV(tvId);
-        setInterval(() => renderPantallaTV(tvId), 60000);
+        
+        await renderPantallaTV(tvId); // Carga inicial
+        activarRealtimeTV(tvId);      // Escuchar cambios
         return; 
     }
 
-    // 2. SI ES MODO ADMIN (Privado)
+    // MODO ADMIN: Lógica normal de sesión
     const savedUser = localStorage.getItem('remembered_username');
     if (savedUser && document.getElementById('login-user')) {
         document.getElementById('login-user').value = savedUser;
@@ -37,12 +37,7 @@ async function checkSession() {
             return;
         }
 
-        const { data: perfil, error } = await _supabase
-            .from('perfiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-
+        const { data: perfil, error } = await _supabase.from('perfiles').select('*').eq('id', session.user.id).single();
         if (error) throw error;
         userPerfil = perfil;
 
@@ -52,17 +47,14 @@ async function checkSession() {
 
         renderMenu();
 
-        // Redirección inicial
-        if (userPerfil.rol === 'admin') {
-            showPage('categorias');
-        } else {
+        if (userPerfil.rol === 'admin') showPage('categorias');
+        else {
             const p = userPerfil.permisos || {};
             if (p.sucursales) showPage('sucursales');
             else if (p.sabores) showPage('sabores');
             else showPage('categorias');
         }
     } catch (e) {
-        console.error("Error de sesión:", e.message);
         document.getElementById('login-screen').style.display = 'flex';
     }
 }
@@ -75,37 +67,18 @@ async function handleLogin() {
     if (!userInput || !pass) return alert("Completa todos los campos");
 
     let emailFinal = userInput;
-
-    // Si es nombre de usuario, buscar el email
     if (!userInput.includes('@')) {
-        const { data: p } = await _supabase
-            .from('perfiles')
-            .select('email_acceso')
-            .eq('username', userInput)
-            .maybeSingle();
-        
+        const { data: p } = await _supabase.from('perfiles').select('email_acceso').eq('username', userInput).maybeSingle();
         if (p && p.email_acceso) emailFinal = p.email_acceso;
     }
 
-    const { error } = await _supabase.auth.signInWithPassword({
-        email: emailFinal,
-        password: pass
-    });
-
+    const { error } = await _supabase.auth.signInWithPassword({ email: emailFinal, password: pass });
     if (error) return alert("Usuario o contraseña incorrectos");
 
     if (remember) localStorage.setItem('remembered_username', userInput);
     else localStorage.removeItem('remembered_username');
 
     window.location.reload();
-}
-
-async function recuperarClave() {
-    const email = prompt("Ingresa tu correo electrónico:");
-    if (!email) return;
-    const { error } = await _supabase.auth.resetPasswordForEmail(email);
-    if (error) alert(error.message);
-    else alert("Revisa tu correo para el enlace de recuperación.");
 }
 
 function handleLogout() {
