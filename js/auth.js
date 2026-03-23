@@ -14,15 +14,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Si es modo TV, renderizar directamente
+    document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
+    
+    // MODO TV: Ignora sesión por completo
     if (urlParams.get('mode') === 'tv') {
         const tvId = urlParams.get('id');
         document.body.innerHTML = '<div id="tv-container" class="tv-mode"></div>';
         renderPantallaTV(tvId);
-        setInterval(() => renderPantallaTV(tvId), 10000);
-    } else {
-        checkSession();
+        // Actualización automática cada 1 minuto (60000ms)
+        setInterval(() => renderPantallaTV(tvId), 60000); 
+        return; 
     }
+
+    // MODO ADMIN: Lógica normal
+    const savedUser = localStorage.getItem('remembered_username');
+    if (savedUser && document.getElementById('login-user')) {
+        document.getElementById('login-user').value = savedUser;
+        document.getElementById('remember-me').checked = true;
+    }
+    checkSession();
 });
 
 async function checkSession() {
