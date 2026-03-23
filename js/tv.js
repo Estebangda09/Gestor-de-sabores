@@ -59,6 +59,7 @@ window.activarRealtimeTV = function(tvId) {
 };
 
 // --- RENDERIZADO DE PANTALLA ---
+// --- RENDERIZADO DE PANTALLA ---
 window.renderPantallaTV = async function(id) {
     const tv = document.getElementById('tv-container');
     
@@ -78,15 +79,30 @@ window.renderPantallaTV = async function(id) {
 
     const style = datos.estilo || { 
         font: 'Inter', bg: '#fdfbf7', catColor: '#64748b', saborColor: '#1e293b', 
-        catSize: '1.2', saborSize: '1.6', columnas: 2, marquesinaActiva: false 
+        catSize: '1.2', saborSize: '1.6', columnas: 2, marquesinaActiva: false,
+        animacionTipo: 'fadeUp', animacionDuracion: 0.5
     };
     
     tv.classList.remove('hidden');
     tv.style.backgroundColor = style.bg;
     tv.style.fontFamily = style.font;
 
+    // --- INYECCIÓN DE CSS PARA ANIMACIONES ---
+    const animDur = style.animacionDuracion || 0.5;
+    const animTipo = style.animacionTipo || 'fadeUp';
+    const styleTag = document.getElementById('anim-styles') || document.createElement('style');
+    styleTag.id = 'anim-styles';
+    styleTag.innerHTML = `
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .sabor-anim { animation: ${animTipo} ${animDur}s ease-out forwards; opacity: 0; }
+    `;
+    if (!document.getElementById('anim-styles')) document.head.appendChild(styleTag);
+    // -----------------------------------------
+
     // Configuración de columnas según orientación y diseño
     const gridCols = datos.orientacion === '9:16' ? '1fr' : (style.columnas == 1 ? '1fr' : '1fr 1fr');
+    let delay = 0; // Variable para el efecto cascada
 
     if (datos.tipo === 'precios') {
         const { data: catPrecios } = await _supabase.from('categorias_precios').select('*').in('id', datos.config_categorias || []).order('orden');
@@ -97,14 +113,16 @@ window.renderPantallaTV = async function(id) {
             const items = prices.filter(p => p.categoria_precio_id === c.id);
             html += `<div class="tv-column"><div class="tv-cat-header" style="color:${style.catColor}; font-size:${style.catSize}rem; text-transform: uppercase;">${c.nombre}</div>`;
             items.forEach(p => {
+                // Agregamos clase 'sabor-anim' y 'animation-delay'
                 html += `
-                <div class="price-row" style="border-color:${style.catColor}44; display: flex; justify-content: space-between; align-items: center; padding: 10px 0;">
+                <div class="price-row sabor-anim" style="border-color:${style.catColor}44; display: flex; justify-content: space-between; align-items: center; padding: 10px 0; animation-delay: ${delay}s;">
                     <div class="flex items-center gap-4">
                         ${p.imagen_url ? `<img src="${p.imagen_url}" class="h-16 w-16 object-contain">` : ''}
                         <span class="price-label" style="color:${style.catColor}; font-size:${style.saborSize}rem; font-weight:700;">${p.label}</span>
                     </div>
                     <span class="price-value" style="color:${style.saborColor}; font-size:${style.saborSize}rem; font-weight:900;">$${p.valor}</span>
                 </div>`;
+                delay += 0.05; // Incrementamos el retraso
             });
             html += `</div>`;
         });
@@ -129,8 +147,12 @@ window.renderPantallaTV = async function(id) {
                     <div class="tv-flavor-list">
                         ${disponibles.map(s => {
                             const nombreFormateado = s.nombre.charAt(0).toUpperCase() + s.nombre.slice(1).toLowerCase();
+                            const currentDelay = delay;
+                            delay += 0.05; // Incrementamos el retraso para el siguiente
+                            
+                            // Agregamos clase 'sabor-anim' y 'animation-delay'
                             return `
-                            <div class="tv-flavor-item" style="color:${style.saborColor}; font-size:${style.saborSize}rem; display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
+                            <div class="tv-flavor-item sabor-anim" style="color:${style.saborColor}; font-size:${style.saborSize}rem; display: flex; align-items: center; gap: 10px; margin-bottom: 5px; animation-delay: ${currentDelay}s;">
                                 <span class="tv-dot" style="color: #3b82f6;">•</span>
                                 <span style="font-weight: 700;">${nombreFormateado}</span>
                                 <div class="flex gap-2 items-center">
@@ -157,7 +179,6 @@ window.renderPantallaTV = async function(id) {
             </div>`;
     }
 };
-
 // --- CRUD ADMIN ---
 window.verPantallasSucursal = async function(sucId, sucName) {
     window.currentSucId = sucId;
