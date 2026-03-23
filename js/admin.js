@@ -27,7 +27,6 @@ function renderMenu() {
             <div onclick="abrirMiPerfil()" class="menu-item text-blue-400">👤 Mi Perfil</div>
         </div>
     `;
-    
     nav.innerHTML = html;
 }
 
@@ -46,7 +45,7 @@ async function showPage(page, params = null) {
             page = 'sucursales'; 
         }
     }
-    
+  
     currentPage = page;
     const container = document.getElementById('view-content');
     const header = document.getElementById('view-header');
