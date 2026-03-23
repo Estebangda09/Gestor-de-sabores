@@ -362,12 +362,48 @@ window.abrirModalSaborDirecto = function(catId, catNombre) {
 window.abrirModalSaborExistente = function(sabor) {
     const body = document.getElementById('modal-body');
     const btn = document.getElementById('btn-save');
+    
     document.getElementById('modal-form').classList.add('active');
     document.getElementById('modal-title').innerText = "EDITAR SABOR";
-    body.innerHTML = `<input id="f-nombre" value="${sabor.nombre}" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><div class="flex gap-4 p-2 font-bold text-xs"><label><input type="checkbox" id="f-vegano" ${sabor.es_vegano ? 'checked':''}> VEGANO</label><label><input type="checkbox" id="f-sintacc" ${sabor.es_sintacc ? 'checked':''}> SIN TACC</label></div>`;
+    
+    body.innerHTML = `
+        <div class="space-y-4">
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase">Nombre del Sabor</label>
+                <input id="f-nombre" value="${sabor.nombre}" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none focus:border-blue-500">
+            </div>
+            <div class="flex gap-4 p-2 font-bold text-xs">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" id="f-vegano" ${sabor.es_vegano ? 'checked' : ''}> VEGANO
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" id="f-sintacc" ${sabor.es_sintacc ? 'checked' : ''}> SIN TACC
+                </label>
+            </div>
+        </div>`;
+
     btn.onclick = async () => {
-        await _supabase.from('sabores').update({ nombre: document.getElementById('f-nombre').value, es_vegano: document.getElementById('f-vegano').checked, es_sintacc: document.getElementById('f-sintacc').checked }).eq('id', sabor.id);
-        closeModal(); showPage('sabores'); 
+        const nombreInput = document.getElementById('f-nombre').value.trim();
+
+        // VALIDACIÓN: Si el nombre está vacío, mostramos alerta y detenemos el guardado
+        if (!nombreInput) {
+            alert("¡Error! El nombre del sabor no puede estar vacío.");
+            document.getElementById('f-nombre').focus();
+            return; // Corta la ejecución aquí
+        }
+
+        const { error } = await _supabase.from('sabores').update({ 
+            nombre: nombreInput, 
+            es_vegano: document.getElementById('f-vegano').checked, 
+            es_sintacc: document.getElementById('f-sintacc').checked 
+        }).eq('id', sabor.id);
+        
+        if (error) {
+            alert("Error al actualizar: " + error.message);
+        } else {
+            closeModal(); 
+            showPage('sabores');
+        }
     };
 };
 
@@ -420,23 +456,62 @@ async function abrirModal(type, data = null) {
     const body = document.getElementById('modal-body');
     const btn = document.getElementById('btn-save');
     document.getElementById('modal-form').classList.add('active');
-    document.getElementById('modal-title').innerText = "EDITAR " + type.toUpperCase();
+    document.getElementById('modal-title').innerText = (data ? "EDITAR " : "NUEVA ") + type.toUpperCase();
 
+    // --- LÓGICA PARA CATEGORÍAS ---
     if (type === 'cat') {
-        body.innerHTML = `<input id="f-nom" value="${data?.nombre || ''}" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">`;
-        btn.onclick = async () => { await _supabase.from('categorias').upsert({ id: data?.id, nombre: document.getElementById('f-nom').value }); closeModal(); showPage('categorias'); };
+        body.innerHTML = `<input id="f-nom" value="${data?.nombre || ''}" placeholder="Nombre de la categoría" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">`;
+        btn.onclick = async () => {
+            const nom = document.getElementById('f-nom').value.trim();
+            if (!nom) return alert("El nombre de la categoría es obligatorio"); // Validación
+            await _supabase.from('categorias').upsert({ id: data?.id, nombre: nom });
+            closeModal(); showPage('categorias');
+        };
     }
+
+    // --- LÓGICA PARA SUCURSALES ---
+    if (type === 'sucursal') {
+        body.innerHTML = `<input id="f-nom" value="${data?.nombre || ''}" placeholder="Nombre de la sucursal" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">`;
+        btn.onclick = async () => {
+            const nom = document.getElementById('f-nom').value.trim();
+            if (!nom) return alert("El nombre de la sucursal es obligatorio"); // Validación
+            await _supabase.from('sucursales').upsert({ id: data?.id, nombre: nom });
+            closeModal(); showPage('sucursales');
+        };
+    }
+
+    // --- LÓGICA PARA CATEGORÍAS DE PRECIOS ---
     if (type === 'cat_precio') {
-        body.innerHTML = `<input id="f-nom" value="${data?.nombre || ''}" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">`;
-        btn.onclick = async () => { await _supabase.from('categorias_precios').upsert({ id: data?.id, nombre: document.getElementById('f-nom').value }); closeModal(); showPage('precios'); };
+        body.innerHTML = `<input id="f-nom" value="${data?.nombre || ''}" placeholder="Ej: Vasos y Cucuruchos" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">`;
+        btn.onclick = async () => {
+            const nom = document.getElementById('f-nom').value.trim();
+            if (!nom) return alert("El nombre es obligatorio");
+            await _supabase.from('categorias_precios').upsert({ id: data?.id, nombre: nom });
+            closeModal(); showPage('precios');
+        };
     }
+
+    // --- LÓGICA PARA PRECIOS INDIVIDUALES ---
     if (type === 'precio') {
         const { data: cp } = await _supabase.from('categorias_precios').select('*');
-        body.innerHTML = `<select id="f-cp" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">${cp.map(c => `<option value="${c.id}" ${data?.categoria_precio_id === c.id ? 'selected':''}>${c.nombre}</option>`)}</select><input id="f-lab" value="${data?.label || ''}" placeholder="Etiqueta" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><input id="f-val" type="number" value="${data?.valor || ''}" placeholder="Precio" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">`;
-        btn.onclick = async () => { await _supabase.from('precios_globales').upsert({ id: data?.id, categoria_precio_id: document.getElementById('f-cp').value, label: document.getElementById('f-lab').value, valor: document.getElementById('f-val').value }); closeModal(); showPage('precios'); };
-    }
-    if (type === 'sucursal') {
-        body.innerHTML = `<input id="f-nom" value="${data?.nombre || ''}" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">`;
-        btn.onclick = async () => { await _supabase.from('sucursales').upsert({ id: data?.id, nombre: document.getElementById('f-nom').value }); closeModal(); showPage('sucursales'); };
+        body.innerHTML = `
+            <select id="f-cp" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
+                ${cp.map(c => `<option value="${c.id}" ${data?.categoria_precio_id === c.id ? 'selected':''}>${c.nombre}</option>`)}
+            </select>
+            <input id="f-lab" value="${data?.label || ''}" placeholder="Etiqueta (Ej: 1/4 KG)" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
+            <input id="f-val" type="number" value="${data?.valor || ''}" placeholder="Precio (Ej: 5000)" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">`;
+        
+        btn.onclick = async () => {
+            const lab = document.getElementById('f-lab').value.trim();
+            const val = document.getElementById('f-val').value;
+            if (!lab || !val) return alert("Etiqueta y Precio son obligatorios"); // Validación doble
+            await _supabase.from('precios_globales').upsert({ 
+                id: data?.id, 
+                categoria_precio_id: document.getElementById('f-cp').value, 
+                label: lab, 
+                valor: val 
+            });
+            closeModal(); showPage('precios');
+        };
     }
 }
