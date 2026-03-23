@@ -130,15 +130,21 @@ async function renderModalContent() {
 }
 
 window.renderPantallaTV = async function(id) {
-    const { data: pant } = await _supabase.from('pantallas').select('*').eq('id', id).single();
-    if(!pant) return;
-    const style = pant.estilo || { font: 'Inter', bg: '#fdfbf7', catColor: '#64748b', catSize: '1.2', saborSize: '1.6', columnas: 2, marquesinaActiva: false };
+    const { data: pant, error } = await _supabase.from('pantallas').select('*').eq('id', id).single();
+    if(error || !pant) return console.error("Error cargando pantalla:", error);
+    
+    const style = pant.estilo || { 
+        font: 'Inter', bg: '#fdfbf7', catColor: '#64748b', saborColor: '#1e293b', 
+        catSize: '1.2', saborSize: '1.6', columnas: 2, 
+        marquesinaActiva: false, marquesinaVelocidad: 20 
+    };
+    
     const tv = document.getElementById('tv-container');
     tv.classList.remove('hidden');
     tv.style.backgroundColor = style.bg;
     tv.style.fontFamily = style.font;
 
-    // Ajuste de Layout según columnas elegidas
+    // Layout según columnas (1 o 2)
     const gridCols = pant.orientacion === '9:16' ? '1fr' : (style.columnas == 1 ? '1fr' : '1fr 1fr');
 
     if (pant.tipo === 'precios') {
@@ -151,8 +157,11 @@ window.renderPantallaTV = async function(id) {
             html += `<div class="tv-column"><div class="tv-cat-header" style="color:${style.catColor}; font-size:${style.catSize}rem; text-transform: uppercase;">${c.nombre}</div>`;
             items.forEach(p => {
                 html += `<div class="price-row" style="border-color:${style.catColor}44">
-                    <div class="flex items-center gap-4">${p.imagen_url ? `<img src="${p.imagen_url}" class="h-16 w-16 object-contain">` : ''}<span class="price-label" style="color:${style.catColor}; font-size:${style.saborSize}rem">${p.label}</span></div>
-                    <span class="price-value" style="color:${style.saborColor || '#1e293b'}; font-size:${style.saborSize}rem">$${p.valor}</span>
+                    <div class="flex items-center gap-4">
+                        ${p.imagen_url ? `<img src="${p.imagen_url}" class="h-16 w-16 object-contain">` : ''}
+                        <span class="price-label" style="color:${style.catColor}; font-size:${style.saborSize}rem">${p.label}</span>
+                    </div>
+                    <span class="price-value" style="color:${style.saborColor}; font-size:${style.saborSize}rem">$${p.valor}</span>
                 </div>`;
             });
             html += `</div>`;
@@ -170,24 +179,33 @@ window.renderPantallaTV = async function(id) {
                 return v ? v.disponible !== false : true;
             });
             if(disponibles.length) {
-                html += `<div class="tv-column"><div class="tv-cat-header" style="color:${style.catColor}; font-size:${style.catSize}rem; text-transform: uppercase;">${c.nombre}</div>
-                <div class="tv-flavor-list">${disponibles.map(s => `
-                    <div class="tv-flavor-item" style="color:${style.saborColor || '#1e293b'}; font-size:${style.saborSize}rem">
-                        <span class="tv-dot">•</span> ${s.nombre.charAt(0).toUpperCase() + s.nombre.slice(1).toLowerCase()}
-                        <div class="flex gap-2 items-center">
-                            ${s.es_sintacc ? `<img src="img/sintacc.png" style="height: 1.1em;">` : ''}
-                            ${s.es_vegano ? `<img src="img/vegano.png" style="height: 1.1em;">` : ''}
-                        </div>
-                    </div>`).join('')}</div></div>`;
+                html += `<div class="tv-column">
+                    <div class="tv-cat-header" style="color:${style.catColor}; font-size:${style.catSize}rem; text-transform: uppercase;">${c.nombre}</div>
+                    <div class="tv-flavor-list">
+                        ${disponibles.map(s => `
+                            <div class="tv-flavor-item" style="color:${style.saborColor}; font-size:${style.saborSize}rem">
+                                <span class="tv-dot">•</span> ${s.nombre.charAt(0).toUpperCase() + s.nombre.slice(1).toLowerCase()}
+                                <div class="flex gap-2 items-center">
+                                    ${s.es_sintacc ? `<img src="img/sintacc.png" style="height: 1.1em; width: auto;">` : ''}
+                                    ${s.es_vegano ? `<img src="img/vegano.png" style="height: 1.1em; width: auto;">` : ''}
+                                </div>
+                            </div>`).join('')}
+                    </div>
+                </div>`;
             }
         });
         tv.innerHTML = html + `</div>`;
     }
     
+    // Marquesina RSS Infinita
     if (style.marquesinaActiva) {
-        const vel = style.marquesinaVelocidad || 20;
-        tv.innerHTML += `<div class="tv-ticker" style="background:${style.marquesinaBg}; color:${style.marquesinaColor}">
-            <div class="ticker-content" style="animation-duration: ${vel}s;">${style.marquesinaTexto} • ${style.marquesinaTexto} • ${style.marquesinaTexto}</div></div>`;
+        const duracion = style.marquesinaVelocidad || 20;
+        tv.innerHTML += `
+            <div class="tv-ticker" style="background:${style.marquesinaBg}; color:${style.marquesinaColor}">
+                <div class="ticker-content" style="animation: ticker ${duracion}s linear infinite;">
+                    ${style.marquesinaTexto} &nbsp;&nbsp; • &nbsp;&nbsp; ${style.marquesinaTexto} &nbsp;&nbsp; • &nbsp;&nbsp; ${style.marquesinaTexto}
+                </div>
+            </div>`;
     }
 }
 
