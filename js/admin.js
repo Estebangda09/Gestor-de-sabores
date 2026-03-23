@@ -27,6 +27,7 @@ function renderMenu() {
             <div onclick="abrirMiPerfil()" class="menu-item text-blue-400">👤 Mi Perfil</div>
         </div>
     `;
+    
     nav.innerHTML = html;
 }
 
@@ -38,13 +39,14 @@ async function showPage(page, params = null) {
     }
 
     const paginasProhibidas = ['categorias', 'sabores', 'usuarios', 'precios', 'pantallas'];
+    
     if (window.userPerfil.rol !== 'admin' && paginasProhibidas.includes(page)) {
         const p = window.userPerfil.permisos || {};
         if (!p[page]) {
             page = 'sucursales'; 
         }
     }
-  
+    
     currentPage = page;
     const container = document.getElementById('view-content');
     const header = document.getElementById('view-header');
@@ -56,7 +58,9 @@ async function showPage(page, params = null) {
     if (page === 'usuarios') {
         header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Usuarios</h1>
                             <button onclick="abrirModalUsuario()" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg">+ NUEVO USUARIO</button>`;
+        
         const { data: users } = await _supabase.from('perfiles').select('*').order('username');
+        
         container.innerHTML = `<div class="grid gap-4">
             ${(users || []).map(u => `
                 <div class="bg-white p-6 rounded-3xl shadow-sm flex justify-between items-center border-l-8 ${u.rol === 'admin' ? 'border-amber-400' : 'border-emerald-400'}">
@@ -76,6 +80,7 @@ async function showPage(page, params = null) {
     if (page === 'sucursales') {
         header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Mis Sucursales</h1>
                             ${window.userPerfil.rol === 'admin' ? `<button onclick="abrirModal('sucursal')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ NUEVA</button>` : ''}`;
+        
         const { data: sucs } = await _supabase.rpc('obtener_sucursales_por_permiso', { 
             p_usuario_id: window.userPerfil.id, 
             p_rol: window.userPerfil.rol 
@@ -133,11 +138,12 @@ async function showPage(page, params = null) {
             <button onclick="abrirModal('precio')" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-xs">+ PRECIO</button></div>`;
         const { data: cats } = await _supabase.from('categorias_precios').select('*').order('orden');
         const { data: prices } = await _supabase.from('precios_globales').select('*').order('orden');
+        
         container.innerHTML = (cats || []).map(c => {
             const ms = (prices || []).filter(p => p.categoria_precio_id === c.id);
             return `<div class="mb-10"><h3 class="text-xl font-black border-b-2 mb-4 uppercase italic text-slate-800">${c.nombre}</h3>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">${ms.map(p => `
-                    <div class="price-card-admin flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                    <div class="price-card-admin flex justify-between items-center">
                         <div><p class="text-[10px] font-bold text-slate-400 uppercase">${p.label}</p><p class="text-lg font-black text-slate-800">$${p.valor}</p></div>
                         <button onclick='abrirModal("precio", ${JSON.stringify(p)})' class="text-blue-500 font-bold text-xs p-2">EDITAR</button>
                     </div>`).join('')}</div></div>`;
@@ -147,6 +153,7 @@ async function showPage(page, params = null) {
     if (page === 'pantallas') {
         header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Digital Signage</h1>`;
         const { data: sucs } = await _supabase.from('sucursales').select('*').order('nombre');
+        
         container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             ${(sucs || []).map(s => `
                 <div class="bg-white p-6 rounded-3xl shadow-lg border-l-8 border-blue-500">
@@ -162,10 +169,13 @@ async function showPage(page, params = null) {
         const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
         const { data: sabs } = await _supabase.from('sabores').select('*').order('nombre');
         const { data: vis } = await _supabase.from('visibilidad_sabores').select('*').eq('sucursal_id', sucId);
+        
         header.innerHTML = `<div class="flex items-center gap-4"><button onclick="showPage('sucursales')" class="text-slate-400 text-2xl">←</button><h1 class="text-2xl font-black uppercase italic">${suc.nombre}</h1></div>`;
+        
         container.innerHTML = cats.map(c => {
             const ms = sabs.filter(s => s.categoria_id === c.id);
             if(!ms.length) return '';
+            
             return `<div class="mb-10 bg-white p-8 rounded-[40px] shadow-sm">
                 <div class="flex justify-between items-center mb-6"><h4 class="font-black italic uppercase text-blue-500">${c.nombre}</h4>
                 <div class="flex gap-2">
@@ -184,32 +194,47 @@ async function showPage(page, params = null) {
     if (page === 'categorias') {
         header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Categorías</h1><button onclick="abrirModal('cat')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ Nueva</button>`;
         const { data } = await _supabase.from('categorias').select('*').order('orden');
+        
         container.innerHTML = `<div class="space-y-3">${(data || []).map(c => `<div class="bg-white p-5 rounded-2xl shadow-sm flex justify-between border-l-8 border-blue-500 font-bold">${c.nombre} <button onclick='abrirModal("cat", ${JSON.stringify(c)})' class="text-blue-500 text-xs">EDITAR</button></div>`).join('')}</div>`;
     }
 }
 
 // --- PERFIL Y USUARIOS ---
-window.abrirMiPerfil = () => { abrirModalUsuario(window.userPerfil, true); };
+window.abrirMiPerfil = () => {
+    abrirModalUsuario(window.userPerfil, true);
+};
 
 window.abrirModalUsuario = async function(u = null, esMiPerfil = false) {
     const body = document.getElementById('modal-body');
     const btn = document.getElementById('btn-save');
+    
     const p = u?.permisos || { categorias: false, sabores: false, sucursales: true, pantallas: false, precios: false };
     const emailActual = u?.email_acceso || "";
 
     document.getElementById('modal-tabs').classList.add('hidden');
     document.getElementById('modal-form').classList.add('active');
+    
     document.getElementById('modal-title').innerText = esMiPerfil ? "MI PERFIL" : (u ? "EDITAR USUARIO" : "NUEVO USUARIO");
     btn.innerText = u ? "GUARDAR CAMBIOS" : "CREAR USUARIO";
 
     body.innerHTML = `
         <div class="space-y-4">
-            <div><label class="text-[10px] font-bold text-slate-400 uppercase">Nombre de Usuario</label>
-            <input id="u-name" value="${u?.username || ''}" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"></div>
-            <div><label class="text-[10px] font-bold text-slate-400 uppercase">Correo Electrónico</label>
-            <input id="u-email" type="email" value="${emailActual}" placeholder="correo@ejemplo.com" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none ${u ? 'opacity-50' : ''}" ${u ? 'readonly' : ''}></div>
-            <div><label class="text-[10px] font-bold text-slate-400 uppercase">${u ? 'Cambiar Contraseña' : 'Contraseña'}</label>
-            <input id="u-pass" type="password" placeholder="${u ? 'Dejar en blanco para no cambiar' : 'Contraseña'}" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"></div>
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase">Nombre de Usuario</label>
+                <input id="u-name" value="${u?.username || ''}" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
+            </div>
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase">Correo Electrónico</label>
+                <input id="u-email" type="email" value="${emailActual}" placeholder="correo@ejemplo.com" 
+                       class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none ${u ? 'opacity-50' : ''}" 
+                       ${u ? 'readonly' : ''}>
+                ${u ? '<p class="text-[9px] text-slate-400 mt-1 italic">* El correo no se puede cambiar por seguridad</p>' : ''}
+            </div>
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase">${u ? 'Cambiar Contraseña' : 'Contraseña'}</label>
+                <input id="u-pass" type="password" placeholder="${u ? 'Dejar en blanco para no cambiar' : 'Contraseña'}" 
+                       class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
+            </div>
             <div id="permisos-section" class="${esMiPerfil ? 'opacity-50 pointer-events-none' : ''} ${window.userPerfil.rol !== 'admin' ? 'hidden' : ''}">
                 <div class="p-4 bg-blue-50 rounded-3xl mt-4">
                     <p class="text-[10px] font-black uppercase mb-3 text-blue-600">Permisos de Acceso</p>
@@ -227,6 +252,7 @@ window.abrirModalUsuario = async function(u = null, esMiPerfil = false) {
     btn.onclick = async () => {
         const nuevoNombre = document.getElementById('u-name').value.trim();
         const password = document.getElementById('u-pass').value;
+        
         const permisos = esMiPerfil ? p : {
             categorias: document.getElementById('p-cat').checked,
             sabores: document.getElementById('p-sab').checked,
@@ -234,20 +260,41 @@ window.abrirModalUsuario = async function(u = null, esMiPerfil = false) {
             pantallas: document.getElementById('p-pan').checked,
             precios: document.getElementById('p-pre').checked
         };
+
         try {
             if (u) {
-                const { error: errUpd } = await _supabase.from('perfiles').update({ username: nuevoNombre, permisos: permisos }).eq('id', u.id);
+                const { error: errUpd } = await _supabase.from('perfiles').update({ 
+                    username: nuevoNombre,
+                    permisos: permisos 
+                }).eq('id', u.id);
+                
                 if (errUpd) throw errUpd;
-                if (password.length > 0) await _supabase.auth.updateUser({ password: password });
-                alert("Actualizado");
+
+                if (password.length > 0) {
+                    const { error: errPass } = await _supabase.auth.updateUser({ password: password });
+                    if (errPass) throw errPass;
+                    alert("Contraseña actualizada correctamente");
+                }
+
+                alert("Datos actualizados");
             } else {
                 const email = document.getElementById('u-email').value;
-                const { error: errRpc } = await _supabase.rpc('admin_create_user', { p_email: email, p_password: password, p_username: nuevoNombre, p_rol: 'empleado', p_permisos: permisos });
+                const { error: errRpc } = await _supabase.rpc('admin_create_user', { 
+                    p_email: email, 
+                    p_password: password, 
+                    p_username: nuevoNombre, 
+                    p_rol: 'empleado',
+                    p_permisos: permisos
+                });
                 if (errRpc) throw errRpc;
             }
+            
             closeModal();
             if (esMiPerfil) window.location.reload(); else showPage('usuarios');
-        } catch (err) { alert("Error: " + err.message); }
+            
+        } catch (err) {
+            alert("Error: " + err.message);
+        }
     };
 }
 
@@ -256,15 +303,19 @@ window.abrirModalAccesos = async function(userId, name) {
     const btn = document.getElementById('btn-save');
     document.getElementById('modal-title').innerText = "ACCESOS: " + name;
     btn.innerText = "GUARDAR PERMISOS";
+    
     const { data: sucs } = await _supabase.from('sucursales').select('*').order('nombre');
     const { data: actuales } = await _supabase.from('usuario_sucursales').select('sucursal_id').eq('usuario_id', userId);
     const idsActuales = actuales ? actuales.map(a => a.sucursal_id) : [];
+
     body.innerHTML = `<div class="grid gap-2">${sucs.map(s => `
         <label class="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-slate-100">
             <input type="checkbox" class="suc-check w-6 h-6" value="${s.id}" ${idsActuales.includes(s.id) ? 'checked' : ''}>
             <span class="font-black uppercase italic text-slate-700">${s.nombre}</span>
         </label>`).join('')}</div>`;
+
     document.getElementById('modal-form').classList.add('active');
+    
     btn.onclick = async () => {
         await _supabase.from('usuario_sucursales').delete().eq('usuario_id', userId);
         const checks = Array.from(document.querySelectorAll('.suc-check:checked')).map(c => ({ usuario_id: userId, sucursal_id: c.value }));
@@ -274,21 +325,28 @@ window.abrirModalAccesos = async function(userId, name) {
 }
 
 // --- SABORES Y STOCK ---
+
 window.abrirModalSaborDirecto = function(catId, catNombre) {
     const body = document.getElementById('modal-body');
     const btn = document.getElementById('btn-save');
     document.getElementById('modal-form').classList.add('active');
     document.getElementById('modal-title').innerText = `NUEVO EN: ${catNombre}`;
+    
     body.innerHTML = `
         <input type="hidden" id="f-cat-id" value="${catId}">
-        <input id="f-nombre" placeholder="Nombre Sabor" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
+        <input id="f-nombre" placeholder="Nombre del Sabor" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
         <div class="flex gap-4 p-2 font-bold text-xs">
             <label><input type="checkbox" id="f-vegano"> VEGANO</label>
             <label><input type="checkbox" id="f-sintacc"> SIN TACC</label>
         </div>`;
+        
     btn.onclick = async () => {
         const nombre = document.getElementById('f-nombre').value.trim();
         if (!nombre) return alert("El nombre es obligatorio");
+        
+        const { data: existe } = await _supabase.from('sabores').select('id').eq('categoria_id', catId).ilike('nombre', nombre).maybeSingle();
+        if (existe) return alert("Ya existe este sabor en esta categoría");
+        
         await _supabase.from('sabores').insert([{ nombre, categoria_id: catId, es_vegano: document.getElementById('f-vegano').checked, es_sintacc: document.getElementById('f-sintacc').checked }]);
         closeModal(); showPage('sabores');
     };
@@ -297,8 +355,10 @@ window.abrirModalSaborDirecto = function(catId, catNombre) {
 window.abrirModalSaborExistente = function(sabor) {
     const body = document.getElementById('modal-body');
     const btn = document.getElementById('btn-save');
+    
     document.getElementById('modal-form').classList.add('active');
     document.getElementById('modal-title').innerText = "EDITAR SABOR";
+    
     body.innerHTML = `
         <div class="space-y-4">
             <div>
@@ -314,35 +374,67 @@ window.abrirModalSaborExistente = function(sabor) {
                 </label>
             </div>
         </div>`;
+
     btn.onclick = async () => {
         const nombreInput = document.getElementById('f-nombre').value.trim();
+
         if (!nombreInput) {
             alert("¡Error! El nombre del sabor no puede estar vacío.");
             return;
         }
+
         const { error } = await _supabase.from('sabores').update({ 
             nombre: nombreInput, 
             es_vegano: document.getElementById('f-vegano').checked, 
             es_sintacc: document.getElementById('f-sintacc').checked 
         }).eq('id', sabor.id);
-        if (error) alert("Error al actualizar: " + error.message);
-        else { closeModal(); showPage('sabores'); }
+        
+        if (error) {
+            alert("Error al actualizar: " + error.message);
+        } else {
+            closeModal(); 
+            showPage('sabores');
+        }
     };
 };
 
 window.masterStock = async function(sucId, ids, status) {
-    const batch = ids.map(id => ({ sucursal_id: sucId, sabor_id: id, disponible: status }));
+    const batch = ids.map(id => ({ 
+        sucursal_id: sucId, 
+        sabor_id: id, 
+        disponible: status 
+    }));
+    
     const { error } = await _supabase.from('visibilidad_sabores').upsert(batch, { onConflict: 'sucursal_id,sabor_id' });
+    
     if (error) alert("Error: " + error.message);
     else showPage('admin_stock', sucId);
 };
 
 window.toggleStock = async function(sucId, saborId, current) {
-    await _supabase.from('visibilidad_sabores').upsert({ sucursal_id: sucId, sabor_id: saborId, disponible: !current }, { onConflict: 'sucursal_id,sabor_id' });
+    await _supabase.from('visibilidad_sabores').upsert({ 
+        sucursal_id: sucId, 
+        sabor_id: saborId, 
+        disponible: !current 
+    }, { onConflict: 'sucursal_id,sabor_id' });
+    
     showPage('admin_stock', sucId);
 };
 
-// --- MODALES Y CRUD GENERAL ---
+// --- GENERAL ---
+
+function closeModal() { 
+    document.getElementById('modal-form').classList.remove('active'); 
+    document.getElementById('modal-tabs').classList.add('hidden');
+}
+
+async function eliminar(t, id) { 
+    if(confirm('¿BORRAR REGISTRO?')) { 
+        await _supabase.from(t).delete().eq('id', id); 
+        showPage(currentPage); 
+    } 
+}
+
 async function abrirModal(type, data = null) {
     const body = document.getElementById('modal-body');
     const btn = document.getElementById('btn-save');
@@ -353,13 +445,13 @@ async function abrirModal(type, data = null) {
         body.innerHTML = `<input id="f-nom" value="${data?.nombre || ''}" placeholder="Nombre" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">`;
         btn.onclick = async () => {
             const nom = document.getElementById('f-nom').value.trim();
-            if (!nom) return alert("El nombre es obligatorio");
-            const table = type === 'cat' ? 'categorias' : (type === 'sucursal' ? 'categorias_precios');
+            if (!nom) return alert("El nombre es obligatorio"); 
+            const table = type === 'cat' ? 'categorias' : (type === 'sucursal' ? 'sucursales' : 'categorias_precios');
             await _supabase.from(table).upsert({ id: data?.id, nombre: nom });
             closeModal(); showPage(currentPage === 'admin_stock' ? 'sucursales' : currentPage);
         };
     }
-    
+
     if (type === 'precio') {
         const { data: cp } = await _supabase.from('categorias_precios').select('*');
         body.innerHTML = `
@@ -372,7 +464,7 @@ async function abrirModal(type, data = null) {
         btn.onclick = async () => {
             const lab = document.getElementById('f-lab').value.trim();
             const val = document.getElementById('f-val').value;
-            if (!lab || !val) return alert("Etiqueta y Precio son obligatorios");
+            if (!lab || !val) return alert("Etiqueta y Precio son obligatorios"); 
             await _supabase.from('precios_globales').upsert({ 
                 id: data?.id, 
                 categoria_precio_id: document.getElementById('f-cp').value, 
@@ -383,6 +475,3 @@ async function abrirModal(type, data = null) {
         };
     }
 }
-
-function closeModal() { document.getElementById('modal-form').classList.remove('active'); document.getElementById('modal-tabs').classList.add('hidden'); }
-async function eliminar(t, id) { if(confirm('¿BORRAR REGISTRO?')) { await _supabase.from(t).delete().eq('id', id); showPage(currentPage); } }
