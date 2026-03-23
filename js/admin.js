@@ -371,6 +371,27 @@ window.abrirModalSaborExistente = function(sabor) {
     };
 };
 
+window.masterStock = async function(sucId, ids, status) {
+    const batch = ids.map(id => ({ 
+        sucursal_id: sucId, 
+        sabor_id: id, 
+        disponible: status 
+    }));
+    
+    const { error } = await _supabase.from('visibilidad_sabores').upsert(batch, { onConflict: 'sucursal_id,sabor_id' });
+    
+    if (error) alert("Error: " + error.message);
+    else showPage('admin_stock', sucId);
+};
+window.toggleStock = async function(sucId, saborId, current) {
+    await _supabase.from('visibilidad_sabores').upsert({ 
+        sucursal_id: sucId, 
+        sabor_id: saborId, 
+        disponible: !current 
+    }, { onConflict: 'sucursal_id,sabor_id' });
+    
+    showPage('admin_stock', sucId);
+};
 // --- GENERAL ---
 
 async function masterStock(sucId, ids, status) {
