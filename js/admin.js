@@ -80,10 +80,12 @@ async function showPage(page, params = null) {
             p_usuario_id: window.userPerfil.id, 
             p_rol: window.userPerfil.rol 
         });
+
         if (!sucs || sucs.length === 0) {
             container.innerHTML = `<div class="text-center p-20 bg-white rounded-3xl text-slate-400 font-bold">No tienes sucursales asignadas.</div>`;
             return;
         }
+
         container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             ${sucs.map(s => `
                 <div class="bg-white p-6 rounded-3xl shadow-lg border-t-8 border-blue-500 text-center">
@@ -98,6 +100,7 @@ async function showPage(page, params = null) {
         header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Sabores</h1>`;
         const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
         const { data: sabs } = await _supabase.from('sabores').select('*').order('nombre');
+
         container.innerHTML = (cats || []).map(c => {
             const ms = (sabs || []).filter(s => s.categoria_id === c.id);
             return `
@@ -201,15 +204,15 @@ window.abrirModalUsuario = async function(u = null, esMiPerfil = false) {
 
     body.innerHTML = `
         <div class="space-y-4">
-            <div><label class="text-[10px] font-bold text-slate-400 uppercase">Nombre</label>
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase">Nombre de Usuario</label>
             <input id="u-name" value="${u?.username || ''}" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"></div>
-            <div><label class="text-[10px] font-bold text-slate-400 uppercase">Email</label>
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase">Correo Electrónico</label>
             <input id="u-email" type="email" value="${emailActual}" placeholder="correo@ejemplo.com" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none ${u ? 'opacity-50' : ''}" ${u ? 'readonly' : ''}></div>
-            <div><label class="text-[10px] font-bold text-slate-400 uppercase">${u ? 'Cambiar Clave' : 'Clave'}</label>
-            <input id="u-pass" type="password" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"></div>
+            <div><label class="text-[10px] font-bold text-slate-400 uppercase">${u ? 'Cambiar Contraseña' : 'Contraseña'}</label>
+            <input id="u-pass" type="password" placeholder="${u ? 'Dejar en blanco para no cambiar' : 'Contraseña'}" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"></div>
             <div id="permisos-section" class="${esMiPerfil ? 'opacity-50 pointer-events-none' : ''} ${window.userPerfil.rol !== 'admin' ? 'hidden' : ''}">
                 <div class="p-4 bg-blue-50 rounded-3xl mt-4">
-                    <p class="text-[10px] font-black uppercase mb-3 text-blue-600">Permisos</p>
+                    <p class="text-[10px] font-black uppercase mb-3 text-blue-600">Permisos de Acceso</p>
                     <div class="grid grid-cols-2 gap-2">
                         <label class="flex items-center gap-2 text-xs font-bold"><input type="checkbox" id="p-cat" ${p.categorias ? 'checked' : ''}> CATEGORÍAS</label>
                         <label class="flex items-center gap-2 text-xs font-bold"><input type="checkbox" id="p-sab" ${p.sabores ? 'checked' : ''}> SABORES</label>
@@ -257,7 +260,7 @@ window.abrirModalAccesos = async function(userId, name) {
     const { data: actuales } = await _supabase.from('usuario_sucursales').select('sucursal_id').eq('usuario_id', userId);
     const idsActuales = actuales ? actuales.map(a => a.sucursal_id) : [];
     body.innerHTML = `<div class="grid gap-2">${sucs.map(s => `
-        <label class="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl cursor-pointer">
+        <label class="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-slate-100">
             <input type="checkbox" class="suc-check w-6 h-6" value="${s.id}" ${idsActuales.includes(s.id) ? 'checked' : ''}>
             <span class="font-black uppercase italic text-slate-700">${s.nombre}</span>
         </label>`).join('')}</div>`;
@@ -276,7 +279,8 @@ window.abrirModalSaborDirecto = function(catId, catNombre) {
     const btn = document.getElementById('btn-save');
     document.getElementById('modal-form').classList.add('active');
     document.getElementById('modal-title').innerText = `NUEVO EN: ${catNombre}`;
-    body.innerHTML = `<input type="hidden" id="f-cat-id" value="${catId}">
+    body.innerHTML = `
+        <input type="hidden" id="f-cat-id" value="${catId}">
         <input id="f-nombre" placeholder="Nombre Sabor" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
         <div class="flex gap-4 p-2 font-bold text-xs">
             <label><input type="checkbox" id="f-vegano"> VEGANO</label>
@@ -350,11 +354,12 @@ async function abrirModal(type, data = null) {
         btn.onclick = async () => {
             const nom = document.getElementById('f-nom').value.trim();
             if (!nom) return alert("El nombre es obligatorio");
-            const table = type === 'cat' ? 'categorias' : (type === 'sucursal' ? 'sucursales' : 'categorias_precios');
+            const table = type === 'cat' ? 'categorias' : (type === 'sucursal' ? 'categorias_precios');
             await _supabase.from(table).upsert({ id: data?.id, nombre: nom });
             closeModal(); showPage(currentPage === 'admin_stock' ? 'sucursales' : currentPage);
         };
     }
+    
     if (type === 'precio') {
         const { data: cp } = await _supabase.from('categorias_precios').select('*');
         body.innerHTML = `
