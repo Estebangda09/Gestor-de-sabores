@@ -134,7 +134,7 @@ async function showPage(page, params = null) {
             const ms = (prices || []).filter(p => p.categoria_precio_id === c.id);
             return `<div class="mb-10"><h3 class="text-xl font-black border-b-2 mb-4 uppercase italic text-slate-800">${c.nombre}</h3>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">${ms.map(p => `
-                    <div class="price-card-admin flex justify-between items-center">
+                    <div class="price-card-admin flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
                         <div><p class="text-[10px] font-bold text-slate-400 uppercase">${p.label}</p><p class="text-lg font-black text-slate-800">$${p.valor}</p></div>
                         <button onclick='abrirModal("precio", ${JSON.stringify(p)})' class="text-blue-500 font-bold text-xs p-2">EDITAR</button>
                     </div>`).join('')}</div></div>`;
@@ -284,7 +284,7 @@ window.abrirModalSaborDirecto = function(catId, catNombre) {
         </div>`;
     btn.onclick = async () => {
         const nombre = document.getElementById('f-nombre').value.trim();
-        if (!nombre) return alert("Nombre obligatorio");
+        if (!nombre) return alert("El nombre es obligatorio");
         await _supabase.from('sabores').insert([{ nombre, categoria_id: catId, es_vegano: document.getElementById('f-vegano').checked, es_sintacc: document.getElementById('f-sintacc').checked }]);
         closeModal(); showPage('sabores');
     };
@@ -296,23 +296,41 @@ window.abrirModalSaborExistente = function(sabor) {
     document.getElementById('modal-form').classList.add('active');
     document.getElementById('modal-title').innerText = "EDITAR SABOR";
     body.innerHTML = `
-        <input id="f-nombre" value="${sabor.nombre}" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
-        <div class="flex gap-4 p-2 font-bold text-xs">
-            <label><input type="checkbox" id="f-vegano" ${sabor.es_vegano ? 'checked' : ''}> VEGANO</label>
-            <label><input type="checkbox" id="f-sintacc" ${sabor.es_sintacc ? 'checked' : ''}> SIN TACC</label>
+        <div class="space-y-4">
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase">Nombre del Sabor</label>
+                <input id="f-nombre" value="${sabor.nombre}" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none focus:border-blue-500">
+            </div>
+            <div class="flex gap-4 p-2 font-bold text-xs">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" id="f-vegano" ${sabor.es_vegano ? 'checked' : ''}> VEGANO
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" id="f-sintacc" ${sabor.es_sintacc ? 'checked' : ''}> SIN TACC
+                </label>
+            </div>
         </div>`;
     btn.onclick = async () => {
-        const nom = document.getElementById('f-nombre').value.trim();
-        if (!nom) return alert("Nombre obligatorio");
-        const { error } = await _supabase.from('sabores').update({ nombre: nom, es_vegano: document.getElementById('f-vegano').checked, es_sintacc: document.getElementById('f-sintacc').checked }).eq('id', sabor.id);
-        if (error) alert(error.message); else { closeModal(); showPage('sabores'); }
+        const nombreInput = document.getElementById('f-nombre').value.trim();
+        if (!nombreInput) {
+            alert("¡Error! El nombre del sabor no puede estar vacío.");
+            return;
+        }
+        const { error } = await _supabase.from('sabores').update({ 
+            nombre: nombreInput, 
+            es_vegano: document.getElementById('f-vegano').checked, 
+            es_sintacc: document.getElementById('f-sintacc').checked 
+        }).eq('id', sabor.id);
+        if (error) alert("Error al actualizar: " + error.message);
+        else { closeModal(); showPage('sabores'); }
     };
 };
 
 window.masterStock = async function(sucId, ids, status) {
     const batch = ids.map(id => ({ sucursal_id: sucId, sabor_id: id, disponible: status }));
     const { error } = await _supabase.from('visibilidad_sabores').upsert(batch, { onConflict: 'sucursal_id,sabor_id' });
-    if (error) alert("Error: " + error.message); else showPage('admin_stock', sucId);
+    if (error) alert("Error: " + error.message);
+    else showPage('admin_stock', sucId);
 };
 
 window.toggleStock = async function(sucId, saborId, current) {
@@ -331,7 +349,7 @@ async function abrirModal(type, data = null) {
         body.innerHTML = `<input id="f-nom" value="${data?.nombre || ''}" placeholder="Nombre" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">`;
         btn.onclick = async () => {
             const nom = document.getElementById('f-nom').value.trim();
-            if (!nom) return alert("Nombre obligatorio");
+            if (!nom) return alert("El nombre es obligatorio");
             const table = type === 'cat' ? 'categorias' : (type === 'sucursal' ? 'sucursales' : 'categorias_precios');
             await _supabase.from(table).upsert({ id: data?.id, nombre: nom });
             closeModal(); showPage(currentPage === 'admin_stock' ? 'sucursales' : currentPage);
@@ -339,20 +357,27 @@ async function abrirModal(type, data = null) {
     }
     if (type === 'precio') {
         const { data: cp } = await _supabase.from('categorias_precios').select('*');
-        body.innerHTML = `<select id="f-cp" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
+        body.innerHTML = `
+            <select id="f-cp" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
                 ${cp.map(c => `<option value="${c.id}" ${data?.categoria_precio_id === c.id ? 'selected':''}>${c.nombre}</option>`)}
             </select>
             <input id="f-lab" value="${data?.label || ''}" placeholder="Etiqueta" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
             <input id="f-val" type="number" value="${data?.valor || ''}" placeholder="Precio" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">`;
+        
         btn.onclick = async () => {
             const lab = document.getElementById('f-lab').value.trim();
             const val = document.getElementById('f-val').value;
-            if (!lab || !val) return alert("Completar campos");
-            await _supabase.from('precios_globales').upsert({ id: data?.id, categoria_precio_id: document.getElementById('f-cp').value, label: lab, valor: val });
+            if (!lab || !val) return alert("Etiqueta y Precio son obligatorios");
+            await _supabase.from('precios_globales').upsert({ 
+                id: data?.id, 
+                categoria_precio_id: document.getElementById('f-cp').value, 
+                label: lab, 
+                valor: val 
+            });
             closeModal(); showPage('precios');
         };
     }
 }
 
 function closeModal() { document.getElementById('modal-form').classList.remove('active'); document.getElementById('modal-tabs').classList.add('hidden'); }
-async function eliminar(t, id) { if(confirm('¿BORRAR?')) { await _supabase.from(t).delete().eq('id', id); showPage(currentPage); } }
+async function eliminar(t, id) { if(confirm('¿BORRAR REGISTRO?')) { await _supabase.from(t).delete().eq('id', id); showPage(currentPage); } }
