@@ -33,18 +33,19 @@ function renderMenu() {
 
 async function showPage(page, params = null) {
     if (!window.userPerfil) {
-        setTimeout(() => showPage(page, params), 100);
+        console.log("Esperando perfil del usuario...");
+        setTimeout(() => showPage(page, params), 200);
         return;
     }
 
     const paginasProhibidas = ['categorias', 'sabores', 'usuarios', 'precios', 'pantallas'];
+    
     if (window.userPerfil.rol !== 'admin' && paginasProhibidas.includes(page)) {
         const p = window.userPerfil.permisos || {};
         if (!p[page]) {
             page = 'sucursales'; 
         }
     }
-  
     currentPage = page;
     const container = document.getElementById('view-content');
     const header = document.getElementById('view-header');
