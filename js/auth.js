@@ -37,9 +37,17 @@ async function checkSession() {
             return;
         }
 
-        const { data: perfil, error } = await _supabase.from('perfiles').select('*').eq('id', session.user.id).single();
+        // Corregido: Definimos 'data' como 'perfil' directamente
+        const { data: perfil, error } = await _supabase
+            .from('perfiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
         if (error) throw error;
-        userPerfil = perfil;
+        
+        // Asignación global para que admin.js lo vea
+        window.userPerfil = perfil;
 
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('sidebar').classList.remove('hidden');
@@ -47,14 +55,17 @@ async function checkSession() {
 
         renderMenu();
 
-        if (userPerfil.rol === 'admin') showPage('categorias');
-        else {
-            const p = userPerfil.permisos || {};
+        // Redirección inicial según el rol global
+        if (window.userPerfil.rol === 'admin') {
+            showPage('categorias');
+        } else {
+            const p = window.userPerfil.permisos || {};
             if (p.sucursales) showPage('sucursales');
             else if (p.sabores) showPage('sabores');
             else showPage('categorias');
         }
     } catch (e) {
+        console.error("Error de sesión:", e.message);
         document.getElementById('login-screen').style.display = 'flex';
     }
 }
