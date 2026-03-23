@@ -1,4 +1,3 @@
-// js/tv.js
 let currentTvData = null;
 let activeTab = 'config';
 
@@ -12,7 +11,7 @@ window.activarRealtimeTV = function(tvId) {
     _supabase.channel('tv-realtime')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'visibilidad_sabores' }, () => renderPantallaTV(tvId))
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pantallas', filter: `id=eq.${tvId}` }, () => renderPantallaTV(tvId))
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'sabores' }, () => renderPantallaTV(tvId))
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'sabores' }, () => renderPantallaTV(tvId))
         .subscribe();
 };
 
@@ -27,7 +26,6 @@ window.renderPantallaTV = async function(id) {
     tv.style.backgroundColor = style.bg || '#fdfbf7';
     tv.style.fontFamily = style.font || 'Inter';
 
-    // Inyectar Animación Dinámica
     const animDur = style.animacionDuracion || 0.5;
     const animTipo = style.animacionTipo || 'fadeUp';
     const styleTag = document.getElementById('anim-styles') || document.createElement('style');
