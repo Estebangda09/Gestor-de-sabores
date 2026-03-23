@@ -2,23 +2,22 @@ const SUPABASE_URL = 'https://vokwutkpntqtfevvdkei.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZva3d1dGtwbnRxdGZldnZka2VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3OTE4MDMsImV4cCI6MjA4OTM2NzgwM30.FdNLN4PdKAMe4LSdw9lGqjLeV6UzbfFlwZjgkd8nkro';
 const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-window.userPerfil = null;
+window.userPerfil = null; // Global para que admin.js lo vea siempre
 
 window.addEventListener('load', async () => {
     const urlParams = new URLSearchParams(window.location.search);
     
-    // MODO TV: Público y Realtime (IGNORA LOGIN)
+    // MODO TV: Ignora login y carga directo
     if (urlParams.get('mode') === 'tv') {
         const tvId = urlParams.get('id');
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('tv-container').classList.remove('hidden');
-        
-        await renderPantallaTV(tvId); // Función en tv.js
-        activarRealtimeTV(tvId);      // Función en tv.js
+        await renderPantallaTV(tvId);
+        activarRealtimeTV(tvId);
         return; 
     }
 
-    // MODO ADMIN: Lógica normal de sesión
+    // MODO ADMIN: Recordar usuario
     const savedUser = localStorage.getItem('remembered_username');
     if (savedUser && document.getElementById('login-user')) {
         document.getElementById('login-user').value = savedUser;
@@ -39,20 +38,22 @@ async function checkSession() {
         const { data: perfil, error } = await _supabase.from('perfiles').select('*').eq('id', session.user.id).single();
         if (error) throw error;
         
-        window.userPerfil = perfil; // Guardar globalmente
+        window.userPerfil = perfil; // Asignación global
 
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('sidebar').classList.remove('hidden');
         document.getElementById('app').classList.remove('hidden');
 
-        renderMenu(); // Función en admin.js
+        renderMenu();
 
-        // Redirección inicial según permisos
-        if (window.userPerfil.rol === 'admin') showPage('categorias');
-        else {
+        if (window.userPerfil.rol === 'admin') {
+            showPage('categorias');
+        } else {
             const p = window.userPerfil.permisos || {};
             if (p.sucursales) showPage('sucursales');
             else if (p.sabores) showPage('sabores');
+            else if (p.pantallas) showPage('pantallas');
+            else if (p.precios) showPage('precios');
             else showPage('categorias');
         }
     } catch (e) {
@@ -64,7 +65,8 @@ async function handleLogin() {
     const userInput = document.getElementById('login-user').value.trim();
     const pass = document.getElementById('login-pass').value;
     const remember = document.getElementById('remember-me').checked;
-    if (!userInput || !pass) return alert("Completar campos");
+
+    if (!userInput || !pass) return alert("Completa todos los campos");
 
     let emailFinal = userInput;
     if (!userInput.includes('@')) {
