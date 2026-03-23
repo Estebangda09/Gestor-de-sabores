@@ -1,6 +1,6 @@
 function renderMenu() {
     const nav = document.getElementById('menu-nav');
-    const p = userPerfil.permisos || {};
+    const p = userPerfil.permisos || {}; // Cargamos los permisos granulares
     let html = '';
 
     if (userPerfil.rol === 'admin') {
@@ -13,6 +13,7 @@ function renderMenu() {
             <div onclick="showPage('precios')" id="m-precios" class="menu-item">💰 Precios</div>
         `;
     } else {
+        // Menú dinámico basado en los permisos tildados por el admin
         if (p.categorias) html += `<div onclick="showPage('categorias')" id="m-categorias" class="menu-item">📁 Categorías</div>`;
         if (p.sabores) html += `<div onclick="showPage('sabores')" id="m-sabores" class="menu-item">🍨 Sabores</div>`;
         if (p.sucursales) html += `<div onclick="showPage('sucursales')" id="m-sucursales" class="menu-item">🏪 Sucursales</div>`;
@@ -20,7 +21,7 @@ function renderMenu() {
         if (p.precios) html += `<div onclick="showPage('precios')" id="m-precios" class="menu-item">💰 Precios</div>`;
     }
     
-    // Botón Mi Perfil (al final)
+    // Botón Mi Perfil para todos
     html += `
         <div class="mt-10 pt-4 border-t border-slate-700/50">
             <div onclick="abrirMiPerfil()" class="menu-item text-blue-400">👤 Mi Perfil</div>
