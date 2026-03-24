@@ -4,6 +4,7 @@ let activeTab = 'config';
 window.tvHasRendered = false;
 window.animIntervalTV = null;
 
+// --- GESTIÓN DE CACHÉ PARA MODO OFFLINE ---
 function gestionarCacheTV(id, data = null) {
     const cacheKey = `tv_cache_${id}`;
     if (data) {
@@ -14,27 +15,24 @@ function gestionarCacheTV(id, data = null) {
     }
 }
 
-// --- ACTIVAR ESCUCHA EN TIEMPO REAL RESTAURADA (COMO FUNCIONABA ANTES) ---
+// --- ACTIVAR ESCUCHA EN TIEMPO REAL (Realtime) ---
 window.activarRealtimeTV = function(tvId) {
     console.log("Conectando Realtime para TV:", tvId);
 
+    if (window.tvChannel) _supabase.removeChannel(window.tvChannel);
+    window.tvChannel = _supabase.channel(`tv_${tvId}`);
+
     // Canal para cambios en la configuración de la pantalla o estilos (Dispara animación)
-    _supabase
-        .channel('public:pantallas')
+    window.tvChannel
         .on('postgres_changes', { 
-            event: 'UPDATE', 
+            event: '*', // Escucha TODO (UPDATE, INSERT, DELETE)
             schema: 'public', 
             table: 'pantallas', 
             filter: `id=eq.${tvId}` 
-        }, () => {
-            console.log('Cambio de diseño detectado...');
+        }, (payload) => {
+            console.log('Cambio de diseño detectado...', payload);
             renderPantallaTV(tvId, true); // true = Anima para mostrar el nuevo estilo
         })
-        .subscribe();
-
-    // Canal para cambios en la disponibilidad de sabores (Stock - Sin Animación)
-    _supabase
-        .channel('public:visibilidad_sabores')
         .on('postgres_changes', { 
             event: '*', 
             schema: 'public', 
@@ -43,11 +41,6 @@ window.activarRealtimeTV = function(tvId) {
             console.log('Cambio de stock detectado...');
             renderPantallaTV(tvId, false); // false = Aparece al instante
         })
-        .subscribe();
-
-    // Canal para cambios al editar nombre o etiquetas de un sabor (Sin Animación)
-    _supabase
-        .channel('public:sabores')
         .on('postgres_changes', { 
             event: '*', 
             schema: 'public', 
@@ -56,7 +49,9 @@ window.activarRealtimeTV = function(tvId) {
             console.log('Cambio en datos de sabor detectado...');
             renderPantallaTV(tvId, false); // false = Actualiza al instante
         })
-        .subscribe();
+        .subscribe((status) => {
+            console.log('Estado Conexión Realtime TV:', status);
+        });
 };
 
 // --- RENDERIZADO DE PANTALLA ---
@@ -119,7 +114,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
             height: ${layoutHeight}; 
             display: flex;
             flex-direction: column;
-            flex-wrap: wrap; /* Coloca las categorías a la derecha si no caben abajo */
+            flex-wrap: wrap; 
             gap: 3vh 3vw;
             padding: 3vh 3vw;
             box-sizing: border-box;
@@ -142,7 +137,6 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
             padding-bottom: 0.5vh;
         }
 
-        /* CUADRÍCULA INTERNA PARA SABORES EN 2 COLUMNAS */
         .tv-flavor-list {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -159,7 +153,6 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
             gap: 8px;
         }
 
-        /* PRECIOS OCUPAN TODO EL ANCHO DE LA CATEGORÍA */
         .price-row { 
             font-size: ${style.saborSize}px;
             color: ${style.saborColor};
@@ -262,6 +255,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
     }
 };
 
+// --- CRUD ADMIN ---
 window.verPantallasSucursal = async function(sucId, sucName) {
     window.currentSucId = sucId; window.currentSucName = sucName;
     const { data: pants } = await _supabase.from('pantallas').select('*').eq('sucursal_id', sucId);
@@ -283,7 +277,6 @@ async function renderModalContent() {
     const btn = document.getElementById('btn-save');
     const title = document.getElementById('modal-title');
     title.innerText = currentTvData ? "EDITOR DE TV" : "NUEVA PANTALLA";
-    
     document.getElementById('tab-config').className = activeTab === 'config' ? 'font-bold text-blue-600 border-b-2 border-blue-600 pb-1' : 'font-bold text-slate-400 pb-1';
     document.getElementById('tab-style').className = activeTab === 'style' ? 'font-bold text-blue-600 border-b-2 border-blue-600 pb-1' : 'font-bold text-slate-400 pb-1';
 
@@ -312,7 +305,7 @@ async function renderModalContent() {
                     </label>`).join('')}
             </div>`;
     } else {
-        const est = currentTvData?.estilo || { font: 'Inter', bg: '#fdfbf7', catColor: '#64748b', saborColor: '#1e293b', catSize: 24, saborSize: 18, columnas: 2, animacionTipo: 'fadeUp', animacionDuracion: 0.5, animacionCiclo: 0, marquesinaActiva: false, marquesinaBg: '#1e293b', marquesinaColor: '#ffffff', marquesinaVelocidad: 20, marquesinaAlto: 80, marquesinaSize: 30, marquesinaTexto: 'BIENVENIDOS' };
+        const est = currentTvData?.estilo || { font: 'Inter', bg: '#fdfbf7', catColor: '#64748b', saborColor: '#1e293b', catSize: 32, saborSize: 24, columnas: 2, animacionTipo: 'fadeUp', animacionDuracion: 0.5, animacionCiclo: 0, marquesinaActiva: false, marquesinaBg: '#1e293b', marquesinaColor: '#ffffff', marquesinaVelocidad: 20, marquesinaAlto: 80, marquesinaSize: 36, marquesinaTexto: 'BIENVENIDOS' };
         
         body.innerHTML = `
             <div class="grid grid-cols-2 gap-4">
@@ -350,7 +343,7 @@ async function renderModalContent() {
                         <div><label class="text-[9px] font-bold uppercase text-slate-500">Color Letra</label><input type="color" id="s-mqC" value="${est.marquesinaColor}" class="w-full h-8 cursor-pointer border-none rounded"></div>
                         <div><label class="text-[9px] font-bold uppercase text-slate-500">Velocidad</label><input type="number" id="s-mqV" value="${est.marquesinaVelocidad}" class="w-full border p-2 text-xs rounded-xl"></div>
                         <div><label class="text-[9px] font-bold uppercase text-slate-500">Alto Barra (px)</label><input type="number" id="s-mqH" value="${est.marquesinaAlto}" class="w-full border p-2 text-xs rounded-xl"></div>
-                        <div class="col-span-2"><label class="text-[9px] font-bold uppercase text-slate-500">Tamaño Letra (px)</label><input type="number" id="s-mqS" value="${est.marquesinaSize}" class="w-full border p-2 text-xs rounded-xl"></div>
+                        <div class="col-span-2"><label class="text-[9px] font-bold uppercase text-slate-500">Tamaño Letra Marquesina (px)</label><input type="number" id="s-mqS" value="${est.marquesinaSize}" class="w-full border p-2 text-xs rounded-xl"></div>
                     </div>
                 </div>
             </div>`;
@@ -370,8 +363,8 @@ async function renderModalContent() {
                     bg: document.getElementById('s-bg').value, 
                     catColor: document.getElementById('s-catC').value, 
                     saborColor: document.getElementById('s-sabC').value, 
-                    catSize: parseInt(document.getElementById('s-catS').value) || 24, 
-                    saborSize: parseInt(document.getElementById('s-sabS').value) || 18, 
+                    catSize: parseInt(document.getElementById('s-catS').value) || 32, 
+                    saborSize: parseInt(document.getElementById('s-sabS').value) || 24, 
                     columnas: document.getElementById('s-col').value, 
                     animacionTipo: document.getElementById('s-anim-T').value, 
                     animacionDuracion: parseFloat(document.getElementById('s-anim-D').value) || 0.5, 
@@ -382,7 +375,7 @@ async function renderModalContent() {
                     marquesinaTexto: document.getElementById('s-mqT').value.trim() || 'BIENVENIDOS', 
                     marquesinaVelocidad: parseInt(document.getElementById('s-mqV').value) || 20,
                     marquesinaAlto: parseInt(document.getElementById('s-mqH').value) || 80,
-                    marquesinaSize: parseInt(document.getElementById('s-mqS').value) || 30
+                    marquesinaSize: parseInt(document.getElementById('s-mqS').value) || 36
                 } 
               };
         
