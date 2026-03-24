@@ -15,47 +15,39 @@ function gestionarCacheTV(id, data = null) {
     }
 }
 
-// --- ACTIVAR ESCUCHA EN TIEMPO REAL (100% TU VERSIÓN ORIGINAL Y FUNCIONAL) ---
+// --- ACTIVAR ESCUCHA EN TIEMPO REAL ---
 window.activarRealtimeTV = function(tvId) {
     console.log("Conectando Realtime para TV:", tvId);
 
-    // Canal para cambios en la configuración de la pantalla o estilos
-    _supabase
-        .channel('public:pantallas')
-        .on('postgres_changes', { 
-            event: 'UPDATE', 
-            schema: 'public', 
-            table: 'pantallas', 
-            filter: `id=eq.${tvId}` 
-        }, () => {
-            console.log('Cambio de diseño detectado...');
-            renderPantallaTV(tvId, true); // true = Anima para mostrar el nuevo diseño
-        })
-        .subscribe();
+    if (window.tvChannel) _supabase.removeChannel(window.tvChannel);
+    window.tvChannel = _supabase.channel(`tv_${tvId}`);
 
-    // Canal para cambios en la disponibilidad de sabores (stock)
-    _supabase
-        .channel('public:visibilidad_sabores')
+    window.tvChannel
+        .on('postgres_changes', { 
+            event: '*', 
+            schema: 'public', 
+            table: 'pantallas'
+        }, (payload) => {
+            console.log('Cambio de diseño detectado en DB...', payload);
+            if (payload.new && payload.new.id == tvId) {
+                renderPantallaTV(tvId, true); 
+            }
+        })
         .on('postgres_changes', { 
             event: '*', 
             schema: 'public', 
             table: 'visibilidad_sabores' 
         }, () => {
             console.log('Cambio de stock detectado...');
-            renderPantallaTV(tvId, false); // false = Sin repetir animación
+            renderPantallaTV(tvId, false); 
         })
-        .subscribe();
-
-    // Canal para escuchar cambios al editar un sabor (nombre, vegano, sintacc)
-    _supabase
-        .channel('public:sabores')
         .on('postgres_changes', { 
             event: '*', 
             schema: 'public', 
             table: 'sabores' 
         }, () => {
             console.log('Cambio en datos de sabor detectado...');
-            renderPantallaTV(tvId, false); // false = Sin repetir animación
+            renderPantallaTV(tvId, false); 
         })
         .subscribe();
 };
@@ -78,13 +70,13 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
         font: 'Inter', bg: '#fdfbf7', catColor: '#64748b', saborColor: '#1e293b', 
         catSize: 24, saborSize: 18, columnas: 2, 
         animacionTipo: 'fadeUp', animacionDuracion: 0.5, animacionCiclo: 0,
-        marquesinaActiva: false, marquesinaBg: '#1e293b', marquesinaColor: '#ffffff', marquesinaVelocidad: 20, marquesinaTexto: 'BIENVENIDOS'
+        marquesinaActiva: false, marquesinaBg: '#1e293b', marquesinaColor: '#ffffff', marquesinaVelocidad: 20, marquesinaTexto: 'BIENVENIDOS',
+        espacioCategorias: 20, espacioSabores: 8, columnasPorCategoria: {}
     };
 
     const shouldAnimate = (forceAnimation === true) || !window.tvHasRendered;
     window.tvHasRendered = true;
 
-    // --- CICLO DE REPETICIÓN DEL EFECTO ---
     if (window.animIntervalTV) {
         clearInterval(window.animIntervalTV);
         window.animIntervalTV = null;
@@ -108,7 +100,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
     const styleTag = document.getElementById('anim-styles') || document.createElement('style');
     styleTag.id = 'anim-styles';
     
-    // --- CSS CORREGIDO: MARGEN A LA IZQUIERDA Y ARRIBA (20px y 25px) ---
+    // --- CSS CORREGIDO ---
     styleTag.innerHTML = `
         body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: ${style.bg}; }
         #tv-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; margin: 0; padding: 0; }
@@ -120,12 +112,9 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
             flex-wrap: wrap; 
             column-gap: 2vw;
             row-gap: 0;
-            
-            /* PADDING CORREGIDO: 20px arriba, 10px derecha, 10px abajo, 25px izquierda */
-            padding: 20px 10px 10px 25px; 
+            padding: 15px 10px 10px 25px; 
             margin: 0;
             box-sizing: border-box;
-            
             align-content: flex-start;
             justify-content: flex-start;
         }
@@ -133,10 +122,9 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
         .tv-category-container { 
             break-inside: avoid; 
             page-break-inside: avoid;
-            width: ${datos.orientacion === '9:16' || style.columnas == 1 ? '100%' : 'calc(50% - 1.5vw)'}; 
+            width: ${datos.orientacion === '9:16' || style.columnas == 1 ? '100%' : 'calc(50% - 1vw)'}; 
             display: flex; 
             flex-direction: column;
-            margin: 0 0 1.5vh 0; 
             padding: 0;
         }
 
@@ -145,15 +133,14 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
             font-size: ${style.catSize}px; 
             text-transform: uppercase; 
             font-weight: 900; 
-            margin: 0 0 0.8vh 0; 
+            margin: 0 0 0.5vh 0; 
             border-bottom: 2px solid ${style.catColor}44;
             padding: 0 0 3px 0;
         }
 
         .tv-flavor-list {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 1vh 1vw;
+            column-gap: 1vw;
             margin: 0; padding: 0;
         }
 
@@ -175,7 +162,6 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
             align-items: center; 
             border-bottom: 1px solid rgba(0,0,0,0.05); 
             padding: 4px 0;
-            margin: 0 0 0.5vh 0;
         }
 
         .price-label { font-weight: 700; color: ${style.catColor}; margin: 0; }
@@ -189,6 +175,10 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
     `;
     if (!document.getElementById('anim-styles')) document.head.appendChild(styleTag);
 
+    const espCat = style.espacioCategorias !== undefined ? style.espacioCategorias : 20;
+    const espSab = style.espacioSabores !== undefined ? style.espacioSabores : 8;
+    const colsPorCat = style.columnasPorCategoria || {};
+
     let html = `<div class="tv-layout">`;
     let delay = 0; 
 
@@ -198,7 +188,8 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
         
         catPrecios?.forEach(c => {
             const items = prices.filter(p => p.categoria_precio_id === c.id);
-            html += `<div class="tv-category-container"><div class="tv-cat-header">${c.nombre}</div><div class="tv-flavor-list">`;
+            const catCols = colsPorCat[c.id] || 2;
+            html += `<div class="tv-category-container" style="margin-bottom: ${espCat}px;"><div class="tv-cat-header">${c.nombre}</div><div class="tv-flavor-list" style="grid-template-columns: repeat(${catCols}, 1fr); row-gap: ${espSab}px;">`;
             items.forEach(p => {
                 const animClass = shouldAnimate ? 'sabor-anim' : '';
                 const animStyle = shouldAnimate ? `animation-delay: ${delay}s;` : 'opacity: 1;';
@@ -218,8 +209,8 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
         
     } else {
         const { data: cats } = await _supabase.from('categorias').select('*').in('id', datos.config_categorias || []).order('orden');
-        const { data: sabs = [] } = await _supabase.from('sabores').select('*').order('nombre');
-        const { data: vis = [] } = await _supabase.from('visibilidad_sabores').select('*').eq('sucursal_id', datos.sucursal_id);
+        const { data: sabs } = await _supabase.from('sabores').select('*').order('nombre');
+        const { data: vis } = await _supabase.from('visibilidad_sabores').select('*').eq('sucursal_id', datos.sucursal_id);
         
         cats?.forEach(c => {
             const disponibles = sabs.filter(s => s.categoria_id === c.id).filter(s => {
@@ -228,7 +219,8 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
             });
             
             if(disponibles.length) {
-                html += `<div class="tv-category-container"><div class="tv-cat-header">${c.nombre}</div><div class="tv-flavor-list">`;
+                const catCols = colsPorCat[c.id] || 2;
+                html += `<div class="tv-category-container" style="margin-bottom: ${espCat}px;"><div class="tv-cat-header">${c.nombre}</div><div class="tv-flavor-list" style="grid-template-columns: repeat(${catCols}, 1fr); row-gap: ${espSab}px;">`;
                 disponibles.forEach(s => {
                     const nombreFormateado = s.nombre.charAt(0).toUpperCase() + s.nombre.slice(1).toLowerCase();
                     const currentDelay = delay;
@@ -237,21 +229,19 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
                     const animClass = shouldAnimate ? 'sabor-anim' : '';
                     const animStyle = shouldAnimate ? `animation-delay: ${currentDelay}s;` : 'opacity: 1;';
                     
-                    // --- CÁLCULO DE ALINEACIÓN PERFECTA (PUNTO VS ICONOS) ---
-                    // Se crea un contenedor de ancho fijo (aumentado a 75px) para alojar los íconos o el punto.
-                    // Las imágenes tienen un tamaño fijo AUMENTADO A 35px.
+                    // --- ALINEACIÓN PERFECTA: BLOQUE DE 50PX E ÍCONOS DE TAMAÑO RELATIVO AL TEXTO ---
                     const tieneIcono = s.es_sintacc || s.es_vegano;
                     let bulletHtml = '';
                     
                     if (tieneIcono) {
                         bulletHtml = `
-                        <div style="width: 45px; flex-shrink: 0; display: flex; gap: 4px; align-items: center; justify-content: flex-start;">
-                            ${s.es_sintacc ? `<img src="img/sintacc.png" style="height: 35px; width: 35px; object-fit: contain; flex-shrink: 0;">` : ''}
-                            ${s.es_vegano ? `<img src="img/vegano.png" style="height: 35px; width: 35px; object-fit: contain; flex-shrink: 0;">` : ''}
+                        <div style="width: 50px; flex-shrink: 0; display: flex; gap: 4px; align-items: center; justify-content: flex-start;">
+                            ${s.es_sintacc ? `<img src="img/sintacc.png" style="height: 0.85em; width: auto; object-fit: contain; flex-shrink: 0;">` : ''}
+                            ${s.es_vegano ? `<img src="img/vegano.png" style="height: 0.85em; width: auto; object-fit: contain; flex-shrink: 0;">` : ''}
                         </div>`;
                     } else {
                         bulletHtml = `
-                        <div style="width: 45px; flex-shrink: 0; display: flex; align-items: center; justify-content: flex-start; padding-left: 5px;">
+                        <div style="width: 50px; flex-shrink: 0; display: flex; align-items: center; justify-content: flex-start; padding-left: 5px;">
                             <span class="tv-dot" style="color: #3b82f6; font-size: 0.9em;">•</span>
                         </div>`;
                     }
