@@ -2,7 +2,7 @@
 let currentTvData = null;
 let activeTab = 'config';
 window.tvHasRendered = false;
-window.animIntervalTV = null;
+window.animIntervalTV = null; // Variable para controlar el ciclo de animación
 
 // --- GESTIÓN DE CACHÉ PARA MODO OFFLINE ---
 function gestionarCacheTV(id, data = null) {
@@ -15,23 +15,23 @@ function gestionarCacheTV(id, data = null) {
     }
 }
 
-// --- ACTIVAR ESCUCHA EN TIEMPO REAL (Realtime) ---
+// --- ACTIVAR ESCUCHA EN TIEMPO REAL RESTAURADA (COMO FUNCIONABA ANTES) ---
 window.activarRealtimeTV = function(tvId) {
     console.log("Conectando Realtime para TV:", tvId);
 
     if (window.tvChannel) _supabase.removeChannel(window.tvChannel);
     window.tvChannel = _supabase.channel(`tv_${tvId}`);
 
-    // Canal para cambios en la configuración de la pantalla o estilos (Dispara animación)
+    // Canal para cambios en la configuración de la pantalla o estilos (Dispara animación instantánea al presionar Confirmar)
     window.tvChannel
         .on('postgres_changes', { 
-            event: '*', // Escucha TODO (UPDATE, INSERT, DELETE)
+            event: 'UPDATE', 
             schema: 'public', 
             table: 'pantallas', 
             filter: `id=eq.${tvId}` 
-        }, (payload) => {
-            console.log('Cambio de diseño detectado...', payload);
-            renderPantallaTV(tvId, true); // true = Anima para mostrar el nuevo estilo
+        }, () => {
+            console.log('Cambio de diseño detectado...');
+            renderPantallaTV(tvId, true); // true = Vuelve a animar para mostrar el nuevo estilo
         })
         .on('postgres_changes', { 
             event: '*', 
@@ -39,7 +39,7 @@ window.activarRealtimeTV = function(tvId) {
             table: 'visibilidad_sabores' 
         }, () => {
             console.log('Cambio de stock detectado...');
-            renderPantallaTV(tvId, false); // false = Aparece al instante
+            renderPantallaTV(tvId, false); // false = Aparece/Desaparece al instante sin efecto cascada
         })
         .on('postgres_changes', { 
             event: '*', 
@@ -47,33 +47,33 @@ window.activarRealtimeTV = function(tvId) {
             table: 'sabores' 
         }, () => {
             console.log('Cambio en datos de sabor detectado...');
-            renderPantallaTV(tvId, false); // false = Actualiza al instante
+            renderPantallaTV(tvId, false); // false = Actualiza texto al instante sin efecto cascada
         })
-        .subscribe((status) => {
-            console.log('Estado Conexión Realtime TV:', status);
-        });
+        .subscribe();
 };
 
 // --- RENDERIZADO DE PANTALLA ---
 window.renderPantallaTV = async function(id, forceAnimation = null) {
     const tv = document.getElementById('tv-container');
     
+    // 1. Intentar traer datos frescos de Supabase
     const { data: pant, error } = await _supabase.from('pantallas').select('*').eq('id', id).single();
+    
     let datos = pant;
 
     if (error || !pant) {
         datos = gestionarCacheTV(id);
         if (!datos) return console.error("Sin conexión y sin datos en caché.");
     } else {
-        gestionarCacheTV(id, pant);
+        gestionarCacheTV(id, pant); 
     }
 
+    // Configuración base por defecto en PIXELES
     const style = datos.estilo || { 
         font: 'Inter', bg: '#fdfbf7', catColor: '#64748b', saborColor: '#1e293b', 
         catSize: 24, saborSize: 18, columnas: 2, 
         animacionTipo: 'fadeUp', animacionDuracion: 0.5, animacionCiclo: 0,
-        marquesinaActiva: false, marquesinaBg: '#1e293b', marquesinaColor: '#ffffff', 
-        marquesinaVelocidad: 20, marquesinaAlto: 80, marquesinaSize: 36, marquesinaTexto: 'BIENVENIDOS'
+        marquesinaActiva: false, marquesinaBg: '#1e293b', marquesinaColor: '#ffffff', marquesinaVelocidad: 20, marquesinaTexto: 'BIENVENIDOS'
     };
 
     const shouldAnimate = (forceAnimation === true) || !window.tvHasRendered;
@@ -90,40 +90,41 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
             renderPantallaTV(id, true);
         }, cicloSegundos * 1000);
     }
-
+    
     tv.classList.remove('hidden');
     tv.style.backgroundColor = style.bg;
     tv.style.fontFamily = style.font;
 
-    const altoMq = style.marquesinaActiva ? (style.marquesinaAlto || 80) : 0;
-    const layoutHeight = `calc(100vh - ${altoMq}px)`;
-
+    // --- INYECCIÓN DE CSS PARA ANIMACIONES Y ESTRUCTURA ---
     const animDur = style.animacionDuracion || 0.5;
     const animTipo = style.animacionTipo || 'fadeUp';
     const styleTag = document.getElementById('anim-styles') || document.createElement('style');
     styleTag.id = 'anim-styles';
     
-    // --- CSS ESTRUCTURAL PARA AUTO-BALANCEO Y 2 COLUMNAS INTERNAS ---
-    const gridColsCat = datos.orientacion === '9:16' || style.columnas == 1 ? '100%' : 'calc(50% - 1.5vw)';
-
+    // CSS Ajustado: Mayor uso de cuadrículas (grids) internas para las 2 columnas y control estricto de rem para el 16:9
     styleTag.innerHTML = `
         body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: ${style.bg}; }
         #tv-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; }
         
         .tv-layout {
-            height: ${layoutHeight}; 
+            height: 100vh; /* Ocupa todo el alto */
             display: flex;
             flex-direction: column;
-            flex-wrap: wrap; 
-            gap: 3vh 3vw;
-            padding: 3vh 3vw;
+            flex-wrap: wrap; /* CRÍTICO: Permite que el contenido fluya a la siguiente columna */
+            gap: 2vw;
+            
+            /* --- MODIFICADO AQUÍ PARA SUBIR MÁS Y CORRER A LA IZQUIERDA --- */
+            padding: 0.5vh 1vw; /* 0.5% alto arriba/abajo, 1% ancho lados. Muy mínimo. */
+            
             box-sizing: border-box;
-            align-content: flex-start;
+            align-content: start;
         }
 
-        .tv-category-card { 
-            width: ${gridColsCat}; 
-            break-inside: avoid;
+        .tv-category-container { 
+            break-inside: avoid; /* Evita que una categoría se corte a la mitad */
+            page-break-inside: avoid;
+            width: ${datos.orientacion === '9:16' || style.columnas == 1 ? '100%' : 'calc(50% - 1vw)'}; 
+            display: inline-block; /* Ayuda a respetar el break-inside */
             margin-bottom: 2vh;
         }
 
@@ -132,16 +133,16 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
             font-size: ${style.catSize}px; 
             text-transform: uppercase; 
             font-weight: 900; 
-            margin-bottom: 1.5vh;
+            margin-bottom: 1vh;
             border-bottom: 2px solid ${style.catColor}44;
-            padding-bottom: 0.5vh;
+            padding-bottom: 5px;
         }
 
+        /* --- CUADRÍCULA INTERNA PARA SABORES EN 2 COLUMNAS --- */
         .tv-flavor-list {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            column-gap: 2vw;
-            row-gap: 1.2vh;
+            gap: 1.5vh 1.5vw;
         }
 
         .tv-flavor-item { 
@@ -150,18 +151,20 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
             line-height: 1.2; 
             display: flex; 
             align-items: center; 
-            gap: 8px;
+            gap: 10px;
         }
 
+        /* --- PRECIOS GLOBALMENTE COMPARTIDOS (GRID COLUMN SPAN) --- */
         .price-row { 
             font-size: ${style.saborSize}px;
             color: ${style.saborColor};
-            grid-column: span 2;
+            grid-column: span 2; /* Ocupa las 2 columnas si son precios */
             display: flex;
             justify-content: space-between; 
+            align-items: center; 
             border-bottom: 1px solid rgba(0,0,0,0.05); 
             padding: 5px 0;
-            margin-bottom: 1vh;
+            margin-bottom: 0.5vh;
         }
 
         .price-label { font-weight: 700; color: ${style.catColor}; }
@@ -176,15 +179,15 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
     if (!document.getElementById('anim-styles')) document.head.appendChild(styleTag);
 
     let html = `<div class="tv-layout">`;
-    let delay = 0;
+    let delay = 0; // Variable para el efecto cascada
 
     if (datos.tipo === 'precios') {
-        const { data: catP } = await _supabase.from('categorias_precios').select('*').in('id', datos.config_categorias || []).order('orden');
+        const { data: catPrecios } = await _supabase.from('categorias_precios').select('*').in('id', datos.config_categorias || []).order('orden');
         const { data: prices } = await _supabase.from('precios_globales').select('*').order('orden');
         
-        catP?.forEach(c => {
+        catPrecios?.forEach(c => {
             const items = prices.filter(p => p.categoria_precio_id === c.id);
-            html += `<div class="tv-category-card"><div class="tv-cat-header">${c.nombre}</div><div class="tv-flavor-list">`;
+            html += `<div class="tv-category-container"><div class="tv-cat-header">${c.nombre}</div><div class="tv-flavor-list">`;
             items.forEach(p => {
                 const animClass = shouldAnimate ? 'sabor-anim' : '';
                 const animStyle = shouldAnimate ? `animation-delay: ${delay}s;` : 'opacity: 1;';
@@ -214,7 +217,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
             });
             
             if(disponibles.length) {
-                html += `<div class="tv-category-card"><div class="tv-cat-header">${c.nombre}</div><div class="tv-flavor-list">`;
+                html += `<div class="tv-category-container"><div class="tv-cat-header">${c.nombre}</div><div class="tv-flavor-list">`;
                 disponibles.forEach(s => {
                     const nombreFormateado = s.nombre.charAt(0).toUpperCase() + s.nombre.slice(1).toLowerCase();
                     const currentDelay = delay;
@@ -240,16 +243,13 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
     
     tv.innerHTML = html + `</div>`;
     
-    // Marquesina
+    // MarquesinaContinua RSS
     if (style.marquesinaActiva) {
-        const dur = style.marquesinaVelocidad || 20;
-        const txt = style.marquesinaTexto || 'BIENVENIDOS';
-        const sizeMq = style.marquesinaSize || 36;
-        
+        const duracion = style.marquesinaVelocidad || 20;
         tv.innerHTML += `
-            <div class="tv-ticker" style="height: ${altoMq}px; background:${style.marquesinaBg}; color:${style.marquesinaColor}; display: flex; align-items: center; overflow: hidden; white-space: nowrap; width: 100vw; border-top: 3px solid rgba(255,255,255,0.1);">
-                <div class="ticker-content" style="display: inline-block; animation: ticker ${dur}s linear infinite; font-size: ${sizeMq}px; font-weight: 900; letter-spacing: 2px;">
-                    ${txt} &nbsp;&nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp;&nbsp; ${txt} &nbsp;&nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp;&nbsp; ${txt}
+            <div class="tv-ticker" style="background:${style.marquesinaBg || '#1e293b'}; color:${style.marquesinaColor || '#ffffff'}">
+                <div class="ticker-content" style="animation: ticker ${duracion}s linear infinite;">
+                    ${style.marquesinaTexto} &nbsp;&nbsp; • &nbsp;&nbsp; ${style.marquesinaTexto} &nbsp;&nbsp; • &nbsp;&nbsp; ${style.marquesinaTexto}
                 </div>
             </div>`;
     }
@@ -305,8 +305,7 @@ async function renderModalContent() {
                     </label>`).join('')}
             </div>`;
     } else {
-        const est = currentTvData?.estilo || { font: 'Inter', bg: '#fdfbf7', catColor: '#64748b', saborColor: '#1e293b', catSize: 32, saborSize: 24, columnas: 2, animacionTipo: 'fadeUp', animacionDuracion: 0.5, animacionCiclo: 0, marquesinaActiva: false, marquesinaBg: '#1e293b', marquesinaColor: '#ffffff', marquesinaVelocidad: 20, marquesinaAlto: 80, marquesinaSize: 36, marquesinaTexto: 'BIENVENIDOS' };
-        
+        const est = currentTvData?.estilo || { font: 'Inter', bg: '#fdfbf7', catColor: '#64748b', saborColor: '#1e293b', catSize: 24, saborSize: 18, columnas: 2, animacionTipo: 'fadeUp', animacionDuracion: 0.5, animacionCiclo: 0, marquesinaActiva: false, marquesinaBg: '#1e293b', marquesinaColor: '#ffffff', marquesinaVelocidad: 20, marquesinaTexto: 'BIENVENIDOS' };
         body.innerHTML = `
             <div class="grid grid-cols-2 gap-4">
                 <div><label class="text-[10px] font-bold uppercase">Tipografía</label><select id="s-font" class="w-full border p-2 rounded-xl"><option value="Inter" ${est.font==='Inter'?'selected':''}>Inter</option><option value="Oswald" ${est.font==='Oswald'?'selected':''}>Oswald</option><option value="Montserrat" ${est.font==='Montserrat'?'selected':''}>Montserrat</option></select></div>
@@ -330,7 +329,7 @@ async function renderModalContent() {
                 <div><label class="text-[10px] font-bold uppercase">Tamaño Categoría (px)</label><input type="number" id="s-catS" value="${est.catSize}" class="w-full border p-2 rounded-xl"></div>
                 <div><label class="text-[10px] font-bold uppercase">Tamaño Sabor (px)</label><input type="number" id="s-sabS" value="${est.saborSize}" class="w-full border p-2 rounded-xl"></div>
                 
-                <div class="col-span-2 border-t border-slate-200 pt-4 mt-2">
+                <div class="col-span-2 border-t pt-4">
                     <label class="flex items-center gap-2 font-black text-sm mb-3 text-blue-700 uppercase">
                         <input type="checkbox" id="s-mqA" class="w-5 h-5 cursor-pointer" ${est.marquesinaActiva?'checked':''}> HABILITAR MARQUESINA
                     </label>
@@ -341,9 +340,9 @@ async function renderModalContent() {
                         </div>
                         <div><label class="text-[9px] font-bold uppercase text-slate-500">Fondo Barra</label><input type="color" id="s-mqB" value="${est.marquesinaBg}" class="w-full h-8 cursor-pointer border-none rounded"></div>
                         <div><label class="text-[9px] font-bold uppercase text-slate-500">Color Letra</label><input type="color" id="s-mqC" value="${est.marquesinaColor}" class="w-full h-8 cursor-pointer border-none rounded"></div>
-                        <div><label class="text-[9px] font-bold uppercase text-slate-500">Velocidad</label><input type="number" id="s-mqV" value="${est.marquesinaVelocidad}" class="w-full border p-2 text-xs rounded-xl"></div>
+                        <div><label class="text-[9px] font-bold uppercase text-slate-500">Velocidad</label><input type="number" id="s-mqV" value="${est.marquesinaVelocidad}" class="w-full border p-1 text-xs rounded-xl"></div>
                         <div><label class="text-[9px] font-bold uppercase text-slate-500">Alto Barra (px)</label><input type="number" id="s-mqH" value="${est.marquesinaAlto}" class="w-full border p-2 text-xs rounded-xl"></div>
-                        <div class="col-span-2"><label class="text-[9px] font-bold uppercase text-slate-500">Tamaño Letra Marquesina (px)</label><input type="number" id="s-mqS" value="${est.marquesinaSize}" class="w-full border p-2 text-xs rounded-xl"></div>
+                        <div class="col-span-2"><label class="text-[9px] font-bold uppercase text-slate-500">Tamaño Letra (px)</label><input type="number" id="s-mqS" value="${est.marquesinaSize}" class="w-full border p-2 text-xs rounded-xl"></div>
                     </div>
                 </div>
             </div>`;
@@ -363,8 +362,8 @@ async function renderModalContent() {
                     bg: document.getElementById('s-bg').value, 
                     catColor: document.getElementById('s-catC').value, 
                     saborColor: document.getElementById('s-sabC').value, 
-                    catSize: parseInt(document.getElementById('s-catS').value) || 32, 
-                    saborSize: parseInt(document.getElementById('s-sabS').value) || 24, 
+                    catSize: parseInt(document.getElementById('s-catS').value) || 24, 
+                    saborSize: parseInt(document.getElementById('s-sabS').value) || 18, 
                     columnas: document.getElementById('s-col').value, 
                     animacionTipo: document.getElementById('s-anim-T').value, 
                     animacionDuracion: parseFloat(document.getElementById('s-anim-D').value) || 0.5, 
@@ -375,7 +374,7 @@ async function renderModalContent() {
                     marquesinaTexto: document.getElementById('s-mqT').value.trim() || 'BIENVENIDOS', 
                     marquesinaVelocidad: parseInt(document.getElementById('s-mqV').value) || 20,
                     marquesinaAlto: parseInt(document.getElementById('s-mqH').value) || 80,
-                    marquesinaSize: parseInt(document.getElementById('s-mqS').value) || 36
+                    marquesinaSize: parseInt(document.getElementById('s-mqS').value) || 30
                 } 
               };
         
