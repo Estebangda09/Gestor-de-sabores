@@ -15,27 +15,26 @@ function gestionarCacheTV(id, data = null) {
     }
 }
 
-// --- ACTIVAR ESCUCHA EN TIEMPO REAL (100% RESTAURADA A TU VERSIÓN) ---
+// --- ACTIVAR ESCUCHA EN TIEMPO REAL (CORRECCIÓN BOTÓN CONFIRMAR) ---
 window.activarRealtimeTV = function(tvId) {
     console.log("Conectando Realtime para TV:", tvId);
 
-    // Canal para cambios en la configuración de la pantalla o estilos
-    _supabase
-        .channel('public:pantallas')
-        .on('postgres_changes', { 
-            event: 'UPDATE', 
-            schema: 'public', 
-            table: 'pantallas', 
-            filter: `id=eq.${tvId}` 
-        }, () => {
-            console.log('Cambio de diseño detectado...');
-            renderPantallaTV(tvId, true); // true = Anima para mostrar el nuevo diseño
-        })
-        .subscribe();
+    if (window.tvChannel) _supabase.removeChannel(window.tvChannel);
+    window.tvChannel = _supabase.channel(`tv_${tvId}`);
 
-    // Canal para cambios en la disponibilidad de sabores (stock)
-    _supabase
-        .channel('public:visibilidad_sabores')
+    // Canal para cambios en la configuración de la pantalla o estilos
+    // Al quitar el filtro de Supabase y hacerlo en JS, evitamos el bug que bloqueaba el guardado
+    window.tvChannel
+        .on('postgres_changes', { 
+            event: '*', 
+            schema: 'public', 
+            table: 'pantallas'
+        }, (payload) => {
+            console.log('Cambio de diseño detectado en DB...', payload);
+            if (payload.new && payload.new.id == tvId) {
+                renderPantallaTV(tvId, true); // true = Anima para mostrar el nuevo diseño
+            }
+        })
         .on('postgres_changes', { 
             event: '*', 
             schema: 'public', 
@@ -44,11 +43,6 @@ window.activarRealtimeTV = function(tvId) {
             console.log('Cambio de stock detectado...');
             renderPantallaTV(tvId, false); // false = Sin repetir animación
         })
-        .subscribe();
-
-    // Canal para escuchar cambios al editar un sabor (nombre, vegano, sintacc)
-    _supabase
-        .channel('public:sabores')
         .on('postgres_changes', { 
             event: '*', 
             schema: 'public', 
@@ -108,7 +102,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
     const styleTag = document.getElementById('anim-styles') || document.createElement('style');
     styleTag.id = 'anim-styles';
     
-    // --- CSS CORREGIDO: CERO MÁRGENES, PEGADO ARRIBA Y A LA IZQUIERDA ---
+    // --- CSS CORREGIDO: MÁS ESPACIO A LA IZQUIERDA Y ARRIBA ---
     styleTag.innerHTML = `
         body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: ${style.bg}; }
         #tv-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; margin: 0; padding: 0; }
@@ -121,13 +115,12 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
             column-gap: 2vw;
             row-gap: 0;
             
-            /* PADDING MÍNIMO ESTRICTO: 5px arriba/abajo, 10px a los lados */
-            padding: 5px 10px; 
+            /* PADDING AJUSTADO: 15px arriba, 10px derecha, 10px abajo, 25px izquierda */
+            padding: 15px 10px 10px 25px; 
             margin: 0;
             
             box-sizing: border-box;
             
-            /* FUERZA QUE TODO VAYA ARRIBA A LA IZQUIERDA */
             align-content: flex-start;
             justify-content: flex-start;
         }
@@ -139,7 +132,6 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
             display: flex; 
             flex-direction: column;
             
-            /* MARGEN CERO ARRIBA, ESPACIO SOLO ABAJO */
             margin: 0 0 1.5vh 0; 
             padding: 0;
         }
@@ -150,7 +142,6 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
             text-transform: uppercase; 
             font-weight: 900; 
             
-            /* MARGEN CERO ARRIBA */
             margin: 0 0 0.5vh 0; 
             border-bottom: 2px solid ${style.catColor}44;
             padding: 0 0 3px 0;
@@ -243,19 +234,25 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
                     const animClass = shouldAnimate ? 'sabor-anim' : '';
                     const animStyle = shouldAnimate ? `animation-delay: ${currentDelay}s;` : 'opacity: 1;';
                     
-                    let iconosHtml = '';
-                    if (s.es_sintacc || s.es_vegano) {
-                        iconosHtml = `<div class="flex gap-1 items-center" style="margin-left: 6px; flex-shrink: 0;">
-                            ${s.es_sintacc ? `<img src="img/sintacc.png" style="height: 1.1em; width: auto; object-fit: contain;">` : ''}
-                            ${s.es_vegano ? `<img src="img/vegano.png" style="height: 1.1em; width: auto; object-fit: contain;">` : ''}
+                    // --- LÓGICA DE ÍCONOS REEMPLAZANDO EL PUNTO ---
+                    const tieneIcono = s.es_sintacc || s.es_vegano;
+                    let bulletHtml = '';
+                    
+                    if (tieneIcono) {
+                        // Si tiene ícono, no ponemos punto, ponemos el ícono de tamaño menor al texto (0.85em)
+                        bulletHtml = `<div class="flex gap-1 items-center" style="margin-right: 6px; flex-shrink: 0;">
+                            ${s.es_sintacc ? `<img src="img/sintacc.png" style="height: 0.85em; width: auto; object-fit: contain;">` : ''}
+                            ${s.es_vegano ? `<img src="img/vegano.png" style="height: 0.85em; width: auto; object-fit: contain;">` : ''}
                         </div>`;
+                    } else {
+                        // Si NO tiene ícono, ponemos el punto azul habitual
+                        bulletHtml = `<span class="tv-dot" style="color: #3b82f6; margin-right: 6px;">•</span>`;
                     }
 
                     html += `
                     <div class="tv-flavor-item ${animClass}" style="${animStyle}">
-                        <span class="tv-dot" style="color: #3b82f6; margin-right: 6px;">•</span>
+                        ${bulletHtml}
                         <span style="font-weight: 700;">${nombreFormateado}</span>
-                        ${iconosHtml}
                     </div>`;
                 });
                 html += `</div></div>`;
@@ -367,7 +364,7 @@ async function renderModalContent() {
                         <div><label class="text-[9px] font-bold uppercase text-slate-500">Color Letra</label><input type="color" id="s-mqC" value="${est.marquesinaColor}" class="w-full h-8 cursor-pointer border-none rounded"></div>
                         <div><label class="text-[9px] font-bold uppercase text-slate-500">Velocidad</label><input type="number" id="s-mqV" value="${est.marquesinaVelocidad}" class="w-full border p-2 text-xs rounded-xl"></div>
                         <div><label class="text-[9px] font-bold uppercase text-slate-500">Alto Barra (px)</label><input type="number" id="s-mqH" value="${est.marquesinaAlto}" class="w-full border p-2 text-xs rounded-xl"></div>
-                        <div class="col-span-2"><label class="text-[9px] font-bold uppercase text-slate-500">Tamaño Letra (px)</label><input type="number" id="s-mqS" value="${est.marquesinaSize}" class="w-full border p-2 text-xs rounded-xl"></div>
+                        <div class="col-span-2"><label class="text-[9px] font-bold uppercase text-slate-500">Tamaño Letra Marquesina (px)</label><input type="number" id="s-mqS" value="${est.marquesinaSize}" class="w-full border p-2 text-xs rounded-xl"></div>
                     </div>
                 </div>
             </div>`;
