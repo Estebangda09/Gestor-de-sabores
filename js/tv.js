@@ -1,8 +1,7 @@
-// js/tv.js
 let currentTvData = null;
 let activeTab = 'config';
 window.tvHasRendered = false;
-window.animIntervalTV = null; // Variable para controlar el ciclo de animación
+window.animIntervalTV = null;
 
 // --- GESTIÓN DE CACHÉ PARA MODO OFFLINE ---
 function gestionarCacheTV(id, data = null) {
@@ -15,14 +14,14 @@ function gestionarCacheTV(id, data = null) {
     }
 }
 
-// --- ACTIVAR ESCUCHA EN TIEMPO REAL RESTAURADA (COMO FUNCIONABA ANTES) ---
+// --- ACTIVAR ESCUCHA EN TIEMPO REAL---
 window.activarRealtimeTV = function(tvId) {
     console.log("Conectando Realtime para TV:", tvId);
 
     if (window.tvChannel) _supabase.removeChannel(window.tvChannel);
     window.tvChannel = _supabase.channel(`tv_${tvId}`);
 
-    // Canal para cambios en la configuración de la pantalla o estilos (Dispara animación instantánea al presionar Confirmar)
+    // Canal para cambios en la configuración de la pantalla o estilos 
     window.tvChannel
         .on('postgres_changes', { 
             event: 'UPDATE', 
@@ -31,15 +30,14 @@ window.activarRealtimeTV = function(tvId) {
             filter: `id=eq.${tvId}` 
         }, () => {
             console.log('Cambio de diseño detectado...');
-            renderPantallaTV(tvId, true); // true = Vuelve a animar para mostrar el nuevo estilo
-        })
+            renderPantallaTV(tvId, true);         })
         .on('postgres_changes', { 
             event: '*', 
             schema: 'public', 
             table: 'visibilidad_sabores' 
         }, () => {
             console.log('Cambio de stock detectado...');
-            renderPantallaTV(tvId, false); // false = Aparece/Desaparece al instante sin efecto cascada
+            renderPantallaTV(tvId, false); 
         })
         .on('postgres_changes', { 
             event: '*', 
@@ -47,7 +45,7 @@ window.activarRealtimeTV = function(tvId) {
             table: 'sabores' 
         }, () => {
             console.log('Cambio en datos de sabor detectado...');
-            renderPantallaTV(tvId, false); // false = Actualiza texto al instante sin efecto cascada
+            renderPantallaTV(tvId, false); 
         })
         .subscribe();
 };
@@ -101,23 +99,27 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
     const styleTag = document.getElementById('anim-styles') || document.createElement('style');
     styleTag.id = 'anim-styles';
     
-    // CSS Ajustado: Mayor uso de cuadrículas (grids) internas para las 2 columnas y control estricto de rem para el 16:9
+    const altoMq = style.marquesinaActiva ? (style.marquesinaAlto || 80) : 0;
+    const layoutHeight = `calc(100vh - ${altoMq}px)`;
+
+   
     styleTag.innerHTML = `
         body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: ${style.bg}; }
         #tv-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; }
         
         .tv-layout {
-            height: 100vh; /* Ocupa todo el alto */
+            height: ${layoutHeight}; 
             display: flex;
             flex-direction: column;
             flex-wrap: wrap; /* CRÍTICO: Permite que el contenido fluya a la siguiente columna */
-            gap: 2vw;
+            column-gap: 2vw;
+            row-gap: 0;
             
-            /* --- MODIFICADO AQUÍ PARA SUBIR MÁS Y CORRER A LA IZQUIERDA --- */
-            padding: 0.5vh 1vw; /* 0.5% alto arriba/abajo, 1% ancho lados. Muy mínimo. */
+            /* --- PEGADO ARRIBA Y A LA IZQUIERDA --- */
+            padding: 0.2vh 0.5vw; 
             
             box-sizing: border-box;
-            align-content: start;
+            align-content: flex-start;
         }
 
         .tv-category-container { 
@@ -125,7 +127,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
             page-break-inside: avoid;
             width: ${datos.orientacion === '9:16' || style.columnas == 1 ? '100%' : 'calc(50% - 1vw)'}; 
             display: inline-block; /* Ayuda a respetar el break-inside */
-            margin-bottom: 2vh;
+            margin-bottom: 1.5vh;
         }
 
         .tv-cat-header {
@@ -136,13 +138,14 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
             margin-bottom: 1vh;
             border-bottom: 2px solid ${style.catColor}44;
             padding-bottom: 5px;
+            margin-top: 1vh;
         }
 
         /* --- CUADRÍCULA INTERNA PARA SABORES EN 2 COLUMNAS --- */
         .tv-flavor-list {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 1.5vh 1.5vw;
+            gap: 1.2vh 1.5vw;
         }
 
         .tv-flavor-item { 
@@ -151,14 +154,14 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
             line-height: 1.2; 
             display: flex; 
             align-items: center; 
-            gap: 10px;
+            gap: 8px;
         }
 
         /* --- PRECIOS GLOBALMENTE COMPARTIDOS (GRID COLUMN SPAN) --- */
         .price-row { 
             font-size: ${style.saborSize}px;
             color: ${style.saborColor};
-            grid-column: span 2; /* Ocupa las 2 columnas si son precios */
+            grid-column: span 2; 
             display: flex;
             justify-content: space-between; 
             align-items: center; 
@@ -179,7 +182,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
     if (!document.getElementById('anim-styles')) document.head.appendChild(styleTag);
 
     let html = `<div class="tv-layout">`;
-    let delay = 0; // Variable para el efecto cascada
+    let delay = 0;
 
     if (datos.tipo === 'precios') {
         const { data: catPrecios } = await _supabase.from('categorias_precios').select('*').in('id', datos.config_categorias || []).order('orden');
@@ -229,10 +232,10 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
                     html += `
                     <div class="tv-flavor-item ${animClass}" style="${animStyle}">
                         <span class="tv-dot" style="color: #3b82f6;">•</span>
-                        <span style="font-weight: 700;">${nombreFormateado}</span>
-                        <div class="flex gap-2 items-center">
-                            ${s.es_sintacc ? `<img src="img/sintacc.png" style="height: 1.1em; width: auto;" alt="T">` : ''}
-                            ${s.es_vegano ? `<img src="img/vegano.png" style="height: 1.1em; width: auto;" alt="V">` : ''}
+                        <span style="font-weight: 700; flex: 1;">${nombreFormateado}</span>
+                        <div class="flex gap-1 items-center" style="flex-shrink: 0;">
+                            ${s.es_sintacc ? `<img src="img/sintacc.png" style="height: 1.2em; width: auto; flex-shrink: 0; object-fit: contain;">` : ''}
+                            ${s.es_vegano ? `<img src="img/vegano.png" style="height: 1.2em; width: auto; flex-shrink: 0; object-fit: contain;">` : ''}
                         </div>
                     </div>`;
                 });
@@ -243,13 +246,13 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
     
     tv.innerHTML = html + `</div>`;
     
-    // MarquesinaContinua RSS
+    // Marquesina Continua RSS
     if (style.marquesinaActiva) {
         const duracion = style.marquesinaVelocidad || 20;
         tv.innerHTML += `
-            <div class="tv-ticker" style="background:${style.marquesinaBg || '#1e293b'}; color:${style.marquesinaColor || '#ffffff'}">
-                <div class="ticker-content" style="animation: ticker ${duracion}s linear infinite;">
-                    ${style.marquesinaTexto} &nbsp;&nbsp; • &nbsp;&nbsp; ${style.marquesinaTexto} &nbsp;&nbsp; • &nbsp;&nbsp; ${style.marquesinaTexto}
+            <div class="tv-ticker" style="height: ${altoMq}px; background:${style.marquesinaBg || '#1e293b'}; color:${style.marquesinaColor || '#ffffff'}; display: flex; align-items: center; overflow: hidden; white-space: nowrap; width: 100vw; border-top: 3px solid rgba(255,255,255,0.1);">
+                <div class="ticker-content" style="display: inline-block; animation: ticker ${duracion}s linear infinite; font-size: ${style.marquesinaSize || 36}px; font-weight: 900; letter-spacing: 2px;">
+                    ${style.marquesinaTexto} &nbsp;&nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp;&nbsp; ${style.marquesinaTexto} &nbsp;&nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp;&nbsp; ${style.marquesinaTexto}
                 </div>
             </div>`;
     }
@@ -305,7 +308,8 @@ async function renderModalContent() {
                     </label>`).join('')}
             </div>`;
     } else {
-        const est = currentTvData?.estilo || { font: 'Inter', bg: '#fdfbf7', catColor: '#64748b', saborColor: '#1e293b', catSize: 24, saborSize: 18, columnas: 2, animacionTipo: 'fadeUp', animacionDuracion: 0.5, animacionCiclo: 0, marquesinaActiva: false, marquesinaBg: '#1e293b', marquesinaColor: '#ffffff', marquesinaVelocidad: 20, marquesinaTexto: 'BIENVENIDOS' };
+        const est = currentTvData?.estilo || { font: 'Inter', bg: '#fdfbf7', catColor: '#64748b', saborColor: '#1e293b', catSize: 24, saborSize: 18, columnas: 2, animacionTipo: 'fadeUp', animacionDuracion: 0.5, animacionCiclo: 0, marquesinaActiva: false, marquesinaBg: '#1e293b', marquesinaColor: '#ffffff', marquesinaVelocidad: 20, marquesinaAlto: 80, marquesinaSize: 30, marquesinaTexto: 'BIENVENIDOS' };
+        
         body.innerHTML = `
             <div class="grid grid-cols-2 gap-4">
                 <div><label class="text-[10px] font-bold uppercase">Tipografía</label><select id="s-font" class="w-full border p-2 rounded-xl"><option value="Inter" ${est.font==='Inter'?'selected':''}>Inter</option><option value="Oswald" ${est.font==='Oswald'?'selected':''}>Oswald</option><option value="Montserrat" ${est.font==='Montserrat'?'selected':''}>Montserrat</option></select></div>
@@ -329,7 +333,7 @@ async function renderModalContent() {
                 <div><label class="text-[10px] font-bold uppercase">Tamaño Categoría (px)</label><input type="number" id="s-catS" value="${est.catSize}" class="w-full border p-2 rounded-xl"></div>
                 <div><label class="text-[10px] font-bold uppercase">Tamaño Sabor (px)</label><input type="number" id="s-sabS" value="${est.saborSize}" class="w-full border p-2 rounded-xl"></div>
                 
-                <div class="col-span-2 border-t pt-4">
+                <div class="col-span-2 border-t border-slate-200 pt-4 mt-2">
                     <label class="flex items-center gap-2 font-black text-sm mb-3 text-blue-700 uppercase">
                         <input type="checkbox" id="s-mqA" class="w-5 h-5 cursor-pointer" ${est.marquesinaActiva?'checked':''}> HABILITAR MARQUESINA
                     </label>
@@ -340,7 +344,7 @@ async function renderModalContent() {
                         </div>
                         <div><label class="text-[9px] font-bold uppercase text-slate-500">Fondo Barra</label><input type="color" id="s-mqB" value="${est.marquesinaBg}" class="w-full h-8 cursor-pointer border-none rounded"></div>
                         <div><label class="text-[9px] font-bold uppercase text-slate-500">Color Letra</label><input type="color" id="s-mqC" value="${est.marquesinaColor}" class="w-full h-8 cursor-pointer border-none rounded"></div>
-                        <div><label class="text-[9px] font-bold uppercase text-slate-500">Velocidad</label><input type="number" id="s-mqV" value="${est.marquesinaVelocidad}" class="w-full border p-1 text-xs rounded-xl"></div>
+                        <div><label class="text-[9px] font-bold uppercase text-slate-500">Velocidad</label><input type="number" id="s-mqV" value="${est.marquesinaVelocidad}" class="w-full border p-2 text-xs rounded-xl"></div>
                         <div><label class="text-[9px] font-bold uppercase text-slate-500">Alto Barra (px)</label><input type="number" id="s-mqH" value="${est.marquesinaAlto}" class="w-full border p-2 text-xs rounded-xl"></div>
                         <div class="col-span-2"><label class="text-[9px] font-bold uppercase text-slate-500">Tamaño Letra (px)</label><input type="number" id="s-mqS" value="${est.marquesinaSize}" class="w-full border p-2 text-xs rounded-xl"></div>
                     </div>
