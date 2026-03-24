@@ -245,13 +245,13 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
                     
                     if (tieneIcono) {
                         bulletHtml = `
-                        <div style="width: 50px; flex-shrink: 0; display: flex; gap: 4px; align-items: center; justify-content: flex-start;">
+                        <div style="width: 45px; flex-shrink: 0; display: flex; gap: 4px; align-items: center; justify-content: flex-start;">
                             ${s.es_sintacc ? `<img src="img/sintacc.png" style="height: 35px; width: 35px; object-fit: contain; flex-shrink: 0;">` : ''}
                             ${s.es_vegano ? `<img src="img/vegano.png" style="height: 35px; width: 35px; object-fit: contain; flex-shrink: 0;">` : ''}
                         </div>`;
                     } else {
                         bulletHtml = `
-                        <div style="width: 75px; flex-shrink: 0; display: flex; align-items: center; justify-content: flex-start; padding-left: 5px;">
+                        <div style="width: 45px; flex-shrink: 0; display: flex; align-items: center; justify-content: flex-start; padding-left: 5px;">
                             <span class="tv-dot" style="color: #3b82f6; font-size: 0.9em;">•</span>
                         </div>`;
                     }
