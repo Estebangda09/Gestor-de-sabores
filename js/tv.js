@@ -2,7 +2,7 @@
 let currentTvData = null;
 let activeTab = 'config';
 window.tvHasRendered = false;
-window.animIntervalTV = null; 
+window.animIntervalTV = null;
 
 // --- GESTIÓN DE CACHÉ PARA MODO OFFLINE ---
 function gestionarCacheTV(id, data = null) {
@@ -15,14 +15,13 @@ function gestionarCacheTV(id, data = null) {
     }
 }
 
-// --- ACTIVAR ESCUCHA EN TIEMPO REAL ---
+// --- ACTIVAR ESCUCHA EN TIEMPO REAL (100% RESTAURADA A TU VERSIÓN) ---
 window.activarRealtimeTV = function(tvId) {
     console.log("Conectando Realtime para TV:", tvId);
 
-    if (window.tvChannel) _supabase.removeChannel(window.tvChannel);
-    window.tvChannel = _supabase.channel(`tv_${tvId}`);
-
-    window.tvChannel
+    // Canal para cambios en la configuración de la pantalla o estilos
+    _supabase
+        .channel('public:pantallas')
         .on('postgres_changes', { 
             event: 'UPDATE', 
             schema: 'public', 
@@ -30,23 +29,33 @@ window.activarRealtimeTV = function(tvId) {
             filter: `id=eq.${tvId}` 
         }, () => {
             console.log('Cambio de diseño detectado...');
-            renderPantallaTV(tvId, true); 
+            renderPantallaTV(tvId, true); // true = Anima para mostrar el nuevo diseño
         })
+        .subscribe();
+
+    // Canal para cambios en la disponibilidad de sabores (stock)
+    _supabase
+        .channel('public:visibilidad_sabores')
         .on('postgres_changes', { 
             event: '*', 
             schema: 'public', 
             table: 'visibilidad_sabores' 
         }, () => {
             console.log('Cambio de stock detectado...');
-            renderPantallaTV(tvId, false); 
+            renderPantallaTV(tvId, false); // false = Sin repetir animación
         })
+        .subscribe();
+
+    // Canal para escuchar cambios al editar un sabor (nombre, vegano, sintacc)
+    _supabase
+        .channel('public:sabores')
         .on('postgres_changes', { 
             event: '*', 
             schema: 'public', 
             table: 'sabores' 
         }, () => {
             console.log('Cambio en datos de sabor detectado...');
-            renderPantallaTV(tvId, false); 
+            renderPantallaTV(tvId, false); // false = Sin repetir animación
         })
         .subscribe();
 };
@@ -75,6 +84,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
     const shouldAnimate = (forceAnimation === true) || !window.tvHasRendered;
     window.tvHasRendered = true;
 
+    // --- CICLO DE REPETICIÓN DEL EFECTO ---
     if (window.animIntervalTV) {
         clearInterval(window.animIntervalTV);
         window.animIntervalTV = null;
@@ -90,7 +100,6 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
     tv.style.backgroundColor = style.bg;
     tv.style.fontFamily = style.font;
 
-    // --- CÁLCULO DE ALTURAS ---
     const altoMq = style.marquesinaActiva ? (style.marquesinaAlto || 80) : 0;
     const layoutHeight = `calc(100vh - ${altoMq}px)`;
 
@@ -99,10 +108,10 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
     const styleTag = document.getElementById('anim-styles') || document.createElement('style');
     styleTag.id = 'anim-styles';
     
-    // --- CSS CORREGIDO: PEGADO A LOS BORDES Y SIN OVERLAPPING ---
+    // --- CSS CORREGIDO: CERO MÁRGENES, PEGADO ARRIBA Y A LA IZQUIERDA ---
     styleTag.innerHTML = `
         body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: ${style.bg}; }
-        #tv-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; }
+        #tv-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; margin: 0; padding: 0; }
         
         .tv-layout {
             height: ${layoutHeight}; 
@@ -112,20 +121,27 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
             column-gap: 2vw;
             row-gap: 0;
             
-            /* PADDING REDUCIDO AL MÍNIMO PARA PEGARLO ARRIBA Y A LA IZQUIERDA */
-            padding: 0.5vh 0.5vw; 
+            /* PADDING MÍNIMO ESTRICTO: 5px arriba/abajo, 10px a los lados */
+            padding: 5px 10px; 
+            margin: 0;
             
             box-sizing: border-box;
+            
+            /* FUERZA QUE TODO VAYA ARRIBA A LA IZQUIERDA */
             align-content: flex-start;
+            justify-content: flex-start;
         }
 
         .tv-category-container { 
             break-inside: avoid; 
             page-break-inside: avoid;
             width: ${datos.orientacion === '9:16' || style.columnas == 1 ? '100%' : 'calc(50% - 1vw)'}; 
-            display: inline-block; 
-            margin-bottom: 1.5vh;
-            margin-top: 0; /* Asegura que no haya espacio extra arriba */
+            display: flex; 
+            flex-direction: column;
+            
+            /* MARGEN CERO ARRIBA, ESPACIO SOLO ABAJO */
+            margin: 0 0 1.5vh 0; 
+            padding: 0;
         }
 
         .tv-cat-header {
@@ -133,16 +149,18 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
             font-size: ${style.catSize}px; 
             text-transform: uppercase; 
             font-weight: 900; 
-            margin-top: 0; /* Pegado arriba */
-            margin-bottom: 0.5vh;
+            
+            /* MARGEN CERO ARRIBA */
+            margin: 0 0 0.5vh 0; 
             border-bottom: 2px solid ${style.catColor}44;
-            padding-bottom: 3px;
+            padding: 0 0 3px 0;
         }
 
         .tv-flavor-list {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 1vh 1vw;
+            margin: 0; padding: 0;
         }
 
         .tv-flavor-item { 
@@ -151,6 +169,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
             line-height: 1.1; 
             display: flex; 
             align-items: center; 
+            margin: 0; padding: 0;
         }
 
         .price-row { 
@@ -161,12 +180,12 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
             justify-content: space-between; 
             align-items: center; 
             border-bottom: 1px solid rgba(0,0,0,0.05); 
-            padding: 5px 0;
-            margin-bottom: 0.5vh;
+            padding: 4px 0;
+            margin: 0 0 0.5vh 0;
         }
 
-        .price-label { font-weight: 700; color: ${style.catColor}; }
-        .price-value { font-weight: 900; }
+        .price-label { font-weight: 700; color: ${style.catColor}; margin: 0; }
+        .price-value { font-weight: 900; margin: 0; }
 
         @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -198,7 +217,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
                     </div>
                     <span class="price-value">$${p.valor}</span>
                 </div>`;
-                delay += 0.05;
+                delay += 0.03;
             });
             html += `</div></div>`;
         });
@@ -219,12 +238,11 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
                 disponibles.forEach(s => {
                     const nombreFormateado = s.nombre.charAt(0).toUpperCase() + s.nombre.slice(1).toLowerCase();
                     const currentDelay = delay;
-                    delay += 0.05;
+                    delay += 0.03;
                     
                     const animClass = shouldAnimate ? 'sabor-anim' : '';
                     const animStyle = shouldAnimate ? `animation-delay: ${currentDelay}s;` : 'opacity: 1;';
                     
-                    // --- CORRECCIÓN DE ÍCONOS: Eliminado el "flex:1", íconos agrupados inmediatamente después del texto ---
                     let iconosHtml = '';
                     if (s.es_sintacc || s.es_vegano) {
                         iconosHtml = `<div class="flex gap-1 items-center" style="margin-left: 6px; flex-shrink: 0;">
@@ -253,7 +271,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
         const sizeMq = style.marquesinaSize || 36;
         
         tv.innerHTML += `
-            <div class="tv-ticker" style="height: ${altoMq}px; background:${style.marquesinaBg}; color:${style.marquesinaColor}; display: flex; align-items: center; overflow: hidden; white-space: nowrap; width: 100vw; border-top: 3px solid rgba(255,255,255,0.1);">
+            <div class="tv-ticker" style="height: ${altoMq}px; background:${style.marquesinaBg}; color:${style.marquesinaColor}; display: flex; align-items: center; overflow: hidden; white-space: nowrap; width: 100vw; border-top: 3px solid rgba(255,255,255,0.1); margin: 0; padding: 0;">
                 <div class="ticker-content" style="display: inline-block; animation: ticker ${dur}s linear infinite; font-size: ${sizeMq}px; font-weight: 900; letter-spacing: 2px;">
                     ${txt} &nbsp;&nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp;&nbsp; ${txt} &nbsp;&nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp;&nbsp; ${txt}
                 </div>
@@ -347,9 +365,9 @@ async function renderModalContent() {
                         </div>
                         <div><label class="text-[9px] font-bold uppercase text-slate-500">Fondo Barra</label><input type="color" id="s-mqB" value="${est.marquesinaBg}" class="w-full h-8 cursor-pointer border-none rounded"></div>
                         <div><label class="text-[9px] font-bold uppercase text-slate-500">Color Letra</label><input type="color" id="s-mqC" value="${est.marquesinaColor}" class="w-full h-8 cursor-pointer border-none rounded"></div>
-                        <div><label class="text-[9px] font-bold uppercase text-slate-500">Velocidad</label><input type="number" id="s-mqV" value="${est.marquesinaVelocidad}" class="w-full border p-1 text-xs rounded-xl"></div>
+                        <div><label class="text-[9px] font-bold uppercase text-slate-500">Velocidad</label><input type="number" id="s-mqV" value="${est.marquesinaVelocidad}" class="w-full border p-2 text-xs rounded-xl"></div>
                         <div><label class="text-[9px] font-bold uppercase text-slate-500">Alto Barra (px)</label><input type="number" id="s-mqH" value="${est.marquesinaAlto}" class="w-full border p-2 text-xs rounded-xl"></div>
-                        <div class="col-span-2"><label class="text-[9px] font-bold uppercase text-slate-500">Tamaño Letra Marquesina (px)</label><input type="number" id="s-mqS" value="${est.marquesinaSize}" class="w-full border p-2 text-xs rounded-xl"></div>
+                        <div class="col-span-2"><label class="text-[9px] font-bold uppercase text-slate-500">Tamaño Letra (px)</label><input type="number" id="s-mqS" value="${est.marquesinaSize}" class="w-full border p-2 text-xs rounded-xl"></div>
                     </div>
                 </div>
             </div>`;
