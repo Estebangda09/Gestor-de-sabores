@@ -4,7 +4,6 @@ let activeTab = 'config';
 window.tvHasRendered = false;
 window.animIntervalTV = null;
 
-// --- GESTIÓN DE CACHÉ PARA MODO OFFLINE ---
 function gestionarCacheTV(id, data = null) {
     const cacheKey = `tv_cache_${id}`;
     if (data) {
@@ -15,15 +14,13 @@ function gestionarCacheTV(id, data = null) {
     }
 }
 
-// --- ACTIVAR ESCUCHA EN TIEMPO REAL (Realtime) ---
+// --- ACTIVAR ESCUCHA EN TIEMPO REAL RESTAURADA (COMO FUNCIONABA ANTES) ---
 window.activarRealtimeTV = function(tvId) {
     console.log("Conectando Realtime para TV:", tvId);
 
-    if (window.tvChannel) _supabase.removeChannel(window.tvChannel);
-    window.tvChannel = _supabase.channel(`tv_${tvId}`);
-
-    // Canal para cambios en la configuración de la pantalla o estilos (SE ACTUALIZA INSTANTÁNEO)
-    window.tvChannel
+    // Canal para cambios en la configuración de la pantalla o estilos (Dispara animación)
+    _supabase
+        .channel('public:pantallas')
         .on('postgres_changes', { 
             event: 'UPDATE', 
             schema: 'public', 
@@ -31,23 +28,33 @@ window.activarRealtimeTV = function(tvId) {
             filter: `id=eq.${tvId}` 
         }, () => {
             console.log('Cambio de diseño detectado...');
-            renderPantallaTV(tvId, true); // true = Vuelve a animar para mostrar el nuevo diseño
+            renderPantallaTV(tvId, true); // true = Anima para mostrar el nuevo estilo
         })
+        .subscribe();
+
+    // Canal para cambios en la disponibilidad de sabores (Stock - Sin Animación)
+    _supabase
+        .channel('public:visibilidad_sabores')
         .on('postgres_changes', { 
             event: '*', 
             schema: 'public', 
             table: 'visibilidad_sabores' 
         }, () => {
             console.log('Cambio de stock detectado...');
-            renderPantallaTV(tvId, false); // false = Aparece/Desaparece al instante sin efecto
+            renderPantallaTV(tvId, false); // false = Aparece al instante
         })
+        .subscribe();
+
+    // Canal para cambios al editar nombre o etiquetas de un sabor (Sin Animación)
+    _supabase
+        .channel('public:sabores')
         .on('postgres_changes', { 
             event: '*', 
             schema: 'public', 
             table: 'sabores' 
         }, () => {
             console.log('Cambio en datos de sabor detectado...');
-            renderPantallaTV(tvId, false); // false = Actualiza texto al instante sin efecto
+            renderPantallaTV(tvId, false); // false = Actualiza al instante
         })
         .subscribe();
 };
@@ -56,33 +63,28 @@ window.activarRealtimeTV = function(tvId) {
 window.renderPantallaTV = async function(id, forceAnimation = null) {
     const tv = document.getElementById('tv-container');
     
-    // 1. Intentar traer datos frescos de Supabase
     const { data: pant, error } = await _supabase.from('pantallas').select('*').eq('id', id).single();
-    
     let datos = pant;
 
     if (error || !pant) {
         datos = gestionarCacheTV(id);
         if (!datos) return console.error("Sin conexión y sin datos en caché.");
-        console.warn("Usando datos de respaldo (Caché)");
     } else {
-        gestionarCacheTV(id, pant); 
+        gestionarCacheTV(id, pant);
     }
 
-    // Configuración base por defecto en PIXELES
     const style = datos.estilo || { 
         font: 'Inter', bg: '#fdfbf7', catColor: '#64748b', saborColor: '#1e293b', 
-        catSize: 32, saborSize: 24, columnas: 2, 
+        catSize: 24, saborSize: 18, columnas: 2, 
         animacionTipo: 'fadeUp', animacionDuracion: 0.5, animacionCiclo: 0,
         marquesinaActiva: false, marquesinaBg: '#1e293b', marquesinaColor: '#ffffff', 
         marquesinaVelocidad: 20, marquesinaAlto: 80, marquesinaSize: 36, marquesinaTexto: 'BIENVENIDOS'
     };
 
-    // Control de la Animación (Cascada)
     const shouldAnimate = (forceAnimation === true) || !window.tvHasRendered;
     window.tvHasRendered = true;
 
-    // Control del ciclo de repetición (Cada X segundos vuelve a hacer el efecto)
+    // --- CICLO DE REPETICIÓN DEL EFECTO ---
     if (window.animIntervalTV) {
         clearInterval(window.animIntervalTV);
         window.animIntervalTV = null;
@@ -93,12 +95,11 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
             renderPantallaTV(id, true);
         }, cicloSegundos * 1000);
     }
-    
+
     tv.classList.remove('hidden');
     tv.style.backgroundColor = style.bg;
     tv.style.fontFamily = style.font;
 
-    // --- CALCULO PARA NO DEFORMAR EL 16:9 ---
     const altoMq = style.marquesinaActiva ? (style.marquesinaAlto || 80) : 0;
     const layoutHeight = `calc(100vh - ${altoMq}px)`;
 
@@ -107,26 +108,28 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
     const styleTag = document.getElementById('anim-styles') || document.createElement('style');
     styleTag.id = 'anim-styles';
     
-    // CSS inyectado: Uso de column-count para auto-balancear las categorías en columnas
+    // --- CSS ESTRUCTURAL PARA AUTO-BALANCEO Y 2 COLUMNAS INTERNAS ---
+    const gridColsCat = datos.orientacion === '9:16' || style.columnas == 1 ? '100%' : 'calc(50% - 1.5vw)';
+
     styleTag.innerHTML = `
         body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: ${style.bg}; }
         #tv-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; }
         
         .tv-layout {
-            height: ${layoutHeight};
-            column-count: ${datos.orientacion === '9:16' ? 1 : (style.columnas || 2)};
-            column-gap: 4vw;
-            padding: 3vh 4vw;
+            height: ${layoutHeight}; 
+            display: flex;
+            flex-direction: column;
+            flex-wrap: wrap; /* Coloca las categorías a la derecha si no caben abajo */
+            gap: 3vh 3vw;
+            padding: 3vh 3vw;
             box-sizing: border-box;
-            overflow: hidden; /* CORTA EL EXCEDENTE PARA NO ROMPER LA TV */
+            align-content: flex-start;
         }
 
-        .tv-column { 
-            break-inside: avoid; /* CRÍTICO: Mantiene la categoría unida */
-            page-break-inside: avoid;
-            display: inline-block; /* Necesario para que break-inside funcione bien */
-            width: 100%;
-            margin-bottom: 3vh;
+        .tv-category-card { 
+            width: ${gridColsCat}; 
+            break-inside: avoid;
+            margin-bottom: 2vh;
         }
 
         .tv-cat-header {
@@ -139,39 +142,56 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
             padding-bottom: 0.5vh;
         }
 
-        .tv-flavor-item, .price-row { 
-            font-size: ${style.saborSize}px;
-            color: ${style.saborColor};
-            line-height: 1.3; 
-            display: flex; 
-            align-items: center; 
-            gap: 10px;
-            margin-bottom: 0.8vh;
+        /* CUADRÍCULA INTERNA PARA SABORES EN 2 COLUMNAS */
+        .tv-flavor-list {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            column-gap: 2vw;
+            row-gap: 1.2vh;
         }
 
-        .price-row { justify-content: space-between; border-bottom: 1px solid rgba(0,0,0,0.05); padding: 5px 0;}
+        .tv-flavor-item { 
+            font-size: ${style.saborSize}px;
+            color: ${style.saborColor};
+            line-height: 1.2; 
+            display: flex; 
+            align-items: center; 
+            gap: 8px;
+        }
+
+        /* PRECIOS OCUPAN TODO EL ANCHO DE LA CATEGORÍA */
+        .price-row { 
+            font-size: ${style.saborSize}px;
+            color: ${style.saborColor};
+            grid-column: span 2;
+            display: flex;
+            justify-content: space-between; 
+            border-bottom: 1px solid rgba(0,0,0,0.05); 
+            padding: 5px 0;
+            margin-bottom: 1vh;
+        }
+
         .price-label { font-weight: 700; color: ${style.catColor}; }
         .price-value { font-weight: 900; }
 
         @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideInLeft { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
-        
         .sabor-anim { animation: ${animTipo} ${animDur}s ease-out forwards; opacity: 0; }
         @keyframes ticker { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-33.33%, 0, 0); } }
     `;
     if (!document.getElementById('anim-styles')) document.head.appendChild(styleTag);
 
     let html = `<div class="tv-layout">`;
-    let delay = 0; // Variable para el efecto cascada
+    let delay = 0;
 
     if (datos.tipo === 'precios') {
-        const { data: catPrecios } = await _supabase.from('categorias_precios').select('*').in('id', datos.config_categorias || []).order('orden');
+        const { data: catP } = await _supabase.from('categorias_precios').select('*').in('id', datos.config_categorias || []).order('orden');
         const { data: prices } = await _supabase.from('precios_globales').select('*').order('orden');
         
-        catPrecios?.forEach(c => {
+        catP?.forEach(c => {
             const items = prices.filter(p => p.categoria_precio_id === c.id);
-            html += `<div class="tv-column"><div class="tv-cat-header">${c.nombre}</div>`;
+            html += `<div class="tv-category-card"><div class="tv-cat-header">${c.nombre}</div><div class="tv-flavor-list">`;
             items.forEach(p => {
                 const animClass = shouldAnimate ? 'sabor-anim' : '';
                 const animStyle = shouldAnimate ? `animation-delay: ${delay}s;` : 'opacity: 1;';
@@ -186,7 +206,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
                 </div>`;
                 delay += 0.05;
             });
-            html += `</div>`;
+            html += `</div></div>`;
         });
         
     } else {
@@ -201,11 +221,14 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
             });
             
             if(disponibles.length) {
-                html += `<div class="tv-column"><div class="tv-cat-header">${c.nombre}</div>`;
+                html += `<div class="tv-category-card"><div class="tv-cat-header">${c.nombre}</div><div class="tv-flavor-list">`;
                 disponibles.forEach(s => {
                     const nombreFormateado = s.nombre.charAt(0).toUpperCase() + s.nombre.slice(1).toLowerCase();
+                    const currentDelay = delay;
+                    delay += 0.05;
+                    
                     const animClass = shouldAnimate ? 'sabor-anim' : '';
-                    const animStyle = shouldAnimate ? `animation-delay: ${delay}s;` : 'opacity: 1;';
+                    const animStyle = shouldAnimate ? `animation-delay: ${currentDelay}s;` : 'opacity: 1;';
                     
                     html += `
                     <div class="tv-flavor-item ${animClass}" style="${animStyle}">
@@ -216,16 +239,15 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
                             ${s.es_vegano ? `<img src="img/vegano.png" style="height: 1.1em; width: auto;" alt="V">` : ''}
                         </div>
                     </div>`;
-                    delay += 0.05;
                 });
-                html += `</div>`;
+                html += `</div></div>`;
             }
         });
     }
     
     tv.innerHTML = html + `</div>`;
     
-    // Marquesina (Módulo Independiente)
+    // Marquesina
     if (style.marquesinaActiva) {
         const dur = style.marquesinaVelocidad || 20;
         const txt = style.marquesinaTexto || 'BIENVENIDOS';
@@ -240,41 +262,17 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
     }
 };
 
-// --- CRUD ADMIN ---
 window.verPantallasSucursal = async function(sucId, sucName) {
-    window.currentSucId = sucId;
-    window.currentSucName = sucName;
+    window.currentSucId = sucId; window.currentSucName = sucName;
     const { data: pants } = await _supabase.from('pantallas').select('*').eq('sucursal_id', sucId);
     const container = document.getElementById('view-content');
     const header = document.getElementById('view-header');
-    
-    header.innerHTML = `
-        <div class="flex items-center gap-4">
-            <button onclick="showPage('pantallas')" class="text-slate-400 text-2xl">←</button>
-            <h1 class="text-xl font-black uppercase italic">${sucName}</h1>
-        </div>
-        <button onclick="abrirModalPantalla('${sucId}')" class="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase shadow-lg">+ NUEVA TV</button>`;
-    
-    container.innerHTML = `<div class="grid gap-4">
-        ${pants.map(p => `
-            <div class="bg-white p-5 rounded-2xl shadow-sm flex justify-between items-center border-2 border-slate-100">
-                <div>
-                    <p class="font-black italic text-slate-700">${p.nombre}</p>
-                    <p class="text-[10px] text-blue-500 uppercase font-black">${p.tipo} - ${p.orientacion || '16:9'}</p>
-                </div>
-                <div class="flex gap-2">
-                    <button onclick="window.open('?mode=tv&id=${p.id}', '_blank')" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase">VER</button>
-                    <button onclick='abrirModalPantalla("${sucId}", ${JSON.stringify(p)})' class="bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase">DISEÑO</button>
-                    <button onclick="eliminarTV('${p.id}')" class="text-red-500 text-xs font-black">✕</button>
-                </div>
-            </div>`).join('')}
-    </div>`;
+    header.innerHTML = `<div class="flex items-center gap-4"><button onclick="showPage('pantallas')" class="text-slate-400 text-2xl">←</button><h1 class="text-xl font-black uppercase italic">${sucName}</h1></div><button onclick="abrirModalPantalla('${sucId}')" class="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase shadow-lg">+ NUEVA TV</button>`;
+    container.innerHTML = `<div class="grid gap-4">${(pants || []).map(p => `<div class="bg-white p-5 rounded-2xl shadow-sm flex justify-between items-center border-2 border-slate-100"><div><p class="font-black italic text-slate-700">${p.nombre}</p><p class="text-[10px] text-blue-500 uppercase font-black">${p.tipo} - ${p.orientacion || '16:9'}</p></div><div class="flex gap-2"><button onclick="window.open('?mode=tv&id=${p.id}', '_blank')" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase">VER</button><button onclick='abrirModalPantalla("${sucId}", ${JSON.stringify(p)})' class="bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase">DISEÑO</button><button onclick="eliminarTV('${p.id}')" class="text-red-500 text-xs font-black">✕</button></div></div>`).join('')}</div>`;
 };
 
 window.abrirModalPantalla = async function(sucId, data = null) {
-    currentTvData = data; 
-    activeTab = 'config'; 
-    window.currentSucId = sucId;
+    currentTvData = data; activeTab = 'config'; window.currentSucId = sucId;
     document.getElementById('modal-tabs').classList.toggle('hidden', !data);
     document.getElementById('modal-form').classList.add('active');
     renderModalContent();
@@ -314,21 +312,12 @@ async function renderModalContent() {
                     </label>`).join('')}
             </div>`;
     } else {
-        const est = currentTvData?.estilo || { 
-            font: 'Inter', bg: '#fdfbf7', catColor: '#64748b', saborColor: '#1e293b', 
-            catSize: 32, saborSize: 24, columnas: 2, 
-            animacionTipo: 'fadeUp', animacionDuracion: 0.5, animacionCiclo: 0,
-            marquesinaActiva: false, marquesinaBg: '#1e293b', marquesinaColor: '#ffffff', marquesinaVelocidad: 20, marquesinaAlto: 80, marquesinaSize: 36, marquesinaTexto: 'BIENVENIDOS'
-        };
+        const est = currentTvData?.estilo || { font: 'Inter', bg: '#fdfbf7', catColor: '#64748b', saborColor: '#1e293b', catSize: 24, saborSize: 18, columnas: 2, animacionTipo: 'fadeUp', animacionDuracion: 0.5, animacionCiclo: 0, marquesinaActiva: false, marquesinaBg: '#1e293b', marquesinaColor: '#ffffff', marquesinaVelocidad: 20, marquesinaAlto: 80, marquesinaSize: 30, marquesinaTexto: 'BIENVENIDOS' };
         
         body.innerHTML = `
             <div class="grid grid-cols-2 gap-4">
-                <div><label class="text-[10px] font-bold uppercase">Tipografía</label>
-                <select id="s-font" class="w-full border p-2 rounded-xl"><option value="Inter" ${est.font==='Inter'?'selected':''}>Inter</option><option value="Oswald" ${est.font==='Oswald'?'selected':''}>Oswald</option><option value="Montserrat" ${est.font==='Montserrat'?'selected':''}>Montserrat</option></select></div>
-                
-                <div><label class="text-[10px] font-bold uppercase">Columnas</label>
-                <select id="s-col" class="w-full border p-2 rounded-xl"><option value="2" ${est.columnas==2?'selected':''}>2 Columnas</option><option value="1" ${est.columnas==1?'selected':''}>1 Columna</option></select></div>
-                
+                <div><label class="text-[10px] font-bold uppercase">Tipografía</label><select id="s-font" class="w-full border p-2 rounded-xl"><option value="Inter" ${est.font==='Inter'?'selected':''}>Inter</option><option value="Oswald" ${est.font==='Oswald'?'selected':''}>Oswald</option><option value="Montserrat" ${est.font==='Montserrat'?'selected':''}>Montserrat</option></select></div>
+                <div><label class="text-[10px] font-bold uppercase">Columnas</label><select id="s-col" class="w-full border p-2 rounded-xl"><option value="2" ${est.columnas==2?'selected':''}>2 Columnas</option><option value="1" ${est.columnas==1?'selected':''}>1 Columna</option></select></div>
                 <div><label class="text-[10px] font-bold uppercase">Fondo Pantalla</label><input type="color" id="s-bg" value="${est.bg}" class="w-full h-10 cursor-pointer"></div>
                 <div><label class="text-[10px] font-bold uppercase">Color Categorías</label><input type="color" id="s-catC" value="${est.catColor}" class="w-full h-10 cursor-pointer"></div>
                 <div><label class="text-[10px] font-bold uppercase">Color Sabores</label><input type="color" id="s-sabC" value="${est.saborColor}" class="w-full h-10 cursor-pointer"></div>
@@ -348,18 +337,21 @@ async function renderModalContent() {
                 <div><label class="text-[10px] font-bold uppercase">Tamaño Categoría (px)</label><input type="number" id="s-catS" value="${est.catSize}" class="w-full border p-2 rounded-xl"></div>
                 <div><label class="text-[10px] font-bold uppercase">Tamaño Sabor (px)</label><input type="number" id="s-sabS" value="${est.saborSize}" class="w-full border p-2 rounded-xl"></div>
                 
-                <div class="col-span-2 border-t pt-4">
-                    <label class="flex items-center gap-2 font-black text-xs mb-2 text-blue-800 uppercase bg-blue-50 p-2 rounded-xl border border-blue-100">
-                        <input type="checkbox" id="s-mqA" class="w-4 h-4 cursor-pointer" ${est.marquesinaActiva?'checked':''}> HABILITAR MARQUESINA
+                <div class="col-span-2 border-t border-slate-200 pt-4 mt-2">
+                    <label class="flex items-center gap-2 font-black text-sm mb-3 text-blue-700 uppercase">
+                        <input type="checkbox" id="s-mqA" class="w-5 h-5 cursor-pointer" ${est.marquesinaActiva?'checked':''}> HABILITAR MARQUESINA
                     </label>
-                    <div class="grid grid-cols-4 gap-2 bg-slate-50 p-3 rounded-xl">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <div class="col-span-2 md:col-span-4">
+                            <label class="text-[10px] font-bold uppercase text-slate-500">Texto a mostrar</label>
+                            <input id="s-mqT" value="${est.marquesinaTexto || 'BIENVENIDOS'}" class="w-full border p-2 rounded-xl text-xs font-bold" placeholder="Escribe aquí el texto...">
+                        </div>
                         <div><label class="text-[9px] font-bold uppercase text-slate-500">Fondo Barra</label><input type="color" id="s-mqB" value="${est.marquesinaBg}" class="w-full h-8 cursor-pointer border-none rounded"></div>
                         <div><label class="text-[9px] font-bold uppercase text-slate-500">Color Letra</label><input type="color" id="s-mqC" value="${est.marquesinaColor}" class="w-full h-8 cursor-pointer border-none rounded"></div>
-                        <div><label class="text-[9px] font-bold uppercase text-slate-500">Velocidad</label><input type="number" id="s-mqV" value="${est.marquesinaVelocidad}" class="w-full border p-1 text-xs rounded"></div>
-                        <div><label class="text-[9px] font-bold uppercase text-slate-500">Alto (px)</label><input type="number" id="s-mqH" value="${est.marquesinaAlto}" class="w-full border p-1 text-xs rounded"></div>
-                        <div class="col-span-4"><label class="text-[9px] font-bold uppercase text-slate-500">Tamaño Letra (px)</label><input type="number" id="s-mqS" value="${est.marquesinaSize}" class="w-full border p-1 text-xs rounded"></div>
+                        <div><label class="text-[9px] font-bold uppercase text-slate-500">Velocidad</label><input type="number" id="s-mqV" value="${est.marquesinaVelocidad}" class="w-full border p-2 text-xs rounded-xl"></div>
+                        <div><label class="text-[9px] font-bold uppercase text-slate-500">Alto Barra (px)</label><input type="number" id="s-mqH" value="${est.marquesinaAlto}" class="w-full border p-2 text-xs rounded-xl"></div>
+                        <div class="col-span-2"><label class="text-[9px] font-bold uppercase text-slate-500">Tamaño Letra (px)</label><input type="number" id="s-mqS" value="${est.marquesinaSize}" class="w-full border p-2 text-xs rounded-xl"></div>
                     </div>
-                    <input id="s-mqT" value="${est.marquesinaTexto}" placeholder="Texto Marquesina" class="w-full border p-3 rounded-xl mt-2 text-xs font-bold">
                 </div>
             </div>`;
     }
@@ -378,8 +370,8 @@ async function renderModalContent() {
                     bg: document.getElementById('s-bg').value, 
                     catColor: document.getElementById('s-catC').value, 
                     saborColor: document.getElementById('s-sabC').value, 
-                    catSize: parseInt(document.getElementById('s-catS').value) || 32, 
-                    saborSize: parseInt(document.getElementById('s-sabS').value) || 24, 
+                    catSize: parseInt(document.getElementById('s-catS').value) || 24, 
+                    saborSize: parseInt(document.getElementById('s-sabS').value) || 18, 
                     columnas: document.getElementById('s-col').value, 
                     animacionTipo: document.getElementById('s-anim-T').value, 
                     animacionDuracion: parseFloat(document.getElementById('s-anim-D').value) || 0.5, 
@@ -390,7 +382,7 @@ async function renderModalContent() {
                     marquesinaTexto: document.getElementById('s-mqT').value.trim() || 'BIENVENIDOS', 
                     marquesinaVelocidad: parseInt(document.getElementById('s-mqV').value) || 20,
                     marquesinaAlto: parseInt(document.getElementById('s-mqH').value) || 80,
-                    marquesinaSize: parseInt(document.getElementById('s-mqS').value) || 36
+                    marquesinaSize: parseInt(document.getElementById('s-mqS').value) || 30
                 } 
               };
         
@@ -400,11 +392,5 @@ async function renderModalContent() {
     };
 }
 
-window.eliminarTV = async function(id) { 
-    if(confirm('¿BORRAR TV?')) { 
-        await _supabase.from('pantallas').delete().eq('id', id); 
-        verPantallasSucursal(window.currentSucId, window.currentSucName); 
-    } 
-};
-
+window.eliminarTV = async function(id) { if(confirm('¿BORRAR TV?')) { await _supabase.from('pantallas').delete().eq('id', id); verPantallasSucursal(window.currentSucId, window.currentSucName); } };
 function switchTab(tab) { activeTab = tab; renderModalContent(); }
