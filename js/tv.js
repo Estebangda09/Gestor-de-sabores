@@ -15,26 +15,27 @@ function gestionarCacheTV(id, data = null) {
     }
 }
 
-// --- ACTIVAR ESCUCHA EN TIEMPO REAL (CORRECCIÓN BOTÓN CONFIRMAR) ---
+// --- ACTIVAR ESCUCHA EN TIEMPO REAL (100% TU VERSIÓN ORIGINAL Y FUNCIONAL) ---
 window.activarRealtimeTV = function(tvId) {
     console.log("Conectando Realtime para TV:", tvId);
 
-    if (window.tvChannel) _supabase.removeChannel(window.tvChannel);
-    window.tvChannel = _supabase.channel(`tv_${tvId}`);
-
     // Canal para cambios en la configuración de la pantalla o estilos
-    // Al quitar el filtro de Supabase y hacerlo en JS, evitamos el bug que bloqueaba el guardado
-    window.tvChannel
+    _supabase
+        .channel('public:pantallas')
         .on('postgres_changes', { 
-            event: '*', 
+            event: 'UPDATE', 
             schema: 'public', 
-            table: 'pantallas'
-        }, (payload) => {
-            console.log('Cambio de diseño detectado en DB...', payload);
-            if (payload.new && payload.new.id == tvId) {
-                renderPantallaTV(tvId, true); // true = Anima para mostrar el nuevo diseño
-            }
+            table: 'pantallas', 
+            filter: `id=eq.${tvId}` 
+        }, () => {
+            console.log('Cambio de diseño detectado...');
+            renderPantallaTV(tvId, true); // true = Anima para mostrar el nuevo diseño
         })
+        .subscribe();
+
+    // Canal para cambios en la disponibilidad de sabores (stock)
+    _supabase
+        .channel('public:visibilidad_sabores')
         .on('postgres_changes', { 
             event: '*', 
             schema: 'public', 
@@ -43,6 +44,11 @@ window.activarRealtimeTV = function(tvId) {
             console.log('Cambio de stock detectado...');
             renderPantallaTV(tvId, false); // false = Sin repetir animación
         })
+        .subscribe();
+
+    // Canal para escuchar cambios al editar un sabor (nombre, vegano, sintacc)
+    _supabase
+        .channel('public:sabores')
         .on('postgres_changes', { 
             event: '*', 
             schema: 'public', 
@@ -102,7 +108,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
     const styleTag = document.getElementById('anim-styles') || document.createElement('style');
     styleTag.id = 'anim-styles';
     
-    // --- CSS CORREGIDO: MÁS ESPACIO A LA IZQUIERDA Y ARRIBA ---
+    // --- CSS CORREGIDO: MARGEN A LA IZQUIERDA Y ARRIBA (20px y 25px) ---
     styleTag.innerHTML = `
         body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: ${style.bg}; }
         #tv-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; margin: 0; padding: 0; }
@@ -115,10 +121,9 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
             column-gap: 2vw;
             row-gap: 0;
             
-            /* PADDING AJUSTADO: 15px arriba, 10px derecha, 10px abajo, 25px izquierda */
-            padding: 15px 10px 10px 25px; 
+            /* PADDING CORREGIDO: 20px arriba, 10px derecha, 10px abajo, 25px izquierda */
+            padding: 20px 10px 10px 25px; 
             margin: 0;
-            
             box-sizing: border-box;
             
             align-content: flex-start;
@@ -128,10 +133,9 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
         .tv-category-container { 
             break-inside: avoid; 
             page-break-inside: avoid;
-            width: ${datos.orientacion === '9:16' || style.columnas == 1 ? '100%' : 'calc(50% - 1vw)'}; 
+            width: ${datos.orientacion === '9:16' || style.columnas == 1 ? '100%' : 'calc(50% - 1.5vw)'}; 
             display: flex; 
             flex-direction: column;
-            
             margin: 0 0 1.5vh 0; 
             padding: 0;
         }
@@ -141,8 +145,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
             font-size: ${style.catSize}px; 
             text-transform: uppercase; 
             font-weight: 900; 
-            
-            margin: 0 0 0.5vh 0; 
+            margin: 0 0 0.8vh 0; 
             border-bottom: 2px solid ${style.catColor}44;
             padding: 0 0 3px 0;
         }
@@ -234,25 +237,29 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
                     const animClass = shouldAnimate ? 'sabor-anim' : '';
                     const animStyle = shouldAnimate ? `animation-delay: ${currentDelay}s;` : 'opacity: 1;';
                     
-                    // --- LÓGICA DE ÍCONOS REEMPLAZANDO EL PUNTO ---
+                    // --- CÁLCULO DE ALINEACIÓN PERFECTA (PUNTO VS ICONOS) ---
+                    // Se crea un contenedor de ancho fijo (50px) para alojar los íconos o el punto.
+                    // Las imágenes tienen un tamaño fijo (20px) para que no crezcan si aumentas la tipografía.
                     const tieneIcono = s.es_sintacc || s.es_vegano;
                     let bulletHtml = '';
                     
                     if (tieneIcono) {
-                        // Si tiene ícono, no ponemos punto, ponemos el ícono de tamaño menor al texto (0.85em)
-                        bulletHtml = `<div class="flex gap-1 items-center" style="margin-right: 6px; flex-shrink: 0;">
-                            ${s.es_sintacc ? `<img src="img/sintacc.png" style="height: 0.85em; width: auto; object-fit: contain;">` : ''}
-                            ${s.es_vegano ? `<img src="img/vegano.png" style="height: 0.85em; width: auto; object-fit: contain;">` : ''}
+                        bulletHtml = `
+                        <div style="width: 50px; flex-shrink: 0; display: flex; gap: 4px; align-items: center; justify-content: flex-start;">
+                            ${s.es_sintacc ? `<img src="img/sintacc.png" style="height: 20px; width: 20px; object-fit: contain; flex-shrink: 0;">` : ''}
+                            ${s.es_vegano ? `<img src="img/vegano.png" style="height: 20px; width: 20px; object-fit: contain; flex-shrink: 0;">` : ''}
                         </div>`;
                     } else {
-                        // Si NO tiene ícono, ponemos el punto azul habitual
-                        bulletHtml = `<span class="tv-dot" style="color: #3b82f6; margin-right: 6px;">•</span>`;
+                        bulletHtml = `
+                        <div style="width: 50px; flex-shrink: 0; display: flex; align-items: center; justify-content: flex-start; padding-left: 5px;">
+                            <span class="tv-dot" style="color: #3b82f6; font-size: 1.4em;">•</span>
+                        </div>`;
                     }
 
                     html += `
                     <div class="tv-flavor-item ${animClass}" style="${animStyle}">
                         ${bulletHtml}
-                        <span style="font-weight: 700;">${nombreFormateado}</span>
+                        <span style="font-weight: 700; flex: 1;">${nombreFormateado}</span>
                     </div>`;
                 });
                 html += `</div></div>`;
@@ -364,7 +371,7 @@ async function renderModalContent() {
                         <div><label class="text-[9px] font-bold uppercase text-slate-500">Color Letra</label><input type="color" id="s-mqC" value="${est.marquesinaColor}" class="w-full h-8 cursor-pointer border-none rounded"></div>
                         <div><label class="text-[9px] font-bold uppercase text-slate-500">Velocidad</label><input type="number" id="s-mqV" value="${est.marquesinaVelocidad}" class="w-full border p-2 text-xs rounded-xl"></div>
                         <div><label class="text-[9px] font-bold uppercase text-slate-500">Alto Barra (px)</label><input type="number" id="s-mqH" value="${est.marquesinaAlto}" class="w-full border p-2 text-xs rounded-xl"></div>
-                        <div class="col-span-2"><label class="text-[9px] font-bold uppercase text-slate-500">Tamaño Letra Marquesina (px)</label><input type="number" id="s-mqS" value="${est.marquesinaSize}" class="w-full border p-2 text-xs rounded-xl"></div>
+                        <div class="col-span-2"><label class="text-[9px] font-bold uppercase text-slate-500">Tamaño Letra (px)</label><input type="number" id="s-mqS" value="${est.marquesinaSize}" class="w-full border p-2 text-xs rounded-xl"></div>
                     </div>
                 </div>
             </div>`;
