@@ -218,8 +218,8 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
         
     } else {
         const { data: cats } = await _supabase.from('categorias').select('*').in('id', datos.config_categorias || []).order('orden');
-        const { data: sabs } = await _supabase.from('sabores').select('*').order('nombre');
-        const { data: vis } = await _supabase.from('visibilidad_sabores').select('*').eq('sucursal_id', datos.sucursal_id);
+        const { data: sabs = [] } = await _supabase.from('sabores').select('*').order('nombre');
+        const { data: vis = [] } = await _supabase.from('visibilidad_sabores').select('*').eq('sucursal_id', datos.sucursal_id);
         
         cats?.forEach(c => {
             const disponibles = sabs.filter(s => s.categoria_id === c.id).filter(s => {
@@ -238,21 +238,21 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
                     const animStyle = shouldAnimate ? `animation-delay: ${currentDelay}s;` : 'opacity: 1;';
                     
                     // --- CÁLCULO DE ALINEACIÓN PERFECTA (PUNTO VS ICONOS) ---
-                    // Se crea un contenedor de ancho fijo (50px) para alojar los íconos o el punto.
-                    // Las imágenes tienen un tamaño fijo (20px) para que no crezcan si aumentas la tipografía.
+                    // Se crea un contenedor de ancho fijo (aumentado a 75px) para alojar los íconos o el punto.
+                    // Las imágenes tienen un tamaño fijo AUMENTADO A 35px.
                     const tieneIcono = s.es_sintacc || s.es_vegano;
                     let bulletHtml = '';
                     
                     if (tieneIcono) {
                         bulletHtml = `
                         <div style="width: 50px; flex-shrink: 0; display: flex; gap: 4px; align-items: center; justify-content: flex-start;">
-                            ${s.es_sintacc ? `<img src="img/sintacc.png" style="height: 20px; width: 20px; object-fit: contain; flex-shrink: 0;">` : ''}
-                            ${s.es_vegano ? `<img src="img/vegano.png" style="height: 20px; width: 20px; object-fit: contain; flex-shrink: 0;">` : ''}
+                            ${s.es_sintacc ? `<img src="img/sintacc.png" style="height: 35px; width: 35px; object-fit: contain; flex-shrink: 0;">` : ''}
+                            ${s.es_vegano ? `<img src="img/vegano.png" style="height: 35px; width: 35px; object-fit: contain; flex-shrink: 0;">` : ''}
                         </div>`;
                     } else {
                         bulletHtml = `
-                        <div style="width: 50px; flex-shrink: 0; display: flex; align-items: center; justify-content: flex-start; padding-left: 5px;">
-                            <span class="tv-dot" style="color: #3b82f6; font-size: 1.4em;">•</span>
+                        <div style="width: 75px; flex-shrink: 0; display: flex; align-items: center; justify-content: flex-start; padding-left: 5px;">
+                            <span class="tv-dot" style="color: #3b82f6; font-size: 0.9em;">•</span>
                         </div>`;
                     }
 
