@@ -3,7 +3,7 @@ let activeTab = 'config';
 window.tvHasRendered = false;
 window.animIntervalTV = null;
 
-// --- MEMORIA RAM PARA AHORRAR CONSULTAS A SUPABASE ---
+// ---MEMORIA RAM PARA AHORRAR CONSULTAS A SUPABASE ---
 window.globalTvCache = null;
 
 // --- GESTIÓN DE CACHÉ PARA MODO OFFLINE ---
@@ -20,23 +20,28 @@ function gestionarCacheTV(id, data = null) {
 window.activarRealtimeTV = function(tvId) {
     console.log("Conectando Realtime para TV:", tvId);
 
-    // 1. Canal Pantallas (Diseño)
-    _supabase
-        .channel('canal_pantallas')
+    // Limpiar canales previos por si se recarga
+    if (window.chPantallas) _supabase.removeChannel(window.chPantallas);
+    if (window.chStock) _supabase.removeChannel(window.chStock);
+    if (window.chSabores) _supabase.removeChannel(window.chSabores);
+
+    // 1. Canal para cambios en la configuración de la pantalla o estilos (Botón Confirmar)
+    window.chPantallas = _supabase
+        .channel('public:pantallas')
         .on('postgres_changes', { 
             event: 'UPDATE', 
             schema: 'public', 
             table: 'pantallas', 
             filter: `id=eq.${tvId}` 
         }, () => {
-            console.log('Cambio de diseño detectado...');
-            renderPantallaTV(tvId, true, true); 
+            console.log('Cambio de diseño detectado (Botón Confirmar presionado)...');
+            renderPantallaTV(tvId, true, true);
         })
         .subscribe();
 
-    // 2. Canal Stock
-    _supabase
-        .channel('canal_stock')
+    // 2. Canal para cambios en la disponibilidad de sabores (stock)
+    window.chStock = _supabase
+        .channel('public:visibilidad_sabores')
         .on('postgres_changes', { 
             event: '*', 
             schema: 'public', 
@@ -47,16 +52,16 @@ window.activarRealtimeTV = function(tvId) {
         })
         .subscribe();
 
-    // 3. Canal Sabores (Nombres, íconos)
-    _supabase
-        .channel('canal_sabores')
+    // 3. Canal para escuchar cambios al editar un sabor (nombre, vegano, sintacc)
+    window.chSabores = _supabase
+        .channel('public:sabores')
         .on('postgres_changes', { 
             event: '*', 
             schema: 'public', 
             table: 'sabores' 
         }, () => {
             console.log('Cambio en datos de sabor detectado...');
-            renderPantallaTV(tvId, false, true); 
+            renderPantallaTV(tvId, false, true); // false = Sin repetir animación, true = Descarga datos nuevos
         })
         .subscribe();
 };
@@ -65,8 +70,7 @@ window.activarRealtimeTV = function(tvId) {
 window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch = true) {
     const tv = document.getElementById('tv-container');
     
-    // --- MAGIA ANTI-CONSUMO SUPABASE ---
-    if (forceFetch || !window.globalTvCache) {
+        if (forceFetch || !window.globalTvCache) {
         console.log("⬇️ Descargando datos frescos de Supabase...");
         
         const { data: pant, error } = await _supabase.from('pantallas').select('*').eq('id', id).single();
@@ -115,7 +119,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
     const shouldAnimate = (forceAnimation === true) || !window.tvHasRendered;
     window.tvHasRendered = true;
 
-    // --- CICLO DE REPETICIÓN DEL EFECTO (CERO CONSUMO A DB) ---
+    // --- CICLO DE REPETICIÓN DEL EFECTO ) ---
     if (window.animIntervalTV) {
         clearInterval(window.animIntervalTV);
         window.animIntervalTV = null;
@@ -123,7 +127,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
     const cicloSegundos = parseInt(style.animacionCiclo) || 0;
     if (cicloSegundos > 0) {
         window.animIntervalTV = setInterval(() => {
-            // Anima = true | ForzarConsultaDB = FALSE (Usa la RAM)
+            
             renderPantallaTV(id, true, false); 
         }, cicloSegundos * 1000);
     }
@@ -140,7 +144,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
     const styleTag = document.getElementById('anim-styles') || document.createElement('style');
     styleTag.id = 'anim-styles';
     
-    // --- CSS: PEGADO ARRIBA A LA IZQUIERDA ---
+    // --- CSS: MÁRGENES REDUCIDOS Y ALINEACIÓN PERFECTA ---
     styleTag.innerHTML = `
         body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: ${style.bg}; }
         #tv-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; margin: 0; padding: 0; }
@@ -153,8 +157,8 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
             column-gap: 2vw;
             row-gap: 0;
             
-            /* PADDING CORREGIDO: 10px arriba, 10px derecha, 10px abajo, 20px izquierda */
-            padding: 10px 10px 10px 20px; 
+            /* PADDING CORREGIDO: 20px arriba, 10px derecha, 10px abajo, 25px izquierda */
+            padding: 20px 10px 10px 25px; 
             margin: 0;
             box-sizing: border-box;
             
@@ -206,6 +210,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
             align-items: center; 
             border-bottom: 1px solid rgba(0,0,0,0.05); 
             padding: 4px 0;
+            margin: 0 0 0.5vh 0;
         }
 
         .price-label { font-weight: 700; color: ${style.catColor}; margin: 0; }
@@ -273,8 +278,8 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
                     if (tieneIcono) {
                         bulletHtml = `
                         <div style="width: 50px; flex-shrink: 0; display: flex; gap: 4px; align-items: center; justify-content: flex-start;">
-                            ${s.es_sintacc ? `<img src="img/sintacc.png" style="height: 35px; width: 35px; object-fit: contain; flex-shrink: 0;">` : ''}
-                            ${s.es_vegano ? `<img src="img/vegano.png" style="height: 35px; width: 35px; object-fit: contain; flex-shrink: 0;">` : ''}
+                            ${s.es_sintacc ? `<img src="img/sintacc.png" style="height: 35px; width: auto; object-fit: contain; flex-shrink: 0;">` : ''}
+                            ${s.es_vegano ? `<img src="img/vegano.png" style="height: 35px; width: auto; object-fit: contain; flex-shrink: 0;">` : ''}
                         </div>`;
                     } else {
                         bulletHtml = `
