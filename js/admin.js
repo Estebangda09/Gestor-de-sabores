@@ -1,4 +1,3 @@
-// js/admin.js
 let currentPage = '';
 
 function renderMenu() {
@@ -434,6 +433,8 @@ async function renderModalContent() {
             </div>`;
     }
 
+    // (Dentro del archivo js/admin.js, al final de renderModalContent)
+    
     btn.onclick = async () => {
         let estOriginal = currentTvData?.estilo || {};
         
@@ -479,9 +480,37 @@ async function renderModalContent() {
                 } 
               };
         
-        if (currentTvData) await _supabase.from('pantallas').update(upd).eq('id', currentTvData.id);
-        else await _supabase.from('pantallas').insert([{ ...upd, sucursal_id: window.currentSucId }]);
-        closeModal(); verPantallasSucursal(window.currentSucId, window.currentSucName);
+        let tvIdParaAvisar = null;
+
+        try {
+            if (currentTvData) {
+                await _supabase.from('pantallas').update(upd).eq('id', currentTvData.id);
+                tvIdParaAvisar = currentTvData.id;
+            } else {
+                const { data: nuevaTv, error } = await _supabase.from('pantallas').insert([{ ...upd, sucursal_id: window.currentSucId }]).select('id').single();
+                if (!error && nuevaTv) tvIdParaAvisar = nuevaTv.id;
+            }
+
+           if (tvIdParaAvisar) {
+                const canalAviso = _supabase.channel(`tv_${tvIdParaAvisar}`);
+                canalAviso.subscribe(async (status) => {
+                    if (status === 'SUBSCRIBED') {
+                        await canalAviso.send({
+                            type: 'broadcast',
+                            event: 'update_tv',
+                            payload: { message: 'Actualiza tus estilos' }
+                        });
+                        console.log("Señal de actualización enviada a la TV:", tvIdParaAvisar);
+                    }
+                });
+            }
+
+        } catch (error) {
+            console.error("Error al guardar TV:", error);
+        }
+
+        closeModal(); 
+        verPantallasSucursal(window.currentSucId, window.currentSucName);
     };
 }
 function switchTab(tab) { activeTab = tab; renderModalContent(); }
