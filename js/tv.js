@@ -21,24 +21,27 @@ function gestionarCacheTV(id, data = null) {
 window.activarRealtimeTV = function(tvId) {
     console.log("Conectando Realtime para TV:", tvId);
 
-    // Canal para cambios en la configuración de la pantalla o estilos (Botón Confirmar del Editor)
-    _supabase
-        .channel('public:pantallas')
-        .on('postgres_changes', { 
-            event: 'UPDATE', 
-            schema: 'public', 
-            table: 'pantallas', 
-            filter: `id=eq.${tvId}` 
-        }, () => {
-            console.log('Cambio de diseño detectado...');
-            
-            renderPantallaTV(tvId, false, true); 
-        })
-        .subscribe();
+    // Cerramos cualquier canal anterior para evitar duplicados
+    if (window.tvChannel) _supabase.removeChannel(window.tvChannel);
+    
+    // Unificamos todo en un solo canal para esta TV
+    window.tvChannel = _supabase.channel(`tv_sync_${tvId}`);
 
-    // Canal para cambios en la disponibilidad de sabores (stock)
-    _supabase
-        .channel('public:visibilidad_sabores')
+    window.tvChannel
+        // Canal para el botón "Confirmar" (Diseño y Configuración)
+        
+        .on('postgres_changes', { 
+            event: '*', 
+            schema: 'public', 
+            table: 'pantallas'
+        }, (payload) => {
+            console.log('Cambio detectado en tabla pantallas...', payload);
+            if (payload.new && payload.new.id === tvId) {
+                console.log('¡Es esta TV! Actualizando diseño al instante...');
+                renderPantallaTV(tvId, true, true); 
+            }
+        })
+        // Canal para disponibilidad de stock
         .on('postgres_changes', { 
             event: '*', 
             schema: 'public', 
@@ -47,18 +50,14 @@ window.activarRealtimeTV = function(tvId) {
             console.log('Cambio de stock detectado...');
             renderPantallaTV(tvId, false, true); 
         })
-        .subscribe();
-
-    // Canal para escuchar cambios al editar un sabor (nombre, vegano, sintacc)
-    _supabase
-        .channel('public:sabores')
+        // Canal para edición de nombres, vegano, sintacc
         .on('postgres_changes', { 
             event: '*', 
             schema: 'public', 
             table: 'sabores' 
         }, () => {
             console.log('Cambio en datos de sabor detectado...');
-            renderPantallaTV(tvId, false, true); // true = Obliga a descargar datos frescos
+            renderPantallaTV(tvId, false, true); 
         })
         .subscribe();
 };
@@ -67,7 +66,7 @@ window.activarRealtimeTV = function(tvId) {
 window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch = true) {
     const tv = document.getElementById('tv-container');
     
-    // --- LÓGICA DE MEMORIA RAM  ---
+    // --- LÓGICA DE MEMORIA RAM ---
     if (forceFetch || !window.globalTvCache) {
         console.log("⬇️ Descargando datos de Supabase...");
         
@@ -97,7 +96,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
             vis = resV.data || [];
         }
 
-        // Guardamos todo en Memoria RAM
+        
         window.globalTvCache = { datosDb, catPrecios, prices, cats, sabs, vis };
     } else {
         console.log("⚡ Usando Memoria RAM. (0 Consultas a DB)");
@@ -125,7 +124,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
     const cicloSegundos = parseInt(style.animacionCiclo) || 0;
     if (cicloSegundos > 0) {
         window.animIntervalTV = setInterval(() => {
-            // Anima = true, fuerza DB = false
+           
             renderPantallaTV(id, true, false); 
         }, cicloSegundos * 1000);
     }
@@ -142,7 +141,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
     const styleTag = document.getElementById('anim-styles') || document.createElement('style');
     styleTag.id = 'anim-styles';
     
-    // --- CSS  ---
+    // --- CSS ---
     styleTag.innerHTML = `
         body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: ${style.bg}; }
         #tv-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; margin: 0; padding: 0; }
@@ -155,7 +154,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
             column-gap: 2vw;
             row-gap: 0;
             
-            /* PADDING AJUSTADO PARA EVITAR BORDES CORTADOS: 20px arriba, 25px izquierda */
+            /* PADDING AJUSTADO PARA EVITAR BORDES CORTADOS Y PEGAR A LA IZQUIERDA */
             padding: 20px 10px 10px 25px; 
             margin: 0;
             box-sizing: border-box;
@@ -269,7 +268,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
                     const animClass = shouldAnimate ? 'sabor-anim' : '';
                     const animStyle = shouldAnimate ? `animation-delay: ${currentDelay}s;` : 'opacity: 1;';
                     
-                    // --- ALINEACIÓN PERFECTA: BLOQUE 50PX Y IMÁGENES DE 35PX ---
+                    // --- ALINEACIÓN DE ÍCONOS: COLUMNA DE 50PX, IMÁGENES DE 30PX ---
                     const tieneIcono = s.es_sintacc || s.es_vegano;
                     let bulletHtml = '';
                     
@@ -280,6 +279,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
                             ${s.es_vegano ? `<img src="img/vegano.png" style="height: 30px; width: 30px; object-fit: contain; flex-shrink: 0;">` : ''}
                         </div>`;
                     } else {
+                        // El punto azul en 0.9em
                         bulletHtml = `
                         <div style="width: 50px; flex-shrink: 0; display: flex; align-items: center; justify-content: flex-start; padding-left: 5px;">
                             <span class="tv-dot" style="color: #3b82f6; font-size: 0.9em;">•</span>
@@ -344,6 +344,7 @@ async function renderModalContent() {
         const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
         const { data: prices } = await _supabase.from('categorias_precios').select('*').order('orden');
         const configActiva = currentTvData?.config_categorias || [];
+        
         
         body.innerHTML = `
             <input id="p-nom" value="${currentTvData?.nombre || ''}" placeholder="Nombre TV" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
@@ -471,9 +472,14 @@ async function renderModalContent() {
                 } 
               };
         
-        if (currentTvData) await _supabase.from('pantallas').update(upd).eq('id', currentTvData.id);
-        else await _supabase.from('pantallas').insert([{ ...upd, sucursal_id: window.currentSucId }]);
-        closeModal(); verPantallasSucursal(window.currentSucId, window.currentSucName);
+        // --- AQUÍ EL BOTÓN UPDATE QUE DISPARA EL REALTIME ---
+        if (currentTvData) {
+            await _supabase.from('pantallas').update(upd).eq('id', currentTvData.id);
+        } else {
+            await _supabase.from('pantallas').insert([{ ...upd, sucursal_id: window.currentSucId }]);
+        }
+        closeModal(); 
+        verPantallasSucursal(window.currentSucId, window.currentSucName);
     };
 }
 
