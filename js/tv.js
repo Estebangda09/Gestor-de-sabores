@@ -3,7 +3,7 @@ let activeTab = 'config';
 window.tvHasRendered = false;
 window.animIntervalTV = null;
 
-// ---MEMORIA RAM PARA AHORRAR CONSULTAS A SUPABASE ---
+// --- MEMORIA RAM ---
 window.globalTvCache = null;
 
 // --- GESTIÓN DE CACHÉ PARA MODO OFFLINE ---
@@ -17,16 +17,12 @@ function gestionarCacheTV(id, data = null) {
     }
 }
 
+// --- ACTIVAR ESCUCHA EN TIEMPO REAL ---
 window.activarRealtimeTV = function(tvId) {
     console.log("Conectando Realtime para TV:", tvId);
 
-    // Limpiar canales previos por si se recarga
-    if (window.chPantallas) _supabase.removeChannel(window.chPantallas);
-    if (window.chStock) _supabase.removeChannel(window.chStock);
-    if (window.chSabores) _supabase.removeChannel(window.chSabores);
-
-    // 1. Canal para cambios en la configuración de la pantalla o estilos (Botón Confirmar)
-    window.chPantallas = _supabase
+    // Canal para cambios en la configuración de la pantalla o estilos (Botón Confirmar del Editor)
+    _supabase
         .channel('public:pantallas')
         .on('postgres_changes', { 
             event: 'UPDATE', 
@@ -34,13 +30,14 @@ window.activarRealtimeTV = function(tvId) {
             table: 'pantallas', 
             filter: `id=eq.${tvId}` 
         }, () => {
-            console.log('Cambio de diseño detectado (Botón Confirmar presionado)...');
-            renderPantallaTV(tvId, true, true);
+            console.log('Cambio de diseño detectado...');
+            
+            renderPantallaTV(tvId, false, true); 
         })
         .subscribe();
 
-    // 2. Canal para cambios en la disponibilidad de sabores (stock)
-    window.chStock = _supabase
+    // Canal para cambios en la disponibilidad de sabores (stock)
+    _supabase
         .channel('public:visibilidad_sabores')
         .on('postgres_changes', { 
             event: '*', 
@@ -52,8 +49,8 @@ window.activarRealtimeTV = function(tvId) {
         })
         .subscribe();
 
-    // 3. Canal para escuchar cambios al editar un sabor (nombre, vegano, sintacc)
-    window.chSabores = _supabase
+    // Canal para escuchar cambios al editar un sabor (nombre, vegano, sintacc)
+    _supabase
         .channel('public:sabores')
         .on('postgres_changes', { 
             event: '*', 
@@ -61,7 +58,7 @@ window.activarRealtimeTV = function(tvId) {
             table: 'sabores' 
         }, () => {
             console.log('Cambio en datos de sabor detectado...');
-            renderPantallaTV(tvId, false, true); // false = Sin repetir animación, true = Descarga datos nuevos
+            renderPantallaTV(tvId, false, true); // true = Obliga a descargar datos frescos
         })
         .subscribe();
 };
@@ -70,8 +67,9 @@ window.activarRealtimeTV = function(tvId) {
 window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch = true) {
     const tv = document.getElementById('tv-container');
     
-        if (forceFetch || !window.globalTvCache) {
-        console.log("⬇️ Descargando datos frescos de Supabase...");
+    // --- LÓGICA DE MEMORIA RAM  ---
+    if (forceFetch || !window.globalTvCache) {
+        console.log("⬇️ Descargando datos de Supabase...");
         
         const { data: pant, error } = await _supabase.from('pantallas').select('*').eq('id', id).single();
         let datosDb = pant;
@@ -99,13 +97,13 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
             vis = resV.data || [];
         }
 
-        // Guardamos todo en la Memoria RAM
+        // Guardamos todo en Memoria RAM
         window.globalTvCache = { datosDb, catPrecios, prices, cats, sabs, vis };
     } else {
-        console.log("⚡ Usando Memoria RAM (Ahorrando límite de Supabase)");
+        console.log("⚡ Usando Memoria RAM. (0 Consultas a DB)");
     }
 
-    // Leemos de la memoria RAM
+    // Leemos de la RAM
     const { datosDb: datos, catPrecios, prices, cats, sabs, vis } = window.globalTvCache;
 
     const style = datos.estilo || { 
@@ -119,7 +117,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
     const shouldAnimate = (forceAnimation === true) || !window.tvHasRendered;
     window.tvHasRendered = true;
 
-    // --- CICLO DE REPETICIÓN DEL EFECTO ) ---
+    // --- CICLO DE REPETICIÓN  ---
     if (window.animIntervalTV) {
         clearInterval(window.animIntervalTV);
         window.animIntervalTV = null;
@@ -127,7 +125,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
     const cicloSegundos = parseInt(style.animacionCiclo) || 0;
     if (cicloSegundos > 0) {
         window.animIntervalTV = setInterval(() => {
-            
+            // Anima = true, fuerza DB = false
             renderPantallaTV(id, true, false); 
         }, cicloSegundos * 1000);
     }
@@ -144,7 +142,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
     const styleTag = document.getElementById('anim-styles') || document.createElement('style');
     styleTag.id = 'anim-styles';
     
-    // --- CSS: MÁRGENES REDUCIDOS Y ALINEACIÓN PERFECTA ---
+    // --- CSS  ---
     styleTag.innerHTML = `
         body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: ${style.bg}; }
         #tv-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; margin: 0; padding: 0; }
@@ -157,7 +155,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
             column-gap: 2vw;
             row-gap: 0;
             
-            /* PADDING CORREGIDO: 20px arriba, 10px derecha, 10px abajo, 25px izquierda */
+            /* PADDING AJUSTADO PARA EVITAR BORDES CORTADOS: 20px arriba, 25px izquierda */
             padding: 20px 10px 10px 25px; 
             margin: 0;
             box-sizing: border-box;
@@ -271,15 +269,15 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
                     const animClass = shouldAnimate ? 'sabor-anim' : '';
                     const animStyle = shouldAnimate ? `animation-delay: ${currentDelay}s;` : 'opacity: 1;';
                     
-                    // --- ALINEACIÓN PERFECTA: CONTENEDOR 50PX, IMÁGENES A 35PX, PUNTO CHICO ---
+                    // --- ALINEACIÓN PERFECTA: BLOQUE 50PX Y IMÁGENES DE 35PX ---
                     const tieneIcono = s.es_sintacc || s.es_vegano;
                     let bulletHtml = '';
                     
                     if (tieneIcono) {
                         bulletHtml = `
                         <div style="width: 50px; flex-shrink: 0; display: flex; gap: 4px; align-items: center; justify-content: flex-start;">
-                            ${s.es_sintacc ? `<img src="img/sintacc.png" style="height: 35px; width: auto; object-fit: contain; flex-shrink: 0;">` : ''}
-                            ${s.es_vegano ? `<img src="img/vegano.png" style="height: 35px; width: auto; object-fit: contain; flex-shrink: 0;">` : ''}
+                            ${s.es_sintacc ? `<img src="img/sintacc.png" style="height: 30px; width: 30px; object-fit: contain; flex-shrink: 0;">` : ''}
+                            ${s.es_vegano ? `<img src="img/vegano.png" style="height: 30px; width: 30px; object-fit: contain; flex-shrink: 0;">` : ''}
                         </div>`;
                     } else {
                         bulletHtml = `
