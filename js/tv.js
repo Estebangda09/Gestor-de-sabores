@@ -100,7 +100,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
     const styleTag = document.getElementById('anim-styles') || document.createElement('style');
     styleTag.id = 'anim-styles';
     
-    // --- CSS CORREGIDO ---
+    // --- CSS CORREGIDO: Ajuste de márgenes y paddings ---
     styleTag.innerHTML = `
         body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: ${style.bg}; }
         #tv-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; margin: 0; padding: 0; }
@@ -112,7 +112,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
             flex-wrap: wrap; 
             column-gap: 2vw;
             row-gap: 0;
-            padding: 15px 10px 10px 25px; 
+            padding: 10px 10px 10px 20px; /* 10px arriba, 20px izquierda */
             margin: 0;
             box-sizing: border-box;
             align-content: flex-start;
@@ -126,6 +126,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
             display: flex; 
             flex-direction: column;
             padding: 0;
+            margin-top: 0;
         }
 
         .tv-cat-header {
@@ -265,7 +266,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
         const sizeMq = style.marquesinaSize || 36;
         
         tv.innerHTML += `
-            <div class="tv-ticker" style="height: ${altoMq}px; background:${style.marquesinaBg}; color:${style.marquesinaColor}; display: flex; align-items: center; overflow: hidden; white-space: nowrap; width: 100vw; border-top: 3px solid rgba(255,255,255,0.1); margin: 0; padding: 0;">
+            <div class="tv-ticker" style="height: ${altoMq}px; background:${style.marquesinaBg || '#1e293b'}; color:${style.marquesinaColor || '#ffffff'}; display: flex; align-items: center; overflow: hidden; white-space: nowrap; width: 100vw; border-top: 3px solid rgba(255,255,255,0.1); margin: 0; padding: 0;">
                 <div class="ticker-content" style="display: inline-block; animation: ticker ${dur}s linear infinite; font-size: ${sizeMq}px; font-weight: 900; letter-spacing: 2px;">
                     ${txt} &nbsp;&nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp;&nbsp; ${txt} &nbsp;&nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp;&nbsp; ${txt}
                 </div>
@@ -298,6 +299,8 @@ async function renderModalContent() {
     document.getElementById('tab-config').className = activeTab === 'config' ? 'font-bold text-blue-600 border-b-2 border-blue-600 pb-1' : 'font-bold text-slate-400 pb-1';
     document.getElementById('tab-style').className = activeTab === 'style' ? 'font-bold text-blue-600 border-b-2 border-blue-600 pb-1' : 'font-bold text-slate-400 pb-1';
 
+    const colsPorCat = currentTvData?.estilo?.columnasPorCategoria || {};
+
     if (activeTab === 'config') {
         const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
         const { data: prices } = await _supabase.from('categorias_precios').select('*').order('orden');
@@ -315,20 +318,32 @@ async function renderModalContent() {
                     <option value="9:16" ${currentTvData?.orientacion === '9:16' ? 'selected':''}>Vertical (9:16)</option>
                 </select>
             </div>
-            <div id="list-cont" class="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 bg-slate-50 rounded-2xl border mt-4">
-                ${(currentTvData?.tipo === 'precios' ? prices : cats).map(i => `
-                    <label class="flex items-center gap-2 p-2 bg-white rounded-xl cursor-pointer">
-                        <input type="checkbox" class="tv-check" value="${i.id}" ${configActiva.includes(i.id) ? 'checked' : ''}>
-                        <span class="text-[10px] font-bold uppercase">${i.nombre}</span>
-                    </label>`).join('')}
+            <div id="list-cont" class="grid gap-2 max-h-48 overflow-y-auto p-2 bg-slate-50 rounded-2xl border mt-4">
+                ${(currentTvData?.tipo === 'precios' ? prices : cats).map(i => {
+                    const isChecked = configActiva.includes(i.id);
+                    const catCols = colsPorCat[i.id] || 2;
+                    return `
+                    <div class="flex items-center justify-between p-2 bg-white rounded-xl border border-slate-100">
+                        <label class="flex items-center gap-2 cursor-pointer flex-1">
+                            <input type="checkbox" class="tv-check" value="${i.id}" ${isChecked ? 'checked' : ''}>
+                            <span class="text-[10px] font-bold uppercase">${i.nombre}</span>
+                        </label>
+                        <select class="tv-cat-cols border rounded text-[9px] p-1 bg-slate-50" data-id="${i.id}">
+                            <option value="2" ${catCols == 2 ? 'selected' : ''}>2 Columnas</option>
+                            <option value="1" ${catCols == 1 ? 'selected' : ''}>1 Columna</option>
+                        </select>
+                    </div>`;
+                }).join('')}
             </div>`;
     } else {
         const est = currentTvData?.estilo || { font: 'Inter', bg: '#fdfbf7', catColor: '#64748b', saborColor: '#1e293b', catSize: 24, saborSize: 18, columnas: 2, animacionTipo: 'fadeUp', animacionDuracion: 0.5, animacionCiclo: 0, marquesinaActiva: false, marquesinaBg: '#1e293b', marquesinaColor: '#ffffff', marquesinaVelocidad: 20, marquesinaAlto: 80, marquesinaSize: 30, marquesinaTexto: 'BIENVENIDOS' };
-        
+        const espCat = est.espacioCategorias !== undefined ? est.espacioCategorias : 20;
+        const espSab = est.espacioSabores !== undefined ? est.espacioSabores : 8;
+
         body.innerHTML = `
             <div class="grid grid-cols-2 gap-4">
                 <div><label class="text-[10px] font-bold uppercase">Tipografía</label><select id="s-font" class="w-full border p-2 rounded-xl"><option value="Inter" ${est.font==='Inter'?'selected':''}>Inter</option><option value="Oswald" ${est.font==='Oswald'?'selected':''}>Oswald</option><option value="Montserrat" ${est.font==='Montserrat'?'selected':''}>Montserrat</option></select></div>
-                <div><label class="text-[10px] font-bold uppercase">Columnas</label><select id="s-col" class="w-full border p-2 rounded-xl"><option value="2" ${est.columnas==2?'selected':''}>2 Columnas</option><option value="1" ${est.columnas==1?'selected':''}>1 Columna</option></select></div>
+                <div><label class="text-[10px] font-bold uppercase">Columnas Principales</label><select id="s-col" class="w-full border p-2 rounded-xl"><option value="2" ${est.columnas==2?'selected':''}>2 Columnas</option><option value="1" ${est.columnas==1?'selected':''}>1 Columna</option></select></div>
                 <div><label class="text-[10px] font-bold uppercase">Fondo Pantalla</label><input type="color" id="s-bg" value="${est.bg}" class="w-full h-10 cursor-pointer"></div>
                 <div><label class="text-[10px] font-bold uppercase">Color Categorías</label><input type="color" id="s-catC" value="${est.catColor}" class="w-full h-10 cursor-pointer"></div>
                 <div><label class="text-[10px] font-bold uppercase">Color Sabores</label><input type="color" id="s-sabC" value="${est.saborColor}" class="w-full h-10 cursor-pointer"></div>
@@ -345,6 +360,11 @@ async function renderModalContent() {
                     </div>
                 </div>
 
+                <div class="col-span-2 flex gap-4">
+                    <div class="w-1/2"><label class="text-[10px] font-bold uppercase">Sep. Categorías (px)</label><input type="number" id="s-espC" value="${espCat}" class="w-full border p-2 rounded-xl"></div>
+                    <div class="w-1/2"><label class="text-[10px] font-bold uppercase">Sep. Sabores (px)</label><input type="number" id="s-espS" value="${espSab}" class="w-full border p-2 rounded-xl"></div>
+                </div>
+
                 <div><label class="text-[10px] font-bold uppercase">Tamaño Categoría (px)</label><input type="number" id="s-catS" value="${est.catSize}" class="w-full border p-2 rounded-xl"></div>
                 <div><label class="text-[10px] font-bold uppercase">Tamaño Sabor (px)</label><input type="number" id="s-sabS" value="${est.saborSize}" class="w-full border p-2 rounded-xl"></div>
                 
@@ -355,7 +375,7 @@ async function renderModalContent() {
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
                         <div class="col-span-2 md:col-span-4">
                             <label class="text-[10px] font-bold uppercase text-slate-500">Texto a mostrar</label>
-                            <input id="s-mqT" value="${est.marquesinaTexto || 'BIENVENIDOS'}" class="w-full border p-2 rounded-xl text-xs font-bold" placeholder="Escribe aquí el texto...">
+                            <input id="s-mqT" value="${est.marquesinaTexto || 'BIENVENIDOS'}" class="w-full border p-2 rounded-xl text-xs font-bold">
                         </div>
                         <div><label class="text-[9px] font-bold uppercase text-slate-500">Fondo Barra</label><input type="color" id="s-mqB" value="${est.marquesinaBg}" class="w-full h-8 cursor-pointer border-none rounded"></div>
                         <div><label class="text-[9px] font-bold uppercase text-slate-500">Color Letra</label><input type="color" id="s-mqC" value="${est.marquesinaColor}" class="w-full h-8 cursor-pointer border-none rounded"></div>
@@ -368,12 +388,24 @@ async function renderModalContent() {
     }
 
     btn.onclick = async () => {
+        let estOriginal = currentTvData?.estilo || {};
+        
+        let colsConfig = {};
+        if (activeTab === 'config') {
+            document.querySelectorAll('.tv-cat-cols').forEach(sel => {
+                colsConfig[sel.getAttribute('data-id')] = parseInt(sel.value);
+            });
+        } else {
+            colsConfig = estOriginal.columnasPorCategoria || {};
+        }
+
         let upd = (activeTab === 'config') 
             ? { 
                 nombre: document.getElementById('p-nom').value, 
                 tipo: document.getElementById('p-tipo').value, 
                 orientacion: document.getElementById('p-ori').value, 
-                config_categorias: Array.from(document.querySelectorAll('.tv-check:checked')).map(c => c.value) 
+                config_categorias: Array.from(document.querySelectorAll('.tv-check:checked')).map(c => c.value),
+                estilo: Object.assign({}, estOriginal, { columnasPorCategoria: colsConfig })
               } 
             : { 
                 estilo: { 
@@ -393,7 +425,10 @@ async function renderModalContent() {
                     marquesinaTexto: document.getElementById('s-mqT').value.trim() || 'BIENVENIDOS', 
                     marquesinaVelocidad: parseInt(document.getElementById('s-mqV').value) || 20,
                     marquesinaAlto: parseInt(document.getElementById('s-mqH').value) || 80,
-                    marquesinaSize: parseInt(document.getElementById('s-mqS').value) || 30
+                    marquesinaSize: parseInt(document.getElementById('s-mqS').value) || 30,
+                    espacioCategorias: parseInt(document.getElementById('s-espC').value) || 20,
+                    espacioSabores: parseInt(document.getElementById('s-espS').value) || 8,
+                    columnasPorCategoria: colsConfig
                 } 
               };
         
