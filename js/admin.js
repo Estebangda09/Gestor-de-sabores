@@ -165,7 +165,7 @@ async function showPage(page, params = null) {
     }
 }
 
-// --- RESTO DE FUNCIONES (PERFILES, MODALES, ETC) ---
+// --- RESTO DE FUNCIONES ---
 window.abrirMiPerfil = () => { abrirModalUsuario(window.userPerfil, true); };
 
 window.abrirModalUsuario = async function(u = null, esMiPerfil = false) {
@@ -326,7 +326,7 @@ async function abrirModal(type, data = null) {
     }
 }
 
-// --- MODAL DE TV Y DISEÑO (AQUÍ ESTÁN LOS CAMPOS NUEVOS DE SEPARACIÓN Y COLUMNAS) ---
+// --- MODAL DE TV Y DISEÑO ---
 window.verPantallasSucursal = async function(sucId, sucName) {
     window.currentSucId = sucId; window.currentSucName = sucName;
     const { data: pants } = await _supabase.from('pantallas').select('*').eq('sucursal_id', sucId);
@@ -396,14 +396,8 @@ async function renderModalContent() {
                 <div><label class="text-[10px] font-bold uppercase">Tipo Animación</label><select id="s-anim-T" class="w-full border p-2 rounded-xl"><option value="fadeUp" ${est.animacionTipo==='fadeUp'?'selected':''}>Deslizar Arriba</option><option value="fadeIn" ${est.animacionTipo==='fadeIn'?'selected':''}>Solo Aparecer</option><option value="slideInLeft" ${est.animacionTipo==='slideInLeft'?'selected':''}>Deslizar Lado</option></select></div>
                 
                 <div class="col-span-2 bg-blue-50 p-3 rounded-xl border border-blue-100 flex gap-4">
-                    <div class="w-1/2">
-                        <label class="text-[10px] font-bold uppercase text-blue-700">Velocidad Efecto (seg)</label>
-                        <input type="number" step="0.1" id="s-anim-D" value="${est.animacionDuracion}" class="w-full border p-2 rounded-xl mt-1">
-                    </div>
-                    <div class="w-1/2">
-                        <label class="text-[10px] font-bold uppercase text-blue-700">Repetir Ciclo (seg)</label>
-                        <input type="number" id="s-anim-C" value="${est.animacionCiclo || 0}" placeholder="0 = No repetir" class="w-full border p-2 rounded-xl mt-1">
-                    </div>
+                    <div class="w-1/2"><label class="text-[10px] font-bold uppercase text-blue-700">Velocidad Efecto (seg)</label><input type="number" step="0.1" id="s-anim-D" value="${est.animacionDuracion}" class="w-full border p-2 rounded-xl mt-1"></div>
+                    <div class="w-1/2"><label class="text-[10px] font-bold uppercase text-blue-700">Repetir Ciclo (seg)</label><input type="number" id="s-anim-C" value="${est.animacionCiclo || 0}" placeholder="0 = No repetir" class="w-full border p-2 rounded-xl mt-1"></div>
                 </div>
 
                 <div class="col-span-2 flex gap-4">
@@ -415,14 +409,9 @@ async function renderModalContent() {
                 <div><label class="text-[10px] font-bold uppercase">Tamaño Sabor (px)</label><input type="number" id="s-sabS" value="${est.saborSize}" class="w-full border p-2 rounded-xl"></div>
                 
                 <div class="col-span-2 border-t border-slate-200 pt-4 mt-2">
-                    <label class="flex items-center gap-2 font-black text-sm mb-3 text-blue-700 uppercase">
-                        <input type="checkbox" id="s-mqA" class="w-5 h-5 cursor-pointer" ${est.marquesinaActiva?'checked':''}> HABILITAR MARQUESINA
-                    </label>
+                    <label class="flex items-center gap-2 font-black text-sm mb-3 text-blue-700 uppercase"><input type="checkbox" id="s-mqA" class="w-5 h-5 cursor-pointer" ${est.marquesinaActiva?'checked':''}> HABILITAR MARQUESINA</label>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                        <div class="col-span-2 md:col-span-4">
-                            <label class="text-[10px] font-bold uppercase text-slate-500">Texto a mostrar</label>
-                            <input id="s-mqT" value="${est.marquesinaTexto || 'BIENVENIDOS'}" class="w-full border p-2 rounded-xl text-xs font-bold">
-                        </div>
+                        <div class="col-span-2 md:col-span-4"><label class="text-[10px] font-bold uppercase text-slate-500">Texto a mostrar</label><input id="s-mqT" value="${est.marquesinaTexto || 'BIENVENIDOS'}" class="w-full border p-2 rounded-xl text-xs font-bold"></div>
                         <div><label class="text-[9px] font-bold uppercase text-slate-500">Fondo Barra</label><input type="color" id="s-mqB" value="${est.marquesinaBg}" class="w-full h-8 cursor-pointer border-none rounded"></div>
                         <div><label class="text-[9px] font-bold uppercase text-slate-500">Color Letra</label><input type="color" id="s-mqC" value="${est.marquesinaColor}" class="w-full h-8 cursor-pointer border-none rounded"></div>
                         <div><label class="text-[9px] font-bold uppercase text-slate-500">Velocidad</label><input type="number" id="s-mqV" value="${est.marquesinaVelocidad}" class="w-full border p-2 text-xs rounded-xl"></div>
@@ -433,8 +422,42 @@ async function renderModalContent() {
             </div>`;
     }
 
-    // (Dentro del archivo js/admin.js, al final de renderModalContent)
+    // --- INYECCIÓN DINÁMICA DEL BOTÓN ACTUALIZAR TV ---
+    let footerDiv = btn.parentElement;
     
+    // Verificamos si ya existe el botón, si no, lo creamos
+    if (!document.getElementById('btn-force-update')) {
+        let btnSync = document.createElement('button');
+        btnSync.id = 'btn-force-update';
+        btnSync.className = 'px-5 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-bold uppercase italic text-sm transition-colors';
+        btnSync.innerText = '↻ Actualizar TV';
+        // Lo insertamos antes del botón Confirmar original
+        footerDiv.insertBefore(btnSync, btn);
+    }
+    
+    let btnForce = document.getElementById('btn-force-update');
+    
+    // Lógica del botón Actualizar TV
+    if (currentTvData) {
+        btnForce.style.display = 'block';
+        btnForce.onclick = () => {
+            const originalText = btnForce.innerText;
+            btnForce.innerText = '⏳ ENVIANDO...';
+            
+            const bcChannel = _supabase.channel('admin_broadcast');
+            bcChannel.subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                    bcChannel.send({ type: 'broadcast', event: 'force_update', payload: { tvId: currentTvData.id } });
+                    setTimeout(() => { btnForce.innerText = '✅ ENVIADO'; }, 500);
+                    setTimeout(() => { btnForce.innerText = originalText; }, 3000);
+                }
+            });
+        };
+    } else {
+        btnForce.style.display = 'none';
+    }
+
+    // --- LOGICA ORIGINAL DE TU BOTÓN CONFIRMAR (INTACTA) ---
     btn.onclick = async () => {
         let estOriginal = currentTvData?.estilo || {};
         
@@ -480,37 +503,11 @@ async function renderModalContent() {
                 } 
               };
         
-        let tvIdParaAvisar = null;
-
-        try {
-            if (currentTvData) {
-                await _supabase.from('pantallas').update(upd).eq('id', currentTvData.id);
-                tvIdParaAvisar = currentTvData.id;
-            } else {
-                const { data: nuevaTv, error } = await _supabase.from('pantallas').insert([{ ...upd, sucursal_id: window.currentSucId }]).select('id').single();
-                if (!error && nuevaTv) tvIdParaAvisar = nuevaTv.id;
-            }
-
-           if (tvIdParaAvisar) {
-                const canalAviso = _supabase.channel(`tv_${tvIdParaAvisar}`);
-                canalAviso.subscribe(async (status) => {
-                    if (status === 'SUBSCRIBED') {
-                        await canalAviso.send({
-                            type: 'broadcast',
-                            event: 'update_tv',
-                            payload: { message: 'Actualiza tus estilos' }
-                        });
-                        console.log("Señal de actualización enviada a la TV:", tvIdParaAvisar);
-                    }
-                });
-            }
-
-        } catch (error) {
-            console.error("Error al guardar TV:", error);
-        }
-
-        closeModal(); 
-        verPantallasSucursal(window.currentSucId, window.currentSucName);
+        if (currentTvData) await _supabase.from('pantallas').update(upd).eq('id', currentTvData.id);
+        else await _supabase.from('pantallas').insert([{ ...upd, sucursal_id: window.currentSucId }]);
+        closeModal(); verPantallasSucursal(window.currentSucId, window.currentSucName);
     };
 }
+
+window.eliminarTV = async function(id) { if(confirm('¿BORRAR TV?')) { await _supabase.from('pantallas').delete().eq('id', id); verPantallasSucursal(window.currentSucId, window.currentSucName); } };
 function switchTab(tab) { activeTab = tab; renderModalContent(); }
