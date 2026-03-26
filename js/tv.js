@@ -4,9 +4,12 @@ let activeTab = 'config';
 window.tvHasRendered = false;
 window.animIntervalTV = null;
 
+// --- NUEVO: MEMORIA RAM PARA AHORRAR CONSULTAS A SUPABASE (DISK IO) ---
+window.globalTvCache = null;
+
 // --- GESTIÓN DE CACHÉ PARA MODO OFFLINE ---
 function gestionarCacheTV(id, data = null) {
-    const cacheKey = `tv_cache_${id}`;
+    const cacheKey = `tv_cache_completo_${id}`;
     if (data) {
         localStorage.setItem(cacheKey, JSON.stringify(data));
     } else {
@@ -28,43 +31,69 @@ window.activarRealtimeTV = function(tvId) {
             schema: 'public', 
             table: 'pantallas'
         }, (payload) => {
-            console.log('Cambio de diseño detectado en DB...', payload);
-            if (payload.new && payload.new.id == tvId) {
-                renderPantallaTV(tvId, true); 
-            }
+            console.log('Realtime: Cambio de diseño...');
+            // true = anima, true = fuerza consultar a Supabase
+            if (payload.new && payload.new.id == tvId) renderPantallaTV(tvId, true, true); 
         })
         .on('postgres_changes', { 
             event: '*', 
             schema: 'public', 
             table: 'visibilidad_sabores' 
         }, () => {
-            console.log('Cambio de stock detectado...');
-            renderPantallaTV(tvId, false); 
+            console.log('Realtime: Cambio de stock...');
+            renderPantallaTV(tvId, false, true); 
         })
         .on('postgres_changes', { 
             event: '*', 
             schema: 'public', 
             table: 'sabores' 
         }, () => {
-            console.log('Cambio en datos de sabor detectado...');
-            renderPantallaTV(tvId, false); 
+            console.log('Realtime: Cambio de sabor...');
+            renderPantallaTV(tvId, false, true); 
         })
         .subscribe();
 };
 
-// --- RENDERIZADO DE PANTALLA ---
-window.renderPantallaTV = async function(id, forceAnimation = null) {
+// --- RENDERIZADO DE PANTALLA (OPTIMIZADO PARA NO SATURAR SUPABASE) ---
+window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch = true) {
     const tv = document.getElementById('tv-container');
     
-    const { data: pant, error } = await _supabase.from('pantallas').select('*').eq('id', id).single();
-    let datos = pant;
+    // 1. OBTENCIÓN DE DATOS (Solo consulta a Supabase si es obligado o si no hay memoria)
+    if (forceFetch || !window.globalTvCache) {
+        console.log("⬇️ Descargando datos de Supabase...");
+        const { data: pant, error } = await _supabase.from('pantallas').select('*').eq('id', id).single();
+        
+        if (error || !pant) {
+            window.globalTvCache = gestionarCacheTV(id);
+            if (!window.globalTvCache) return console.error("Sin conexión y sin datos en caché.");
+            console.warn("Usando datos de respaldo offline.");
+        } else {
+            let catPrecios = [], prices = [], cats = [], sabs = [], vis = [];
+            
+            if (pant.tipo === 'precios') {
+                const resC = await _supabase.from('categorias_precios').select('*').in('id', pant.config_categorias || []).order('orden');
+                const resP = await _supabase.from('precios_globales').select('*').order('orden');
+                catPrecios = resC.data || [];
+                prices = resP.data || [];
+            } else {
+                const resC = await _supabase.from('categorias').select('*').in('id', pant.config_categorias || []).order('orden');
+                const resS = await _supabase.from('sabores').select('*').order('nombre');
+                const resV = await _supabase.from('visibilidad_sabores').select('*').eq('sucursal_id', pant.sucursal_id);
+                cats = resC.data || [];
+                sabs = resS.data || [];
+                vis = resV.data || [];
+            }
 
-    if (error || !pant) {
-        datos = gestionarCacheTV(id);
-        if (!datos) return console.error("Sin conexión y sin datos en caché.");
+            // Guardamos en RAM y LocalStorage para no volver a consultar
+            window.globalTvCache = { pant, catPrecios, prices, cats, sabs, vis };
+            gestionarCacheTV(id, window.globalTvCache);
+        }
     } else {
-        gestionarCacheTV(id, pant); 
+        console.log("⚡ Usando Memoria RAM (Ahorrando límite de Supabase)");
     }
+
+    // 2. EXTRACCIÓN DE LA MEMORIA
+    const { pant: datos, catPrecios, prices, cats, sabs, vis } = window.globalTvCache;
 
     const style = datos.estilo || { 
         font: 'Inter', bg: '#fdfbf7', catColor: '#64748b', saborColor: '#1e293b', 
@@ -77,6 +106,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
     const shouldAnimate = (forceAnimation === true) || !window.tvHasRendered;
     window.tvHasRendered = true;
 
+    // --- CICLO DE REPETICIÓN SIN CONSULTAR A SUPABASE ---
     if (window.animIntervalTV) {
         clearInterval(window.animIntervalTV);
         window.animIntervalTV = null;
@@ -84,7 +114,8 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
     const cicloSegundos = parseInt(style.animacionCiclo) || 0;
     if (cicloSegundos > 0) {
         window.animIntervalTV = setInterval(() => {
-            renderPantallaTV(id, true);
+            // Llama a render, fuerza animación, pero NO descarga de internet (false)
+            renderPantallaTV(id, true, false); 
         }, cicloSegundos * 1000);
     }
     
@@ -100,7 +131,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
     const styleTag = document.getElementById('anim-styles') || document.createElement('style');
     styleTag.id = 'anim-styles';
     
-    // --- CSS CORREGIDO: Ajuste de márgenes y paddings ---
+    // --- CSS ESTRUCTURAL ---
     styleTag.innerHTML = `
         body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: ${style.bg}; }
         #tv-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; margin: 0; padding: 0; }
@@ -112,7 +143,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
             flex-wrap: wrap; 
             column-gap: 2vw;
             row-gap: 0;
-            padding: 10px 10px 10px 20px; /* 10px arriba, 20px izquierda */
+            padding: 20px 10px 10px 25px; 
             margin: 0;
             box-sizing: border-box;
             align-content: flex-start;
@@ -122,11 +153,11 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
         .tv-category-container { 
             break-inside: avoid; 
             page-break-inside: avoid;
-            width: ${datos.orientacion === '9:16' || style.columnas == 1 ? '100%' : 'calc(50% - 1vw)'}; 
+            width: ${datos.orientacion === '9:16' || style.columnas == 1 ? '100%' : 'calc(50% - 1.5vw)'}; 
             display: flex; 
             flex-direction: column;
+            margin: 0 0 1.5vh 0; 
             padding: 0;
-            margin-top: 0;
         }
 
         .tv-cat-header {
@@ -134,7 +165,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
             font-size: ${style.catSize}px; 
             text-transform: uppercase; 
             font-weight: 900; 
-            margin: 0 0 0.5vh 0; 
+            margin: 0 0 0.8vh 0; 
             border-bottom: 2px solid ${style.catColor}44;
             padding: 0 0 3px 0;
         }
@@ -184,9 +215,6 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
     let delay = 0; 
 
     if (datos.tipo === 'precios') {
-        const { data: catPrecios } = await _supabase.from('categorias_precios').select('*').in('id', datos.config_categorias || []).order('orden');
-        const { data: prices } = await _supabase.from('precios_globales').select('*').order('orden');
-        
         catPrecios?.forEach(c => {
             const items = prices.filter(p => p.categoria_precio_id === c.id);
             const catCols = colsPorCat[c.id] || 2;
@@ -209,10 +237,6 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
         });
         
     } else {
-        const { data: cats } = await _supabase.from('categorias').select('*').in('id', datos.config_categorias || []).order('orden');
-        const { data: sabs } = await _supabase.from('sabores').select('*').order('nombre');
-        const { data: vis } = await _supabase.from('visibilidad_sabores').select('*').eq('sucursal_id', datos.sucursal_id);
-        
         cats?.forEach(c => {
             const disponibles = sabs.filter(s => s.categoria_id === c.id).filter(s => {
                 const v = vis.find(v => v.sabor_id === s.id);
@@ -230,20 +254,22 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
                     const animClass = shouldAnimate ? 'sabor-anim' : '';
                     const animStyle = shouldAnimate ? `animation-delay: ${currentDelay}s;` : 'opacity: 1;';
                     
-                    // --- ALINEACIÓN PERFECTA: BLOQUE DE 50PX E ÍCONOS DE TAMAÑO RELATIVO AL TEXTO ---
+                    // --- CONTROL DE ÍCONOS Y PUNTO MEJORADO ---
                     const tieneIcono = s.es_sintacc || s.es_vegano;
                     let bulletHtml = '';
                     
                     if (tieneIcono) {
+                        // Contenedor de 75px, imagenes de 35px
                         bulletHtml = `
-                        <div style="width: 50px; flex-shrink: 0; display: flex; gap: 4px; align-items: center; justify-content: flex-start;">
-                            ${s.es_sintacc ? `<img src="img/sintacc.png" style="height: 0.85em; width: auto; object-fit: contain; flex-shrink: 0;">` : ''}
-                            ${s.es_vegano ? `<img src="img/vegano.png" style="height: 0.85em; width: auto; object-fit: contain; flex-shrink: 0;">` : ''}
+                        <div style="width: 75px; flex-shrink: 0; display: flex; gap: 4px; align-items: center; justify-content: flex-start;">
+                            ${s.es_sintacc ? `<img src="img/sintacc.png" style="height: 35px; width: 35px; object-fit: contain; flex-shrink: 0;">` : ''}
+                            ${s.es_vegano ? `<img src="img/vegano.png" style="height: 35px; width: 35px; object-fit: contain; flex-shrink: 0;">` : ''}
                         </div>`;
                     } else {
+                        // Contenedor de 75px, punto MUY reducido
                         bulletHtml = `
-                        <div style="width: 50px; flex-shrink: 0; display: flex; align-items: center; justify-content: flex-start; padding-left: 5px;">
-                            <span class="tv-dot" style="color: #3b82f6; font-size: 0.9em;">•</span>
+                        <div style="width: 75px; flex-shrink: 0; display: flex; align-items: center; justify-content: flex-start; padding-left: 5px;">
+                            <span class="tv-dot" style="color: #3b82f6; font-size: 0.6em;">•</span>
                         </div>`;
                     }
 
@@ -266,7 +292,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
         const sizeMq = style.marquesinaSize || 36;
         
         tv.innerHTML += `
-            <div class="tv-ticker" style="height: ${altoMq}px; background:${style.marquesinaBg || '#1e293b'}; color:${style.marquesinaColor || '#ffffff'}; display: flex; align-items: center; overflow: hidden; white-space: nowrap; width: 100vw; border-top: 3px solid rgba(255,255,255,0.1); margin: 0; padding: 0;">
+            <div class="tv-ticker" style="height: ${altoMq}px; background:${style.marquesinaBg}; color:${style.marquesinaColor}; display: flex; align-items: center; overflow: hidden; white-space: nowrap; width: 100vw; border-top: 3px solid rgba(255,255,255,0.1); margin: 0; padding: 0;">
                 <div class="ticker-content" style="display: inline-block; animation: ticker ${dur}s linear infinite; font-size: ${sizeMq}px; font-weight: 900; letter-spacing: 2px;">
                     ${txt} &nbsp;&nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp;&nbsp; ${txt} &nbsp;&nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp;&nbsp; ${txt}
                 </div>
@@ -274,7 +300,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null) {
     }
 };
 
-// --- CRUD ADMIN ---
+// --- CRUD ADMIN (NO MODIFICADO) ---
 window.verPantallasSucursal = async function(sucId, sucName) {
     window.currentSucId = sucId; window.currentSucName = sucName;
     const { data: pants } = await _supabase.from('pantallas').select('*').eq('sucursal_id', sucId);
