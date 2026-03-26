@@ -1,9 +1,10 @@
+// js/tv.js
 let currentTvData = null;
 let activeTab = 'config';
 window.tvHasRendered = false;
 window.animIntervalTV = null;
 
-// --- MEMORIA RAM ---
+// --- MEMORIA RAM (Evita alerta de consumo en Supabase) ---
 window.globalTvCache = null;
 
 // --- GESTIÓN DE CACHÉ PARA MODO OFFLINE ---
@@ -17,31 +18,27 @@ function gestionarCacheTV(id, data = null) {
     }
 }
 
-// --- ACTIVAR ESCUCHA EN TIEMPO REAL ---
+// --- ACTIVAR ESCUCHA EN TIEMPO REAL (RESTAURADA A TU CÓDIGO FUNCIONAL + BOTÓN MANUAL) ---
 window.activarRealtimeTV = function(tvId) {
     console.log("Conectando Realtime para TV:", tvId);
 
-    // Cerramos cualquier canal anterior para evitar duplicados
-    if (window.tvChannel) _supabase.removeChannel(window.tvChannel);
-    
-    // Unificamos todo en un solo canal para esta TV
-    window.tvChannel = _supabase.channel(`tv_sync_${tvId}`);
-
-    window.tvChannel
-        // Canal para el botón "Confirmar" (Diseño y Configuración)
-        
+    // 1. Canal original para diseño (Confirmar)
+    _supabase
+        .channel('public:pantallas')
         .on('postgres_changes', { 
-            event: '*', 
+            event: 'UPDATE', 
             schema: 'public', 
-            table: 'pantallas'
-        }, (payload) => {
-            console.log('Cambio detectado en tabla pantallas...', payload);
-            if (payload.new && payload.new.id === tvId) {
-                console.log('¡Es esta TV! Actualizando diseño al instante...');
-                renderPantallaTV(tvId, true, true); 
-            }
+            table: 'pantallas', 
+            filter: `id=eq.${tvId}` 
+        }, () => {
+            console.log('Cambio de diseño detectado en DB...');
+            renderPantallaTV(tvId, true, true); 
         })
-        // Canal para disponibilidad de stock
+        .subscribe();
+
+    // 2. Canal original para stock
+    _supabase
+        .channel('public:visibilidad_sabores')
         .on('postgres_changes', { 
             event: '*', 
             schema: 'public', 
@@ -50,7 +47,11 @@ window.activarRealtimeTV = function(tvId) {
             console.log('Cambio de stock detectado...');
             renderPantallaTV(tvId, false, true); 
         })
-        // Canal para edición de nombres, vegano, sintacc
+        .subscribe();
+
+    // 3. Canal original para sabores
+    _supabase
+        .channel('public:sabores')
         .on('postgres_changes', { 
             event: '*', 
             schema: 'public', 
@@ -58,6 +59,17 @@ window.activarRealtimeTV = function(tvId) {
         }, () => {
             console.log('Cambio en datos de sabor detectado...');
             renderPantallaTV(tvId, false, true); 
+        })
+        .subscribe();
+
+    // 4. NUEVO: Canal directo para el botón manual "Actualizar TV" del Admin
+    _supabase
+        .channel('admin_broadcast')
+        .on('broadcast', { event: 'force_update' }, (payload) => {
+            if (payload.payload && payload.payload.tvId === tvId) {
+                console.log('¡Señal de botón manual recibida! Forzando recarga...');
+                renderPantallaTV(tvId, true, true);
+            }
         })
         .subscribe();
 };
@@ -96,13 +108,11 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
             vis = resV.data || [];
         }
 
-        
         window.globalTvCache = { datosDb, catPrecios, prices, cats, sabs, vis };
     } else {
         console.log("⚡ Usando Memoria RAM. (0 Consultas a DB)");
     }
 
-    // Leemos de la RAM
     const { datosDb: datos, catPrecios, prices, cats, sabs, vis } = window.globalTvCache;
 
     const style = datos.estilo || { 
@@ -116,7 +126,6 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
     const shouldAnimate = (forceAnimation === true) || !window.tvHasRendered;
     window.tvHasRendered = true;
 
-    // --- CICLO DE REPETICIÓN  ---
     if (window.animIntervalTV) {
         clearInterval(window.animIntervalTV);
         window.animIntervalTV = null;
@@ -124,8 +133,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
     const cicloSegundos = parseInt(style.animacionCiclo) || 0;
     if (cicloSegundos > 0) {
         window.animIntervalTV = setInterval(() => {
-           
-            renderPantallaTV(id, true, false); 
+            renderPantallaTV(id, true, false); // false = NO satura Supabase
         }, cicloSegundos * 1000);
     }
     
@@ -141,75 +149,38 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
     const styleTag = document.getElementById('anim-styles') || document.createElement('style');
     styleTag.id = 'anim-styles';
     
-    // --- CSS ---
+    // --- CSS ESTRUCTURAL (DISEÑO PERFECTO) ---
     styleTag.innerHTML = `
         body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: ${style.bg}; }
         #tv-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; margin: 0; padding: 0; }
         
         .tv-layout {
             height: ${layoutHeight}; 
-            display: flex;
-            flex-direction: column;
-            flex-wrap: wrap; 
-            column-gap: 2vw;
-            row-gap: 0;
-            
-            /* PADDING AJUSTADO PARA EVITAR BORDES CORTADOS Y PEGAR A LA IZQUIERDA */
+            display: flex; flex-direction: column; flex-wrap: wrap; 
+            column-gap: 2vw; row-gap: 0;
             padding: 20px 10px 10px 25px; 
-            margin: 0;
-            box-sizing: border-box;
-            
-            align-content: flex-start;
-            justify-content: flex-start;
+            margin: 0; box-sizing: border-box;
+            align-content: flex-start; justify-content: flex-start;
         }
 
         .tv-category-container { 
-            break-inside: avoid; 
-            page-break-inside: avoid;
+            break-inside: avoid; page-break-inside: avoid;
             width: ${datos.orientacion === '9:16' || style.columnas == 1 ? '100%' : 'calc(50% - 1.5vw)'}; 
-            display: flex; 
-            flex-direction: column;
-            margin: 0 0 1.5vh 0; 
-            padding: 0;
+            display: flex; flex-direction: column; margin: 0 0 1.5vh 0; padding: 0;
         }
 
         .tv-cat-header {
-            color: ${style.catColor}; 
-            font-size: ${style.catSize}px; 
-            text-transform: uppercase; 
-            font-weight: 900; 
-            margin: 0 0 0.8vh 0; 
-            border-bottom: 2px solid ${style.catColor}44;
-            padding: 0 0 3px 0;
+            color: ${style.catColor}; font-size: ${style.catSize}px; text-transform: uppercase; font-weight: 900; 
+            margin: 0 0 0.8vh 0; border-bottom: 2px solid ${style.catColor}44; padding: 0 0 3px 0;
         }
 
-        .tv-flavor-list {
-            display: grid;
-            column-gap: 1vw;
-            margin: 0; padding: 0;
-        }
-
-        .tv-flavor-item { 
-            font-size: ${style.saborSize}px;
-            color: ${style.saborColor};
-            line-height: 1.1; 
-            display: flex; 
-            align-items: center; 
-            margin: 0; padding: 0;
-        }
+        .tv-flavor-list { display: grid; column-gap: 1vw; margin: 0; padding: 0; }
+        .tv-flavor-item { font-size: ${style.saborSize}px; color: ${style.saborColor}; line-height: 1.1; display: flex; align-items: center; margin: 0; padding: 0; }
 
         .price-row { 
-            font-size: ${style.saborSize}px;
-            color: ${style.saborColor};
-            grid-column: span 2; 
-            display: flex;
-            justify-content: space-between; 
-            align-items: center; 
-            border-bottom: 1px solid rgba(0,0,0,0.05); 
-            padding: 4px 0;
-            margin: 0 0 0.5vh 0;
+            font-size: ${style.saborSize}px; color: ${style.saborColor}; grid-column: span 2; display: flex;
+            justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.05); padding: 4px 0; margin: 0 0 0.5vh 0;
         }
-
         .price-label { font-weight: 700; color: ${style.catColor}; margin: 0; }
         .price-value { font-weight: 900; margin: 0; }
 
@@ -236,15 +207,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
             items.forEach(p => {
                 const animClass = shouldAnimate ? 'sabor-anim' : '';
                 const animStyle = shouldAnimate ? `animation-delay: ${delay}s;` : 'opacity: 1;';
-                
-                html += `
-                <div class="price-row ${animClass}" style="${animStyle}">
-                    <div class="flex items-center gap-4">
-                        ${p.imagen_url ? `<img src="${p.imagen_url}" class="h-12 w-12 object-contain">` : ''}
-                        <span class="price-label">${p.label}</span>
-                    </div>
-                    <span class="price-value">$${p.valor}</span>
-                </div>`;
+                html += `<div class="price-row ${animClass}" style="${animStyle}"><div class="flex items-center gap-4">${p.imagen_url ? `<img src="${p.imagen_url}" class="h-12 w-12 object-contain">` : ''}<span class="price-label">${p.label}</span></div><span class="price-value">$${p.valor}</span></div>`;
                 delay += 0.03;
             });
             html += `</div></div>`;
@@ -264,33 +227,18 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
                     const nombreFormateado = s.nombre.charAt(0).toUpperCase() + s.nombre.slice(1).toLowerCase();
                     const currentDelay = delay;
                     delay += 0.03;
-                    
                     const animClass = shouldAnimate ? 'sabor-anim' : '';
                     const animStyle = shouldAnimate ? `animation-delay: ${currentDelay}s;` : 'opacity: 1;';
                     
-                    // --- ALINEACIÓN DE ÍCONOS: COLUMNA DE 50PX, IMÁGENES DE 30PX ---
                     const tieneIcono = s.es_sintacc || s.es_vegano;
                     let bulletHtml = '';
-                    
                     if (tieneIcono) {
-                        bulletHtml = `
-                        <div style="width: 50px; flex-shrink: 0; display: flex; gap: 4px; align-items: center; justify-content: flex-start;">
-                            ${s.es_sintacc ? `<img src="img/sintacc.png" style="height: 30px; width: 30px; object-fit: contain; flex-shrink: 0;">` : ''}
-                            ${s.es_vegano ? `<img src="img/vegano.png" style="height: 30px; width: 30px; object-fit: contain; flex-shrink: 0;">` : ''}
-                        </div>`;
+                        bulletHtml = `<div style="width: 50px; flex-shrink: 0; display: flex; gap: 4px; align-items: center; justify-content: flex-start;">${s.es_sintacc ? `<img src="img/sintacc.png" style="height: 35px; width: auto; object-fit: contain; flex-shrink: 0;">` : ''}${s.es_vegano ? `<img src="img/vegano.png" style="height: 35px; width: auto; object-fit: contain; flex-shrink: 0;">` : ''}</div>`;
                     } else {
-                        // El punto azul en 0.9em
-                        bulletHtml = `
-                        <div style="width: 50px; flex-shrink: 0; display: flex; align-items: center; justify-content: flex-start; padding-left: 5px;">
-                            <span class="tv-dot" style="color: #3b82f6; font-size: 0.9em;">•</span>
-                        </div>`;
+                        bulletHtml = `<div style="width: 50px; flex-shrink: 0; display: flex; align-items: center; justify-content: flex-start; padding-left: 5px;"><span class="tv-dot" style="color: #3b82f6; font-size: 0.9em;">•</span></div>`;
                     }
 
-                    html += `
-                    <div class="tv-flavor-item ${animClass}" style="${animStyle}">
-                        ${bulletHtml}
-                        <span style="font-weight: 700; flex: 1;">${nombreFormateado}</span>
-                    </div>`;
+                    html += `<div class="tv-flavor-item ${animClass}" style="${animStyle}">${bulletHtml}<span style="font-weight: 700; flex: 1;">${nombreFormateado}</span></div>`;
                 });
                 html += `</div></div>`;
             }
@@ -303,13 +251,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
         const dur = style.marquesinaVelocidad || 20;
         const txt = style.marquesinaTexto || 'BIENVENIDOS';
         const sizeMq = style.marquesinaSize || 36;
-        
-        tv.innerHTML += `
-            <div class="tv-ticker" style="height: ${altoMq}px; background:${style.marquesinaBg}; color:${style.marquesinaColor}; display: flex; align-items: center; overflow: hidden; white-space: nowrap; width: 100vw; border-top: 3px solid rgba(255,255,255,0.1); margin: 0; padding: 0;">
-                <div class="ticker-content" style="display: inline-block; animation: ticker ${dur}s linear infinite; font-size: ${sizeMq}px; font-weight: 900; letter-spacing: 2px;">
-                    ${txt} &nbsp;&nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp;&nbsp; ${txt} &nbsp;&nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp;&nbsp; ${txt}
-                </div>
-            </div>`;
+        tv.innerHTML += `<div class="tv-ticker" style="height: ${altoMq}px; background:${style.marquesinaBg}; color:${style.marquesinaColor}; display: flex; align-items: center; overflow: hidden; white-space: nowrap; width: 100vw; border-top: 3px solid rgba(255,255,255,0.1); margin: 0; padding: 0;"><div class="ticker-content" style="display: inline-block; animation: ticker ${dur}s linear infinite; font-size: ${sizeMq}px; font-weight: 900; letter-spacing: 2px;">${txt} &nbsp;&nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp;&nbsp; ${txt} &nbsp;&nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp;&nbsp; ${txt}</div></div>`;
     }
 };
 
@@ -332,7 +274,6 @@ window.abrirModalPantalla = async function(sucId, data = null) {
 
 async function renderModalContent() {
     const body = document.getElementById('modal-body');
-    const btn = document.getElementById('btn-save');
     const title = document.getElementById('modal-title');
     title.innerText = currentTvData ? "EDITOR DE TV" : "NUEVA PANTALLA";
     document.getElementById('tab-config').className = activeTab === 'config' ? 'font-bold text-blue-600 border-b-2 border-blue-600 pb-1' : 'font-bold text-slate-400 pb-1';
@@ -344,7 +285,6 @@ async function renderModalContent() {
         const { data: cats } = await _supabase.from('categorias').select('*').order('orden');
         const { data: prices } = await _supabase.from('categorias_precios').select('*').order('orden');
         const configActiva = currentTvData?.config_categorias || [];
-        
         
         body.innerHTML = `
             <input id="p-nom" value="${currentTvData?.nombre || ''}" placeholder="Nombre TV" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
@@ -390,33 +330,20 @@ async function renderModalContent() {
                 <div><label class="text-[10px] font-bold uppercase">Tipo Animación</label><select id="s-anim-T" class="w-full border p-2 rounded-xl"><option value="fadeUp" ${est.animacionTipo==='fadeUp'?'selected':''}>Deslizar Arriba</option><option value="fadeIn" ${est.animacionTipo==='fadeIn'?'selected':''}>Solo Aparecer</option><option value="slideInLeft" ${est.animacionTipo==='slideInLeft'?'selected':''}>Deslizar Lado</option></select></div>
                 
                 <div class="col-span-2 bg-blue-50 p-3 rounded-xl border border-blue-100 flex gap-4">
-                    <div class="w-1/2">
-                        <label class="text-[10px] font-bold uppercase text-blue-700">Velocidad Efecto (seg)</label>
-                        <input type="number" step="0.1" id="s-anim-D" value="${est.animacionDuracion}" class="w-full border p-2 rounded-xl mt-1">
-                    </div>
-                    <div class="w-1/2">
-                        <label class="text-[10px] font-bold uppercase text-blue-700">Repetir Ciclo (seg)</label>
-                        <input type="number" id="s-anim-C" value="${est.animacionCiclo || 0}" placeholder="0 = No repetir" class="w-full border p-2 rounded-xl mt-1">
-                    </div>
+                    <div class="w-1/2"><label class="text-[10px] font-bold uppercase text-blue-700">Velocidad Efecto (seg)</label><input type="number" step="0.1" id="s-anim-D" value="${est.animacionDuracion}" class="w-full border p-2 rounded-xl mt-1"></div>
+                    <div class="w-1/2"><label class="text-[10px] font-bold uppercase text-blue-700">Repetir Ciclo (seg)</label><input type="number" id="s-anim-C" value="${est.animacionCiclo || 0}" placeholder="0 = No repetir" class="w-full border p-2 rounded-xl mt-1"></div>
                 </div>
-
                 <div class="col-span-2 flex gap-4">
                     <div class="w-1/2"><label class="text-[10px] font-bold uppercase">Sep. Categorías (px)</label><input type="number" id="s-espC" value="${espCat}" class="w-full border p-2 rounded-xl"></div>
                     <div class="w-1/2"><label class="text-[10px] font-bold uppercase">Sep. Sabores (px)</label><input type="number" id="s-espS" value="${espSab}" class="w-full border p-2 rounded-xl"></div>
                 </div>
-
                 <div><label class="text-[10px] font-bold uppercase">Tamaño Categoría (px)</label><input type="number" id="s-catS" value="${est.catSize}" class="w-full border p-2 rounded-xl"></div>
                 <div><label class="text-[10px] font-bold uppercase">Tamaño Sabor (px)</label><input type="number" id="s-sabS" value="${est.saborSize}" class="w-full border p-2 rounded-xl"></div>
                 
                 <div class="col-span-2 border-t border-slate-200 pt-4 mt-2">
-                    <label class="flex items-center gap-2 font-black text-sm mb-3 text-blue-700 uppercase">
-                        <input type="checkbox" id="s-mqA" class="w-5 h-5 cursor-pointer" ${est.marquesinaActiva?'checked':''}> HABILITAR MARQUESINA
-                    </label>
+                    <label class="flex items-center gap-2 font-black text-sm mb-3 text-blue-700 uppercase"><input type="checkbox" id="s-mqA" class="w-5 h-5 cursor-pointer" ${est.marquesinaActiva?'checked':''}> HABILITAR MARQUESINA</label>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                        <div class="col-span-2 md:col-span-4">
-                            <label class="text-[10px] font-bold uppercase text-slate-500">Texto a mostrar</label>
-                            <input id="s-mqT" value="${est.marquesinaTexto || 'BIENVENIDOS'}" class="w-full border p-2 rounded-xl text-xs font-bold">
-                        </div>
+                        <div class="col-span-2 md:col-span-4"><label class="text-[10px] font-bold uppercase text-slate-500">Texto a mostrar</label><input id="s-mqT" value="${est.marquesinaTexto || 'BIENVENIDOS'}" class="w-full border p-2 rounded-xl text-xs font-bold"></div>
                         <div><label class="text-[9px] font-bold uppercase text-slate-500">Fondo Barra</label><input type="color" id="s-mqB" value="${est.marquesinaBg}" class="w-full h-8 cursor-pointer border-none rounded"></div>
                         <div><label class="text-[9px] font-bold uppercase text-slate-500">Color Letra</label><input type="color" id="s-mqC" value="${est.marquesinaColor}" class="w-full h-8 cursor-pointer border-none rounded"></div>
                         <div><label class="text-[9px] font-bold uppercase text-slate-500">Velocidad</label><input type="number" id="s-mqV" value="${est.marquesinaVelocidad}" class="w-full border p-2 text-xs rounded-xl"></div>
@@ -427,7 +354,53 @@ async function renderModalContent() {
             </div>`;
     }
 
-    btn.onclick = async () => {
+    // --- AGREGAMOS EL BOTÓN MANUAL "ACTUALIZAR TV" AQUÍ ---
+    const isNew = !currentTvData;
+    let btnForceHTML = '';
+    if (!isNew) {
+        btnForceHTML = `<button id="btn-force-update" type="button" class="px-5 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-bold uppercase italic text-sm transition-colors">↻ Actualizar TV</button>`;
+    }
+
+    // Reconstruimos el footer del modal (quitamos los botones anteriores y ponemos estos)
+    let modalFooter = document.getElementById('modal-footer-custom');
+    if (!modalFooter) {
+        modalFooter = document.createElement('div');
+        modalFooter.id = 'modal-footer-custom';
+        modalFooter.className = 'flex justify-end gap-3 mt-8 border-t border-slate-200 pt-6';
+        body.parentElement.appendChild(modalFooter);
+    }
+    
+    // Ocultamos el botón "Confirmar" original del HTML si existe, para usar el nuestro
+    const oldBtn = document.getElementById('btn-save');
+    if (oldBtn) oldBtn.style.display = 'none';
+
+    modalFooter.innerHTML = `
+        <button onclick="closeModal()" class="px-5 font-bold text-slate-400 uppercase text-sm">Cancelar</button>
+        ${btnForceHTML}
+        <button id="btn-save-new" class="px-8 py-3 bg-blue-600 text-white rounded-2xl font-bold uppercase italic text-sm">Confirmar</button>
+    `;
+
+    // Lógica del botón manual (Le manda una señal de radio directo a la TV)
+    const btnForce = document.getElementById('btn-force-update');
+    if (btnForce) {
+        btnForce.onclick = () => {
+            const originalText = btnForce.innerHTML;
+            btnForce.innerHTML = '⏳ ENVIANDO...';
+            
+            // Creamos un canal de broadcast rápido y enviamos la señal
+            const bcChannel = _supabase.channel('admin_broadcast');
+            bcChannel.subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                    bcChannel.send({ type: 'broadcast', event: 'force_update', payload: { tvId: currentTvData.id } });
+                    setTimeout(() => { btnForce.innerHTML = '✅ ENVIADO'; }, 500);
+                    setTimeout(() => { btnForce.innerHTML = originalText; }, 3000);
+                }
+            });
+        };
+    }
+
+    // Lógica del botón Confirmar
+    document.getElementById('btn-save-new').onclick = async () => {
         let estOriginal = currentTvData?.estilo || {};
         
         let colsConfig = {};
@@ -472,14 +445,9 @@ async function renderModalContent() {
                 } 
               };
         
-        // --- AQUÍ EL BOTÓN UPDATE QUE DISPARA EL REALTIME ---
-        if (currentTvData) {
-            await _supabase.from('pantallas').update(upd).eq('id', currentTvData.id);
-        } else {
-            await _supabase.from('pantallas').insert([{ ...upd, sucursal_id: window.currentSucId }]);
-        }
-        closeModal(); 
-        verPantallasSucursal(window.currentSucId, window.currentSucName);
+        if (currentTvData) await _supabase.from('pantallas').update(upd).eq('id', currentTvData.id);
+        else await _supabase.from('pantallas').insert([{ ...upd, sucursal_id: window.currentSucId }]);
+        closeModal(); verPantallasSucursal(window.currentSucId, window.currentSucName);
     };
 }
 
