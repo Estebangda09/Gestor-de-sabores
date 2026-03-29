@@ -19,45 +19,29 @@ function gestionarCacheTV(id, data = null) {
     }
 }
 
-// --- ACTIVAR ESCUCHA EN TIEMPO REAL (TUS CANALES FUNCIONALES INTACTOS) ---
+// --- ACTIVAR ESCUCHA EN TIEMPO REAL ---
 window.activarRealtimeTV = function(tvId) {
     console.log("Conectando Realtime para TV:", tvId);
 
-    // Canal 1: Diseño y estilos
     _supabase
         .channel('public:pantallas')
-        .on('postgres_changes', { 
-            event: 'UPDATE', 
-            schema: 'public', 
-            table: 'pantallas', 
-            filter: `id=eq.${tvId}` 
-        }, () => {
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pantallas', filter: `id=eq.${tvId}` }, () => {
             console.log('Cambio de diseño detectado en DB...');
             renderPantallaTV(tvId, true, true); 
         })
         .subscribe();
 
-    // Canal 2: Disponibilidad de sabores (Stock)
     _supabase
         .channel('public:visibilidad_sabores')
-        .on('postgres_changes', { 
-            event: '*', 
-            schema: 'public', 
-            table: 'visibilidad_sabores' 
-        }, () => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'visibilidad_sabores' }, () => {
             console.log('Cambio de stock detectado...');
             renderPantallaTV(tvId, false, true); 
         })
         .subscribe();
 
-    // Canal 3: Edición de un sabor (Nombre, vegano, sintacc)
     _supabase
         .channel('public:sabores')
-        .on('postgres_changes', { 
-            event: '*', 
-            schema: 'public', 
-            table: 'sabores' 
-        }, () => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'sabores' }, () => {
             console.log('Cambio en datos de sabor detectado...');
             renderPantallaTV(tvId, false, true); 
         })
@@ -114,13 +98,11 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
     const shouldAnimate = (forceAnimation === true) || !window.tvHasRendered;
     window.tvHasRendered = true;
 
-    // --- LIMPIEZA DE CICLOS ANTERIORES ---
     if (window.animIntervalTV) { clearInterval(window.animIntervalTV); window.animIntervalTV = null; }
     if (window.highlightInterval) { clearInterval(window.highlightInterval); window.highlightInterval = null; }
 
     const cicloSegundos = parseInt(style.animacionCiclo) || 0;
     
-    // Si NO es el estilo escáner, activamos el ciclo normal de repetición si tiene
     if (style.animacionTipo !== 'highlightSeq' && cicloSegundos > 0) {
         window.animIntervalTV = setInterval(() => {
             renderPantallaTV(id, true, false); 
@@ -140,29 +122,14 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
     const styleTag = document.getElementById('anim-styles') || document.createElement('style');
     styleTag.id = 'anim-styles';
     
-    let extraCss = `
-        .sabor-anim { animation: ${animTipo} ${animDur}s ease-out forwards; opacity: 0; }
-    `;
+    let extraCss = `.sabor-anim { animation: ${animTipo} ${animDur}s ease-out forwards; opacity: 0; }`;
 
-    // Reseteamos clases si es "Resaltado Secuencial" y cuidamos que NO sume altura vertical
     if (animTipo === 'highlightSeq') {
         extraCss = `
             .sabor-anim { opacity: 1; } 
-            
-            .tv-flavor-item {
-                transition: background-color 0.3s ease, color 0.3s ease;
-                border-radius: 50px;
-                /* CERO PADDING VERTICAL (arriba y abajo) para no empujar la columna hacia abajo */
-                padding: 0 10px 0 5px !important;
-                margin-left: -5px !important;
-            }
-            .tv-flavor-item.active-scan {
-                background-color: ${hlColor} !important;
-            }
-            .tv-flavor-item.active-scan .flavor-name, 
-            .tv-flavor-item.active-scan .tv-dot {
-                color: #ffffff !important;
-            }
+            .tv-flavor-item { transition: background-color 0.3s ease, color 0.3s ease; border-radius: 50px; padding: 0 10px 0 5px !important; margin-left: -5px !important; }
+            .tv-flavor-item.active-scan { background-color: ${hlColor} !important; }
+            .tv-flavor-item.active-scan .flavor-name, .tv-flavor-item.active-scan .tv-dot { color: #ffffff !important; }
         `;
     } else if (animTipo === 'cinematic') {
         extraCss = `.sabor-anim { animation: cinematicReveal ${animDur}s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; opacity: 0; }`;
@@ -209,7 +176,8 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
 
         .tv-flavor-item .flavor-name {
             font-weight: 700; flex: 1;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;
+            /* AQUÍ ESTÁ LA CORRECCIÓN: Sin text-overflow: ellipsis */
+            white-space: nowrap; overflow: hidden; display: block;
             padding-top: 2px; padding-right: 5px; 
         }
 
@@ -300,7 +268,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
 
     tv.innerHTML = html;
 
-    // --- AUTO-AJUSTE DE EMERGENCIA Y MOTOR DE ESCÁNER ---
+    // --- AUTO-AJUSTE Y MOTOR DE ESCÁNER ---
     setTimeout(() => {
         const layout = tv.querySelector('.tv-layout');
         const catHeaders = tv.querySelectorAll('.tv-cat-header');
@@ -309,8 +277,8 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
         const flavorLists = tv.querySelectorAll('.tv-flavor-list');
 
         let scale = 1.0;
-        // 1. AUTO-AJUSTE VERTICAL GLOBAL: Si la lista es tan alta que generó una 3ra columna oculta (desbordando el 100vw).
-        // Reduce todo proporcionalmente de 2% en 2% hasta que encaje perfecto en 2 columnas sin ocultar nada.
+        
+        // 1. AUTO-AJUSTE VERTICAL: Evita que se cree una columna oculta
         if (layout) {
             while (layout.scrollWidth > layout.clientWidth && scale > 0.4) {
                 scale -= 0.02;
@@ -321,17 +289,18 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
             }
         }
 
-        // 2. AUTO-AJUSTE HORIZONTAL: Achica las letras de un nombre específico si es demasiado largo para su columna
+        // 2. AUTO-AJUSTE HORIZONTAL: Reduce la letra para que el sabor se lea completo
         const elementosTexto = tv.querySelectorAll('.flavor-name, .price-label');
         elementosTexto.forEach(el => {
             let size = parseFloat(window.getComputedStyle(el).fontSize);
-            while (el.scrollWidth > el.clientWidth && size > 10) {
+            // Reducimos los píxeles hasta que encaje sin desbordar
+            while (el.scrollWidth > el.clientWidth && size > 8) {
                 size -= 0.5;
                 el.style.fontSize = size + 'px';
             }
         });
 
-        // 3. Activar el Motor del Resaltado Secuencial (Escáner)
+        // 3. MOTOR DEL ESCÁNER SECUENCIAL 
         if (animTipo === 'highlightSeq') {
             const scanItems = tv.querySelectorAll('.scan-item');
             if (scanItems.length > 0) {
@@ -350,10 +319,10 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
                 }, scanSpeed);
             }
         }
-    }, 50);
+    }, 50); 
 };
 
-// --- RESTRICCIÓN DE PANTALLA COMPLETA (SOLO MODO TV) ---
+// --- RESTRICCIÓN DE PANTALLA COMPLETA ---
 document.addEventListener('click', function() {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('mode') === 'tv') {
