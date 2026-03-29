@@ -1,9 +1,10 @@
+// js/tv.js
 let currentTvData = null;
 let activeTab = 'config';
 window.tvHasRendered = false;
 window.animIntervalTV = null;
 
-// --- MEMORIA RAM  ---
+// --- MEMORIA RAM (Evita alerta de consumo en Supabase) ---
 window.globalTvCache = null;
 
 // --- GESTIÓN DE CACHÉ PARA MODO OFFLINE ---
@@ -17,7 +18,7 @@ function gestionarCacheTV(id, data = null) {
     }
 }
 
-// --- ACTIVAR ESCUCHA EN TIEMPO REAL ---
+// --- ACTIVAR ESCUCHA EN TIEMPO REAL (TUS 3 CANALES ORIGINALES INTACTOS) ---
 window.activarRealtimeTV = function(tvId) {
     console.log("Conectando Realtime para TV:", tvId);
 
@@ -96,13 +97,11 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
             vis = resV.data || [];
         }
 
-        // Guardamos todo en Memoria RAM
         window.globalTvCache = { datosDb, catPrecios, prices, cats, sabs, vis };
     } else {
         console.log("⚡ Usando Memoria RAM. (0 Consultas a DB)");
     }
 
-    // Leemos de la RAM
     const { datosDb: datos, catPrecios, prices, cats, sabs, vis } = window.globalTvCache;
 
     const style = datos.estilo || { 
@@ -140,7 +139,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
     const styleTag = document.getElementById('anim-styles') || document.createElement('style');
     styleTag.id = 'anim-styles';
     
-    // --- CSS ESTRUCTURAL: Solución definitiva al desbordamiento (word-wrap) ---
+    // --- CSS ESTRUCTURAL: Ajustes de 1 sola línea para Auto-Shrink ---
     styleTag.innerHTML = `
         body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: ${style.bg}; }
         #tv-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; margin: 0; padding: 0; }
@@ -191,20 +190,21 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
             color: ${style.saborColor};
             line-height: 1.15; 
             display: flex; 
-            align-items: flex-start; /* Evita que el texto y los íconos se descuadren al saltar de línea */
+            align-items: center; /* Alinea los íconos con el texto perfectamente */
             margin: 0; padding: 0;
             width: 100%;
             box-sizing: border-box;
-            padding-right: 5px; /* Margen de seguridad derecho */
+            padding-right: 5px;
+            min-width: 0; 
         }
 
         .tv-flavor-item .flavor-name {
             font-weight: 700; 
             flex: 1;
-            word-wrap: break-word; /* HACE QUE EL TEXTO SALTE A LA SIGUIENTE LÍNEA SI ES MUY LARGO */
-            overflow-wrap: break-word;
-            white-space: normal;
-            padding-top: 2px;
+            /* CRÍTICO PARA EL AUTO-AJUSTE: Obliga al texto a estar en una sola línea */
+            white-space: nowrap;
+            overflow: hidden; /* Oculta temporalmente para que JS pueda medir y reducir */
+            display: block;
         }
 
         .price-row { 
@@ -219,8 +219,8 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
             margin: 0 0 0.5vh 0;
         }
 
-        .price-label { font-weight: 700; color: ${style.catColor}; margin: 0; }
-        .price-value { font-weight: 900; margin: 0; }
+        .price-label { font-weight: 700; color: ${style.catColor}; margin: 0; white-space: nowrap; overflow: hidden; display: block; flex: 1; }
+        .price-value { font-weight: 900; margin: 0; margin-left: 10px; flex-shrink: 0; }
 
         @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -248,8 +248,8 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
                 
                 html += `
                 <div class="price-row ${animClass}" style="${animStyle}">
-                    <div class="flex items-center gap-4">
-                        ${p.imagen_url ? `<img src="${p.imagen_url}" class="h-12 w-12 object-contain">` : ''}
+                    <div class="flex items-center gap-4" style="flex: 1; min-width: 0;">
+                        ${p.imagen_url ? `<img src="${p.imagen_url}" class="h-12 w-12 object-contain flex-shrink-0">` : ''}
                         <span class="price-label">${p.label}</span>
                     </div>
                     <span class="price-value">$${p.valor}</span>
@@ -282,14 +282,14 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
                     
                     if (tieneIcono) {
                         bulletHtml = `
-                        <div style="width: 50px; flex-shrink: 0; display: flex; gap: 4px; align-items: flex-start; justify-content: flex-start; padding-top: 1px;">
+                        <div style="width: 50px; flex-shrink: 0; display: flex; gap: 4px; align-items: center; justify-content: flex-start;">
                             ${s.es_sintacc ? `<img src="img/sintacc.png" style="height: 35px; width: auto; object-fit: contain; flex-shrink: 0;">` : ''}
                             ${s.es_vegano ? `<img src="img/vegano.png" style="height: 35px; width: auto; object-fit: contain; flex-shrink: 0;">` : ''}
                         </div>`;
                     } else {
                         bulletHtml = `
-                        <div style="width: 50px; flex-shrink: 0; display: flex; align-items: flex-start; justify-content: flex-start; padding-left: 5px; padding-top: 4px;">
-                            <span class="tv-dot" style="color: #3b82f6; font-size: 0.9em; line-height: 1;">•</span>
+                        <div style="width: 50px; flex-shrink: 0; display: flex; align-items: center; justify-content: flex-start; padding-left: 5px;">
+                            <span class="tv-dot" style="color: #3b82f6; font-size: 0.9em;">•</span>
                         </div>`;
                     }
 
@@ -318,13 +318,31 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
                 </div>
             </div>`;
     }
+
+    // --- AUTO-AJUSTE DE TEXTOS LARGOS (Shrink-to-fit) ---
+    
+    setTimeout(() => {
+        const elementosTexto = tv.querySelectorAll('.flavor-name, .price-label');
+        elementosTexto.forEach(el => {
+            let size = parseFloat(window.getComputedStyle(el).fontSize);
+            // Si el texto es más largo que su contenedor, reducimos su tamaño de fuente píxel por píxel (hasta un mínimo legible de 12px)
+            while (el.scrollWidth > el.clientWidth && size > 12) {
+                size -= 0.5;
+                el.style.fontSize = size + 'px';
+            }
+        });
+    }, 50);
 };
 
-// --- ACTIVACIÓN DE PANTALLA COMPLETA (FULLSCREEN) AL PRIMER CLIC/TOQUE ---
+// --- RESTRICCIÓN DE PANTALLA COMPLETA (SOLO MODO TV) ---
 document.addEventListener('click', function() {
-    if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(err => {
-            console.log(`Error al intentar iniciar pantalla completa: ${err.message}`);
-        });
+    // Verificamos si estamos en la URL de la TV (mode=tv)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('mode') === 'tv') {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(err => {
+                console.log(`Error al intentar iniciar pantalla completa: ${err.message}`);
+            });
+        }
     }
 });
