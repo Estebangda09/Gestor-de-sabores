@@ -3,9 +3,9 @@ let currentTvData = null;
 let activeTab = 'config';
 window.tvHasRendered = false;
 window.animIntervalTV = null;
-window.highlightInterval = null; // NUEVO: Controlador del escáner secuencial
+window.highlightInterval = null;
 
-// --- MEMORIA RAM ---
+// --- MEMORIA RAM (Evita alerta de consumo en Supabase) ---
 window.globalTvCache = null;
 
 // --- GESTIÓN DE CACHÉ PARA MODO OFFLINE ---
@@ -19,27 +19,49 @@ function gestionarCacheTV(id, data = null) {
     }
 }
 
-// --- ACTIVAR ESCUCHA EN TIEMPO REAL ---
+// --- ACTIVAR ESCUCHA EN TIEMPO REAL (TUS CANALES FUNCIONALES INTACTOS) ---
 window.activarRealtimeTV = function(tvId) {
     console.log("Conectando Realtime para TV:", tvId);
 
-    _supabase.channel('public:pantallas')
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pantallas', filter: `id=eq.${tvId}` }, () => {
+    // Canal 1: Diseño y estilos
+    _supabase
+        .channel('public:pantallas')
+        .on('postgres_changes', { 
+            event: 'UPDATE', 
+            schema: 'public', 
+            table: 'pantallas', 
+            filter: `id=eq.${tvId}` 
+        }, () => {
             console.log('Cambio de diseño detectado en DB...');
             renderPantallaTV(tvId, true, true); 
-        }).subscribe();
+        })
+        .subscribe();
 
-    _supabase.channel('public:visibilidad_sabores')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'visibilidad_sabores' }, () => {
+    // Canal 2: Disponibilidad de sabores (Stock)
+    _supabase
+        .channel('public:visibilidad_sabores')
+        .on('postgres_changes', { 
+            event: '*', 
+            schema: 'public', 
+            table: 'visibilidad_sabores' 
+        }, () => {
             console.log('Cambio de stock detectado...');
             renderPantallaTV(tvId, false, true); 
-        }).subscribe();
+        })
+        .subscribe();
 
-    _supabase.channel('public:sabores')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'sabores' }, () => {
+    // Canal 3: Edición de un sabor (Nombre, vegano, sintacc)
+    _supabase
+        .channel('public:sabores')
+        .on('postgres_changes', { 
+            event: '*', 
+            schema: 'public', 
+            table: 'sabores' 
+        }, () => {
             console.log('Cambio en datos de sabor detectado...');
             renderPantallaTV(tvId, false, true); 
-        }).subscribe();
+        })
+        .subscribe();
 };
 
 // --- RENDERIZADO DE PANTALLA ---
@@ -122,23 +144,21 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
         .sabor-anim { animation: ${animTipo} ${animDur}s ease-out forwards; opacity: 0; }
     `;
 
-    // Reseteamos clases si es "Resaltado Secuencial" (Aparecen normales, luego el JS los ilumina)
+    // Reseteamos clases si es "Resaltado Secuencial" y cuidamos que NO sume altura vertical
     if (animTipo === 'highlightSeq') {
         extraCss = `
-            .sabor-anim { opacity: 1; } /* Aparecen sin efecto de entrada para evitar parpadeos */
+            .sabor-anim { opacity: 1; } 
             
-            /* ESTILOS DE LA PÍLDORA (HIGHLIGHT) */
             .tv-flavor-item {
-                transition: all 0.3s ease;
+                transition: background-color 0.3s ease, color 0.3s ease;
                 border-radius: 50px;
-                padding: 2px 10px 2px 5px !important;
-                margin-left: -5px !important; /* Compensa el padding para no perder alineación */
+                /* CERO PADDING VERTICAL (arriba y abajo) para no empujar la columna hacia abajo */
+                padding: 0 10px 0 5px !important;
+                margin-left: -5px !important;
             }
             .tv-flavor-item.active-scan {
                 background-color: ${hlColor} !important;
-                transform: scale(1.02);
             }
-            /* El texto, el punto y los íconos se vuelven blancos al estar encendidos */
             .tv-flavor-item.active-scan .flavor-name, 
             .tv-flavor-item.active-scan .tv-dot {
                 color: #ffffff !important;
@@ -189,7 +209,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
 
         .tv-flavor-item .flavor-name {
             font-weight: 700; flex: 1;
-            white-space: nowrap; overflow: hidden; display: block;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;
             padding-top: 2px; padding-right: 5px; 
         }
 
@@ -262,7 +282,6 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
                         bulletHtml = `<div style="width: 50px; flex-shrink: 0; display: flex; align-items: flex-start; justify-content: flex-start; padding-left: 5px; padding-top: 4px;"><span class="tv-dot" style="color: #3b82f6; font-size: 0.9em; line-height: 1;">•</span></div>`;
                     }
 
-                    // APLICAMOS EL ID DEL SABOR PARA QUE EL JS PUEDA RECORRERLOS LUEGO
                     html += `<div class="tv-flavor-item scan-item ${animClass}" style="${animStyle}">${bulletHtml}<span class="flavor-name">${nombreFormateado}</span></div>`;
                 });
                 html += `</div></div>`;
@@ -281,9 +300,28 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
 
     tv.innerHTML = html;
 
-    // --- AUTO-AJUSTE Y MOTOR DE ESCÁNER (HIGHLIGHT) ---
+    // --- AUTO-AJUSTE DE EMERGENCIA Y MOTOR DE ESCÁNER ---
     setTimeout(() => {
-        // 1. Auto-ajustar textos largos
+        const layout = tv.querySelector('.tv-layout');
+        const catHeaders = tv.querySelectorAll('.tv-cat-header');
+        const flavorItems = tv.querySelectorAll('.tv-flavor-item, .price-row');
+        const catContainers = tv.querySelectorAll('.tv-category-container');
+        const flavorLists = tv.querySelectorAll('.tv-flavor-list');
+
+        let scale = 1.0;
+        // 1. AUTO-AJUSTE VERTICAL GLOBAL: Si la lista es tan alta que generó una 3ra columna oculta (desbordando el 100vw).
+        // Reduce todo proporcionalmente de 2% en 2% hasta que encaje perfecto en 2 columnas sin ocultar nada.
+        if (layout) {
+            while (layout.scrollWidth > layout.clientWidth && scale > 0.4) {
+                scale -= 0.02;
+                catHeaders.forEach(el => el.style.fontSize = (style.catSize * scale) + 'px');
+                flavorItems.forEach(el => el.style.fontSize = (style.saborSize * scale) + 'px');
+                catContainers.forEach(el => el.style.marginBottom = (espCat * scale) + 'px');
+                flavorLists.forEach(el => el.style.rowGap = (espSab * scale) + 'px');
+            }
+        }
+
+        // 2. AUTO-AJUSTE HORIZONTAL: Achica las letras de un nombre específico si es demasiado largo para su columna
         const elementosTexto = tv.querySelectorAll('.flavor-name, .price-label');
         elementosTexto.forEach(el => {
             let size = parseFloat(window.getComputedStyle(el).fontSize);
@@ -293,33 +331,29 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
             }
         });
 
-        // 2. Activar el Motor del Resaltado Secuencial (Escáner)
+        // 3. Activar el Motor del Resaltado Secuencial (Escáner)
         if (animTipo === 'highlightSeq') {
             const scanItems = tv.querySelectorAll('.scan-item');
             if (scanItems.length > 0) {
                 let currentIndex = 0;
-                // La velocidad la tomamos de "animacionDuracion" (ej. 0.5 = 500ms por sabor)
                 const scanSpeed = (style.animacionDuracion || 0.5) * 1000; 
 
                 window.highlightInterval = setInterval(() => {
-                    // Quitamos la iluminación al anterior
                     scanItems.forEach(el => el.classList.remove('active-scan'));
-                    // Encendemos el actual
                     if (scanItems[currentIndex]) {
                         scanItems[currentIndex].classList.add('active-scan');
                     }
                     currentIndex++;
-                    // Si llegó al final, vuelve a empezar
                     if (currentIndex >= scanItems.length) {
                         currentIndex = 0;
                     }
                 }, scanSpeed);
             }
         }
-    }, 100);
+    }, 50);
 };
 
-// --- RESTRICCIÓN DE PANTALLA COMPLETA ---
+// --- RESTRICCIÓN DE PANTALLA COMPLETA (SOLO MODO TV) ---
 document.addEventListener('click', function() {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('mode') === 'tv') {
