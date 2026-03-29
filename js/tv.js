@@ -18,11 +18,11 @@ function gestionarCacheTV(id, data = null) {
     }
 }
 
-// --- ACTIVAR ESCUCHA EN TIEMPO REAL (TUS 3 CANALES ORIGINALES INTACTOS) ---
+// --- ACTIVAR ESCUCHA EN TIEMPO REAL ---
 window.activarRealtimeTV = function(tvId) {
     console.log("Conectando Realtime para TV:", tvId);
 
-    // Canal 1: Diseño y estilos
+    // Canal 1: Diseño y estilos (Al presionar CONFIRMAR en el Admin)
     _supabase
         .channel('public:pantallas')
         .on('postgres_changes', { 
@@ -31,8 +31,9 @@ window.activarRealtimeTV = function(tvId) {
             table: 'pantallas', 
             filter: `id=eq.${tvId}` 
         }, () => {
-            console.log('Cambio de diseño detectado en DB...');
-            renderPantallaTV(tvId, true, true); 
+            console.log('Cambio de diseño detectado. ¡Recargando TV para aplicar cambios!');
+            // RECARGA LA PÁGINA AUTOMÁTICAMENTE PARA QUE TOME LOS CAMBIOS AL INSTANTE
+            window.location.reload(); 
         })
         .subscribe();
 
@@ -109,7 +110,8 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
         catSize: 24, saborSize: 18, columnas: 2, 
         animacionTipo: 'fadeUp', animacionDuracion: 0.5, animacionCiclo: 0,
         marquesinaActiva: false, marquesinaBg: '#1e293b', marquesinaColor: '#ffffff', marquesinaVelocidad: 20, marquesinaTexto: 'BIENVENIDOS',
-        espacioCategorias: 20, espacioSabores: 8, columnasPorCategoria: {}
+        espacioCategorias: 20, espacioSabores: 8, columnasPorCategoria: {},
+        bgData: null, bgMime: null
     };
 
     const shouldAnimate = (forceAnimation === true) || !window.tvHasRendered;
@@ -128,7 +130,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
     }
     
     tv.classList.remove('hidden');
-    tv.style.backgroundColor = style.bg;
+    tv.style.backgroundColor = style.bgData ? 'transparent' : style.bg; // Fondo transparente si hay imagen/video
     tv.style.fontFamily = style.font;
 
     const altoMq = style.marquesinaActiva ? (style.marquesinaAlto || 80) : 0;
@@ -139,10 +141,10 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
     const styleTag = document.getElementById('anim-styles') || document.createElement('style');
     styleTag.id = 'anim-styles';
     
-    // --- CSS ESTRUCTURAL: Ajustes de 1 sola línea para Auto-Shrink ---
+    // --- CSS ESTRUCTURAL (Con Auto-Ajuste de texto) ---
     styleTag.innerHTML = `
-        body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: ${style.bg}; }
-        #tv-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; margin: 0; padding: 0; }
+        body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: ${style.bgData ? '#000' : style.bg}; }
+        #tv-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; margin: 0; padding: 0; position: relative; }
         
         .tv-layout {
             height: ${layoutHeight}; 
@@ -156,6 +158,8 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
             box-sizing: border-box;
             align-content: flex-start;
             justify-content: flex-start;
+            position: relative;
+            z-index: 1; /* Para que quede por encima del video/imagen de fondo */
         }
 
         .tv-category-container { 
@@ -190,7 +194,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
             color: ${style.saborColor};
             line-height: 1.15; 
             display: flex; 
-            align-items: center; /* Alinea los íconos con el texto perfectamente */
+            align-items: center; 
             margin: 0; padding: 0;
             width: 100%;
             box-sizing: border-box;
@@ -201,9 +205,8 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
         .tv-flavor-item .flavor-name {
             font-weight: 700; 
             flex: 1;
-            /* CRÍTICO PARA EL AUTO-AJUSTE: Obliga al texto a estar en una sola línea */
             white-space: nowrap;
-            overflow: hidden; /* Oculta temporalmente para que JS pueda medir y reducir */
+            overflow: hidden;
             display: block;
         }
 
@@ -234,7 +237,18 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
     const espSab = style.espacioSabores !== undefined ? style.espacioSabores : 8;
     const colsPorCat = style.columnasPorCategoria || {};
 
-    let html = `<div class="tv-layout">`;
+    let html = '';
+
+    // --- HTML DEL FONDO (IMAGEN O VIDEO) ---
+    if (style.bgData) {
+        if (style.bgMime === 'video') {
+            html += `<video autoplay loop muted playsinline style="position: absolute; top:0; left:0; width: 100vw; height: 100vh; object-fit: cover; z-index: 0;"><source src="${style.bgData}" type="video/mp4"></video>`;
+        } else {
+            html += `<img src="${style.bgData}" style="position: absolute; top:0; left:0; width: 100vw; height: 100vh; object-fit: cover; z-index: 0;">`;
+        }
+    }
+
+    html += `<div class="tv-layout">`;
     let delay = 0; 
 
     if (datos.tipo === 'precios') {
@@ -282,14 +296,14 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
                     
                     if (tieneIcono) {
                         bulletHtml = `
-                        <div style="width: 50px; flex-shrink: 0; display: flex; gap: 4px; align-items: center; justify-content: flex-start;">
+                        <div style="width: 50px; flex-shrink: 0; display: flex; gap: 4px; align-items: flex-start; justify-content: flex-start; padding-top: 1px;">
                             ${s.es_sintacc ? `<img src="img/sintacc.png" style="height: 35px; width: auto; object-fit: contain; flex-shrink: 0;">` : ''}
                             ${s.es_vegano ? `<img src="img/vegano.png" style="height: 35px; width: auto; object-fit: contain; flex-shrink: 0;">` : ''}
                         </div>`;
                     } else {
                         bulletHtml = `
-                        <div style="width: 50px; flex-shrink: 0; display: flex; align-items: center; justify-content: flex-start; padding-left: 5px;">
-                            <span class="tv-dot" style="color: #3b82f6; font-size: 0.9em;">•</span>
+                        <div style="width: 50px; flex-shrink: 0; display: flex; align-items: flex-start; justify-content: flex-start; padding-left: 5px; padding-top: 4px;">
+                            <span class="tv-dot" style="color: #3b82f6; font-size: 0.9em; line-height: 1;">•</span>
                         </div>`;
                     }
 
@@ -304,28 +318,28 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
         });
     }
     
-    tv.innerHTML = html + `</div>`;
+    html += `</div>`;
     
     if (style.marquesinaActiva) {
         const dur = style.marquesinaVelocidad || 20;
         const txt = style.marquesinaTexto || 'BIENVENIDOS';
         const sizeMq = style.marquesinaSize || 36;
         
-        tv.innerHTML += `
-            <div class="tv-ticker" style="height: ${altoMq}px; background:${style.marquesinaBg}; color:${style.marquesinaColor}; display: flex; align-items: center; overflow: hidden; white-space: nowrap; width: 100vw; border-top: 3px solid rgba(255,255,255,0.1); margin: 0; padding: 0;">
+        html += `
+            <div class="tv-ticker" style="height: ${altoMq}px; background:${style.marquesinaBg}; color:${style.marquesinaColor}; display: flex; align-items: center; overflow: hidden; white-space: nowrap; width: 100vw; border-top: 3px solid rgba(255,255,255,0.1); margin: 0; padding: 0; position: relative; z-index: 2;">
                 <div class="ticker-content" style="display: inline-block; animation: ticker ${dur}s linear infinite; font-size: ${sizeMq}px; font-weight: 900; letter-spacing: 2px;">
                     ${txt} &nbsp;&nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp;&nbsp; ${txt} &nbsp;&nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp;&nbsp; ${txt}
                 </div>
             </div>`;
     }
 
-    // --- AUTO-AJUSTE DE TEXTOS LARGOS (Shrink-to-fit) ---
-    
+    tv.innerHTML = html;
+
+    // --- AUTO-AJUSTE DE TEXTOS LARGOS ---
     setTimeout(() => {
         const elementosTexto = tv.querySelectorAll('.flavor-name, .price-label');
         elementosTexto.forEach(el => {
             let size = parseFloat(window.getComputedStyle(el).fontSize);
-            // Si el texto es más largo que su contenedor, reducimos su tamaño de fuente píxel por píxel (hasta un mínimo legible de 12px)
             while (el.scrollWidth > el.clientWidth && size > 12) {
                 size -= 0.5;
                 el.style.fontSize = size + 'px';
@@ -336,7 +350,6 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
 
 // --- RESTRICCIÓN DE PANTALLA COMPLETA (SOLO MODO TV) ---
 document.addEventListener('click', function() {
-    // Verificamos si estamos en la URL de la TV (mode=tv)
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('mode') === 'tv') {
         if (!document.fullscreenElement) {
