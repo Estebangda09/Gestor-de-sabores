@@ -17,11 +17,16 @@ window.addEventListener('load', async () => {
         return; 
     }
 
-    // MODO ADMIN: Recordar usuario
-    const savedUser = localStorage.getItem('remembered_username');
-    if (savedUser && document.getElementById('login-user')) {
-        document.getElementById('login-user').value = savedUser;
-        document.getElementById('remember-me').checked = true;
+    // MODO ADMIN: Recordar correo electrónico
+    const savedEmail = localStorage.getItem('remembered_email');
+    // Mantenemos el ID 'login-user' por si no lo cambiaste en el HTML, pero ahora espera un correo
+    const inputEmail = document.getElementById('login-email') || document.getElementById('login-user');
+    
+    if (savedEmail && inputEmail) {
+        inputEmail.value = savedEmail;
+        if (document.getElementById('remember-me')) {
+            document.getElementById('remember-me').checked = true;
+        }
     }
 
     await checkSession();
@@ -62,23 +67,27 @@ async function checkSession() {
 }
 
 async function handleLogin() {
-    const userInput = document.getElementById('login-user').value.trim();
+    // Busca el input por el ID nuevo (login-email) o por el viejo (login-user)
+    const inputElement = document.getElementById('login-email') || document.getElementById('login-user');
+    const emailInput = inputElement.value.trim();
     const pass = document.getElementById('login-pass').value;
-    const remember = document.getElementById('remember-me').checked;
+    const remember = document.getElementById('remember-me') ? document.getElementById('remember-me').checked : false;
 
-    if (!userInput || !pass) return alert("Completa todos los campos");
+    if (!emailInput || !pass) return alert("Completa todos los campos");
 
-    let emailFinal = userInput;
-    if (!userInput.includes('@')) {
-        const { data: p } = await _supabase.from('perfiles').select('email_acceso').eq('username', userInput).maybeSingle();
-        if (p && p.email_acceso) emailFinal = p.email_acceso;
+    // Verificamos de forma rápida que hayan escrito un correo
+    if (!emailInput.includes('@')) {
+        return alert("Por favor, ingresa tu correo electrónico (ejemplo@correo.com) en lugar de tu nombre de usuario.");
     }
 
-    const { error } = await _supabase.auth.signInWithPassword({ email: emailFinal, password: pass });
-    if (error) return alert("Usuario o contraseña incorrectos");
+    // Login directo y seguro con Supabase Auth usando el correo
+    const { error } = await _supabase.auth.signInWithPassword({ email: emailInput, password: pass });
+    
+    if (error) return alert("Correo electrónico o contraseña incorrectos");
 
-    if (remember) localStorage.setItem('remembered_username', userInput);
-    else localStorage.removeItem('remembered_username');
+    // Guardamos el correo en el navegador si marcó la casilla
+    if (remember) localStorage.setItem('remembered_email', emailInput);
+    else localStorage.removeItem('remembered_email');
 
     window.location.reload();
 }
