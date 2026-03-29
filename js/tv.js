@@ -3,8 +3,9 @@ let currentTvData = null;
 let activeTab = 'config';
 window.tvHasRendered = false;
 window.animIntervalTV = null;
+window.highlightInterval = null; // NUEVO: Controlador del escáner secuencial
 
-// --- MEMORIA RAM (Cero consumo extra en Supabase) ---
+// --- MEMORIA RAM ---
 window.globalTvCache = null;
 
 // --- GESTIÓN DE CACHÉ PARA MODO OFFLINE ---
@@ -18,49 +19,27 @@ function gestionarCacheTV(id, data = null) {
     }
 }
 
-// --- ACTIVAR ESCUCHA EN TIEMPO REAL (TUS CANALES ORIGINALES) ---
+// --- ACTIVAR ESCUCHA EN TIEMPO REAL ---
 window.activarRealtimeTV = function(tvId) {
     console.log("Conectando Realtime para TV:", tvId);
 
-    // Canal 1: Diseño y estilos
-    _supabase
-        .channel('public:pantallas')
-        .on('postgres_changes', { 
-            event: 'UPDATE', 
-            schema: 'public', 
-            table: 'pantallas', 
-            filter: `id=eq.${tvId}` 
-        }, () => {
+    _supabase.channel('public:pantallas')
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pantallas', filter: `id=eq.${tvId}` }, () => {
             console.log('Cambio de diseño detectado en DB...');
             renderPantallaTV(tvId, true, true); 
-        })
-        .subscribe();
+        }).subscribe();
 
-    // Canal 2: Disponibilidad de sabores (Stock)
-    _supabase
-        .channel('public:visibilidad_sabores')
-        .on('postgres_changes', { 
-            event: '*', 
-            schema: 'public', 
-            table: 'visibilidad_sabores' 
-        }, () => {
+    _supabase.channel('public:visibilidad_sabores')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'visibilidad_sabores' }, () => {
             console.log('Cambio de stock detectado...');
             renderPantallaTV(tvId, false, true); 
-        })
-        .subscribe();
+        }).subscribe();
 
-    // Canal 3: Edición de un sabor (Nombre, vegano, sintacc)
-    _supabase
-        .channel('public:sabores')
-        .on('postgres_changes', { 
-            event: '*', 
-            schema: 'public', 
-            table: 'sabores' 
-        }, () => {
+    _supabase.channel('public:sabores')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'sabores' }, () => {
             console.log('Cambio en datos de sabor detectado...');
             renderPantallaTV(tvId, false, true); 
-        })
-        .subscribe();
+        }).subscribe();
 };
 
 // --- RENDERIZADO DE PANTALLA ---
@@ -98,8 +77,6 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
         }
 
         window.globalTvCache = { datosDb, catPrecios, prices, cats, sabs, vis };
-    } else {
-        console.log("⚡ Usando Memoria RAM. (0 Consultas a DB)");
     }
 
     const { datosDb: datos, catPrecios, prices, cats, sabs, vis } = window.globalTvCache;
@@ -109,18 +86,20 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
         catSize: 24, saborSize: 18, columnas: 2, 
         animacionTipo: 'fadeUp', animacionDuracion: 0.5, animacionCiclo: 0,
         marquesinaActiva: false, marquesinaBg: '#1e293b', marquesinaColor: '#ffffff', marquesinaVelocidad: 20, marquesinaTexto: 'BIENVENIDOS',
-        espacioCategorias: 20, espacioSabores: 8, columnasPorCategoria: {}, bgData: null
+        espacioCategorias: 20, espacioSabores: 8, columnasPorCategoria: {}, bgData: null, highlightColor: '#d4a373'
     };
 
     const shouldAnimate = (forceAnimation === true) || !window.tvHasRendered;
     window.tvHasRendered = true;
 
-    if (window.animIntervalTV) {
-        clearInterval(window.animIntervalTV);
-        window.animIntervalTV = null;
-    }
+    // --- LIMPIEZA DE CICLOS ANTERIORES ---
+    if (window.animIntervalTV) { clearInterval(window.animIntervalTV); window.animIntervalTV = null; }
+    if (window.highlightInterval) { clearInterval(window.highlightInterval); window.highlightInterval = null; }
+
     const cicloSegundos = parseInt(style.animacionCiclo) || 0;
-    if (cicloSegundos > 0) {
+    
+    // Si NO es el estilo escáner, activamos el ciclo normal de repetición si tiene
+    if (style.animacionTipo !== 'highlightSeq' && cicloSegundos > 0) {
         window.animIntervalTV = setInterval(() => {
             renderPantallaTV(id, true, false); 
         }, cicloSegundos * 1000);
@@ -135,37 +114,45 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
 
     const animDur = style.animacionDuracion || 0.5;
     const animTipo = style.animacionTipo || 'fadeUp';
+    const hlColor = style.highlightColor || '#d4a373';
     const styleTag = document.getElementById('anim-styles') || document.createElement('style');
     styleTag.id = 'anim-styles';
     
-    // Lógica dinámica para inyectar los efectos Cinemáticos y de Neón
     let extraCss = `
         .sabor-anim { animation: ${animTipo} ${animDur}s ease-out forwards; opacity: 0; }
     `;
 
-    if (animTipo === 'cinematic') {
+    // Reseteamos clases si es "Resaltado Secuencial" (Aparecen normales, luego el JS los ilumina)
+    if (animTipo === 'highlightSeq') {
         extraCss = `
-            .sabor-anim { 
-                animation: cinematicReveal ${animDur}s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; 
-                opacity: 0; 
+            .sabor-anim { opacity: 1; } /* Aparecen sin efecto de entrada para evitar parpadeos */
+            
+            /* ESTILOS DE LA PÍLDORA (HIGHLIGHT) */
+            .tv-flavor-item {
+                transition: all 0.3s ease;
+                border-radius: 50px;
+                padding: 2px 10px 2px 5px !important;
+                margin-left: -5px !important; /* Compensa el padding para no perder alineación */
+            }
+            .tv-flavor-item.active-scan {
+                background-color: ${hlColor} !important;
+                transform: scale(1.02);
+            }
+            /* El texto, el punto y los íconos se vuelven blancos al estar encendidos */
+            .tv-flavor-item.active-scan .flavor-name, 
+            .tv-flavor-item.active-scan .tv-dot {
+                color: #ffffff !important;
             }
         `;
+    } else if (animTipo === 'cinematic') {
+        extraCss = `.sabor-anim { animation: cinematicReveal ${animDur}s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; opacity: 0; }`;
     } else if (animTipo === 'neonLiquid') {
         extraCss = `
-            .sabor-anim { 
-                animation: neonLiquidReveal ${animDur}s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; 
-                opacity: 0; 
-            }
-            /* Inyectamos el gradiente líquido de la solicitud en el texto de los sabores */
+            .sabor-anim { animation: neonLiquidReveal ${animDur}s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; opacity: 0; }
             .sabor-anim .flavor-name, .sabor-anim .price-label, .sabor-anim .price-value {
-                background: linear-gradient(90deg, #ff007f, #7f00ff, #00d4ff, #ff007f);
-                background-size: 300% auto;
-                color: #fff !important;
-                background-clip: text;
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
-                animation: neonFlow 3s linear infinite;
-                text-shadow: 0 0 15px rgba(127, 0, 255, 0.3);
+                background: linear-gradient(90deg, #ff007f, #7f00ff, #00d4ff, #ff007f); background-size: 300% auto;
+                color: #fff !important; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+                animation: neonFlow 3s linear infinite; text-shadow: 0 0 15px rgba(127, 0, 255, 0.3);
             }
         `;
     }
@@ -175,12 +162,9 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
         #tv-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; margin: 0; padding: 0; position: relative; }
         
         .tv-layout {
-            height: ${layoutHeight}; 
-            display: flex; flex-direction: column; flex-wrap: wrap; 
-            column-gap: 2vw; row-gap: 0;
-            padding: 20px 10px 10px 25px; 
-            margin: 0; box-sizing: border-box;
-            align-content: flex-start; justify-content: flex-start;
+            height: ${layoutHeight}; display: flex; flex-direction: column; flex-wrap: wrap; 
+            column-gap: 2vw; row-gap: 0; padding: 20px 10px 10px 25px; margin: 0;
+            box-sizing: border-box; align-content: flex-start; justify-content: flex-start;
             position: relative; z-index: 1;
         }
 
@@ -199,44 +183,30 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
 
         .tv-flavor-item { 
             font-size: ${style.saborSize}px; color: ${style.saborColor}; line-height: 1.15; 
-            display: flex; align-items: center; margin: 0; padding: 0; width: 100%;
-            box-sizing: border-box; padding-right: 5px; min-width: 0; 
+            display: flex; align-items: center; margin: 0; padding: 0; width: max-content; max-width: 100%;
+            box-sizing: border-box; min-width: 0; 
         }
 
         .tv-flavor-item .flavor-name {
             font-weight: 700; flex: 1;
-            /* CRÍTICO PARA EL AUTO-AJUSTE: Obliga al texto a estar en una sola línea */
             white-space: nowrap; overflow: hidden; display: block;
-            padding-top: 2px; padding-right: 15px; /* Espacio para que no corte el brillo neón */
+            padding-top: 2px; padding-right: 5px; 
         }
 
         .price-row { 
             font-size: ${style.saborSize}px; color: ${style.saborColor}; grid-column: span 2; display: flex;
             justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.05); padding: 4px 0; margin: 0 0 0.5vh 0;
         }
-
         .price-label { font-weight: 700; color: ${style.catColor}; margin: 0; white-space: nowrap; overflow: hidden; display: block; flex: 1; }
         .price-value { font-weight: 900; margin: 0; margin-left: 10px; flex-shrink: 0; }
 
         @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideInLeft { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
-        
-        /* Animaciones Cinemáticas Nuevas */
-        @keyframes cinematicReveal {
-            0% { clip-path: inset(0 100% 0 0); transform: scale(0.9); opacity: 0; filter: blur(6px); }
-            100% { clip-path: inset(0 0 0 0); transform: scale(1); opacity: 1; filter: blur(0); }
-        }
-        @keyframes neonLiquidReveal {
-            0% { clip-path: inset(0 100% 0 0); transform: scale(0.9); filter: blur(6px); opacity: 0; }
-            100% { clip-path: inset(0 0 0 0); transform: scale(1); filter: blur(0); opacity: 1; }
-        }
-        @keyframes neonFlow {
-            0% { background-position: 0% center; }
-            100% { background-position: 300% center; }
-        }
+        @keyframes cinematicReveal { 0% { clip-path: inset(0 100% 0 0); transform: scale(0.9); opacity: 0; filter: blur(6px); } 100% { clip-path: inset(0 0 0 0); transform: scale(1); opacity: 1; filter: blur(0); } }
+        @keyframes neonLiquidReveal { 0% { clip-path: inset(0 100% 0 0); transform: scale(0.9); filter: blur(6px); opacity: 0; } 100% { clip-path: inset(0 0 0 0); transform: scale(1); filter: blur(0); opacity: 1; } }
+        @keyframes neonFlow { 0% { background-position: 0% center; } 100% { background-position: 300% center; } }
         @keyframes ticker { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-33.33%, 0, 0); } }
-        
         ${extraCss}
     `;
     if (!document.getElementById('anim-styles')) document.head.appendChild(styleTag);
@@ -246,7 +216,6 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
     const colsPorCat = style.columnasPorCategoria || {};
 
     let html = '';
-
     if (style.bgData) {
         html += `<img src="${style.bgData}" style="position: absolute; top:0; left:0; width: 100vw; height: 100vh; object-fit: cover; z-index: 0;">`;
     }
@@ -262,15 +231,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
             items.forEach(p => {
                 const animClass = shouldAnimate ? 'sabor-anim' : '';
                 const animStyle = shouldAnimate ? `animation-delay: ${delay}s;` : 'opacity: 1;';
-                
-                html += `
-                <div class="price-row ${animClass}" style="${animStyle}">
-                    <div class="flex items-center gap-4" style="flex: 1; min-width: 0;">
-                        ${p.imagen_url ? `<img src="${p.imagen_url}" class="h-12 w-12 object-contain flex-shrink-0">` : ''}
-                        <span class="price-label">${p.label}</span>
-                    </div>
-                    <span class="price-value">$${p.valor}</span>
-                </div>`;
+                html += `<div class="price-row ${animClass}" style="${animStyle}"><div class="flex items-center gap-4" style="flex: 1; min-width: 0;">${p.imagen_url ? `<img src="${p.imagen_url}" class="h-12 w-12 object-contain flex-shrink-0">` : ''}<span class="price-label">${p.label}</span></div><span class="price-value">$${p.valor}</span></div>`;
                 delay += 0.03;
             });
             html += `</div></div>`;
@@ -290,31 +251,19 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
                     const nombreFormateado = s.nombre.charAt(0).toUpperCase() + s.nombre.slice(1).toLowerCase();
                     const currentDelay = delay;
                     delay += 0.03;
-                    
                     const animClass = shouldAnimate ? 'sabor-anim' : '';
                     const animStyle = shouldAnimate ? `animation-delay: ${currentDelay}s;` : 'opacity: 1;';
                     
                     const tieneIcono = s.es_sintacc || s.es_vegano;
                     let bulletHtml = '';
-                    
                     if (tieneIcono) {
-                        bulletHtml = `
-                        <div style="width: 50px; flex-shrink: 0; display: flex; gap: 4px; align-items: flex-start; justify-content: flex-start; padding-top: 1px;">
-                            ${s.es_sintacc ? `<img src="img/sintacc.png" style="height: 35px; width: auto; object-fit: contain; flex-shrink: 0;">` : ''}
-                            ${s.es_vegano ? `<img src="img/vegano.png" style="height: 35px; width: auto; object-fit: contain; flex-shrink: 0;">` : ''}
-                        </div>`;
+                        bulletHtml = `<div style="width: 50px; flex-shrink: 0; display: flex; gap: 4px; align-items: flex-start; justify-content: flex-start; padding-top: 1px;">${s.es_sintacc ? `<img src="img/sintacc.png" style="height: 35px; width: auto; object-fit: contain; flex-shrink: 0;">` : ''}${s.es_vegano ? `<img src="img/vegano.png" style="height: 35px; width: auto; object-fit: contain; flex-shrink: 0;">` : ''}</div>`;
                     } else {
-                        bulletHtml = `
-                        <div style="width: 50px; flex-shrink: 0; display: flex; align-items: flex-start; justify-content: flex-start; padding-left: 5px; padding-top: 4px;">
-                            <span class="tv-dot" style="color: #3b82f6; font-size: 0.9em; line-height: 1;">•</span>
-                        </div>`;
+                        bulletHtml = `<div style="width: 50px; flex-shrink: 0; display: flex; align-items: flex-start; justify-content: flex-start; padding-left: 5px; padding-top: 4px;"><span class="tv-dot" style="color: #3b82f6; font-size: 0.9em; line-height: 1;">•</span></div>`;
                     }
 
-                    html += `
-                    <div class="tv-flavor-item ${animClass}" style="${animStyle}">
-                        ${bulletHtml}
-                        <span class="flavor-name">${nombreFormateado}</span>
-                    </div>`;
+                    // APLICAMOS EL ID DEL SABOR PARA QUE EL JS PUEDA RECORRERLOS LUEGO
+                    html += `<div class="tv-flavor-item scan-item ${animClass}" style="${animStyle}">${bulletHtml}<span class="flavor-name">${nombreFormateado}</span></div>`;
                 });
                 html += `</div></div>`;
             }
@@ -327,20 +276,14 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
         const dur = style.marquesinaVelocidad || 20;
         const txt = style.marquesinaTexto || 'BIENVENIDOS';
         const sizeMq = style.marquesinaSize || 36;
-        
-        html += `
-            <div class="tv-ticker" style="height: ${altoMq}px; background:${style.marquesinaBg}; color:${style.marquesinaColor}; display: flex; align-items: center; overflow: hidden; white-space: nowrap; width: 100vw; border-top: 3px solid rgba(255,255,255,0.1); margin: 0; padding: 0; position: relative; z-index: 2;">
-                <div class="ticker-content" style="display: inline-block; animation: ticker ${dur}s linear infinite; font-size: ${sizeMq}px; font-weight: 900; letter-spacing: 2px;">
-                    ${txt} &nbsp;&nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp;&nbsp; ${txt} &nbsp;&nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp;&nbsp; ${txt}
-                </div>
-            </div>`;
+        html += `<div class="tv-ticker" style="height: ${altoMq}px; background:${style.marquesinaBg}; color:${style.marquesinaColor}; display: flex; align-items: center; overflow: hidden; white-space: nowrap; width: 100vw; border-top: 3px solid rgba(255,255,255,0.1); margin: 0; padding: 0; position: relative; z-index: 2;"><div class="ticker-content" style="display: inline-block; animation: ticker ${dur}s linear infinite; font-size: ${sizeMq}px; font-weight: 900; letter-spacing: 2px;">${txt} &nbsp;&nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp;&nbsp; ${txt} &nbsp;&nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp;&nbsp; ${txt}</div></div>`;
     }
 
     tv.innerHTML = html;
 
-    // --- AUTO-AJUSTE DE TEXTOS LARGOS (Shrink-to-fit) ---
-    // Reduce la letra de los nombres gigantes para que encajen en 1 línea sin desbordar
+    // --- AUTO-AJUSTE Y MOTOR DE ESCÁNER (HIGHLIGHT) ---
     setTimeout(() => {
+        // 1. Auto-ajustar textos largos
         const elementosTexto = tv.querySelectorAll('.flavor-name, .price-label');
         elementosTexto.forEach(el => {
             let size = parseFloat(window.getComputedStyle(el).fontSize);
@@ -349,17 +292,39 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
                 el.style.fontSize = size + 'px';
             }
         });
+
+        // 2. Activar el Motor del Resaltado Secuencial (Escáner)
+        if (animTipo === 'highlightSeq') {
+            const scanItems = tv.querySelectorAll('.scan-item');
+            if (scanItems.length > 0) {
+                let currentIndex = 0;
+                // La velocidad la tomamos de "animacionDuracion" (ej. 0.5 = 500ms por sabor)
+                const scanSpeed = (style.animacionDuracion || 0.5) * 1000; 
+
+                window.highlightInterval = setInterval(() => {
+                    // Quitamos la iluminación al anterior
+                    scanItems.forEach(el => el.classList.remove('active-scan'));
+                    // Encendemos el actual
+                    if (scanItems[currentIndex]) {
+                        scanItems[currentIndex].classList.add('active-scan');
+                    }
+                    currentIndex++;
+                    // Si llegó al final, vuelve a empezar
+                    if (currentIndex >= scanItems.length) {
+                        currentIndex = 0;
+                    }
+                }, scanSpeed);
+            }
+        }
     }, 100);
 };
 
-// --- RESTRICCIÓN DE PANTALLA COMPLETA (SOLO MODO TV) ---
+// --- RESTRICCIÓN DE PANTALLA COMPLETA ---
 document.addEventListener('click', function() {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('mode') === 'tv') {
         if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen().catch(err => {
-                console.log(`Error al intentar iniciar pantalla completa: ${err.message}`);
-            });
+            document.documentElement.requestFullscreen().catch(err => console.log(err.message));
         }
     }
 });
