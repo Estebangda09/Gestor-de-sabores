@@ -1,4 +1,3 @@
-// js/admin.js
 let currentPage = '';
 
 function renderMenu() {
@@ -317,7 +316,6 @@ async function abrirModal(type, data = null) {
     if (type === 'precio') {
         const { data: cp } = await _supabase.from('categorias_precios').select('*');
         
-        // --- RESTAURADO: CAMPO DE SUBIDA DE IMAGEN PARA PRECIOS (LOCAL A BASE64) ---
         body.innerHTML = `
             <select id="f-cp" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none mb-3">
                 ${cp.map(c => `<option value="${c.id}" ${data?.categoria_precio_id === c.id ? 'selected':''}>${c.nombre}</option>`)}
@@ -327,27 +325,36 @@ async function abrirModal(type, data = null) {
             
             <div class="border-2 p-4 rounded-2xl bg-slate-50">
                 <label class="text-[10px] font-bold uppercase text-slate-500 block mb-2">Imagen del producto (Opcional)</label>
-                <input type="file" id="f-img-file" accept="image/*" class="w-full text-xs">
+                <input type="file" id="f-img-file" accept=".jpg,.jpeg,.png" class="w-full text-xs">
                 <input type="hidden" id="f-img-b64" value="${data?.imagen_url || ''}">
-                ${data?.imagen_url ? `<p class="text-[10px] text-emerald-500 mt-1 font-bold">Ya tiene una imagen guardada.</p>` : ''}
+                <p id="f-img-status" class="text-[10px] mt-1 font-bold ${data?.imagen_url ? 'text-emerald-500' : 'text-slate-400'}">${data?.imagen_url ? 'Ya tiene una imagen guardada.' : 'Sin imagen'}</p>
             </div>
         `;
 
-        // Conversión a Base64 en tiempo real
         document.getElementById('f-img-file').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if(file) {
                 if(file.size > 1000000) { alert("La imagen debe pesar menos de 1MB."); this.value = ''; return; }
-                const reader = new FileReader();
-                reader.onload = function(ev) { document.getElementById('f-img-b64').value = ev.target.result; };
-                reader.readAsDataURL(file);
+                const status = document.getElementById('f-img-status');
+                status.innerText = '⏳ PROCESANDO IMAGEN...';
+                status.className = 'text-[10px] mt-1 font-bold text-red-500';
+                
+                setTimeout(() => {
+                    const reader = new FileReader();
+                    reader.onload = function(ev) { 
+                        document.getElementById('f-img-b64').value = ev.target.result; 
+                        status.innerText = '✅ IMAGEN CARGADA';
+                        status.className = 'text-[10px] mt-1 font-bold text-emerald-500';
+                    };
+                    reader.readAsDataURL(file);
+                }, 50);
             }
         });
 
         btn.onclick = async () => {
             const lab = document.getElementById('f-lab').value.trim();
             const val = document.getElementById('f-val').value;
-            const imgUrl = document.getElementById('f-img-b64').value; // Tomamos el valor en Base64
+            const imgUrl = document.getElementById('f-img-b64').value; 
             if (!lab || !val) return alert("Etiqueta y Precio son obligatorios"); 
             await _supabase.from('precios_globales').upsert({ id: data?.id, categoria_precio_id: document.getElementById('f-cp').value, label: lab, valor: val, imagen_url: imgUrl });
             closeModal(); showPage('precios');
@@ -421,7 +428,6 @@ async function renderModalContent() {
         const espCat = est.espacioCategorias !== undefined ? est.espacioCategorias : 20;
         const espSab = est.espacioSabores !== undefined ? est.espacioSabores : 8;
 
-        // --- AGREGADO: CAMPO PARA SUBIR FONDO (LOCAL A BASE64) ---
         body.innerHTML = `
             <div class="grid grid-cols-2 gap-4">
                 <div><label class="text-[10px] font-bold uppercase">Tipografía</label><select id="s-font" class="w-full border p-2 rounded-xl"><option value="Inter" ${est.font==='Inter'?'selected':''}>Inter</option><option value="Oswald" ${est.font==='Oswald'?'selected':''}>Oswald</option><option value="Montserrat" ${est.font==='Montserrat'?'selected':''}>Montserrat</option></select></div>
@@ -434,13 +440,14 @@ async function renderModalContent() {
                             <input type="color" id="s-bg" value="${est.bg}" class="w-full h-10 cursor-pointer rounded border-none">
                         </div>
                         <div>
-                            <label class="text-[10px] font-bold uppercase text-blue-600 block mb-1">Subir Imagen / Video Local</label>
-                            <input type="file" id="s-bg-file" accept="image/*,video/mp4" class="w-full text-xs">
+                            <label class="text-[10px] font-bold uppercase text-blue-600 block mb-1">Subir Imagen / Video</label>
+                            <input type="file" id="s-bg-file" accept=".jpg,.jpeg,.png,.mp4" class="w-full text-xs">
                             <input type="hidden" id="s-bg-data" value="${est.bgData || ''}">
                             <input type="hidden" id="s-bg-mime" value="${est.bgMime || ''}">
+                            <p id="s-bg-status" class="text-[10px] mt-1 font-bold text-slate-400"></p>
                         </div>
                     </div>
-                    ${est.bgData ? `<div class="mt-2 flex justify-between items-center"><p class="text-[10px] text-emerald-500 font-bold">Ya hay un ${est.bgMime} subido como fondo.</p><button type="button" onclick="document.getElementById('s-bg-data').value=''; document.getElementById('s-bg-mime').value=''; alert('Fondo borrado. Dale a Confirmar para guardar.');" class="text-[10px] text-red-500 font-bold uppercase">X Borrar Fondo</button></div>` : ''}
+                    ${est.bgData ? `<div class="mt-2 flex justify-between items-center"><p class="text-[10px] text-emerald-500 font-bold">Ya hay un ${est.bgMime} subido.</p><button type="button" onclick="document.getElementById('s-bg-data').value=''; document.getElementById('s-bg-mime').value=''; alert('Fondo borrado.');" class="text-[10px] text-red-500 font-bold uppercase">X Borrar Fondo</button></div>` : ''}
                 </div>
 
                 <div><label class="text-[10px] font-bold uppercase">Color Categorías</label><input type="color" id="s-catC" value="${est.catColor}" class="w-full h-10 cursor-pointer"></div>
@@ -473,23 +480,30 @@ async function renderModalContent() {
                 </div>
             </div>`;
 
-        // Conversión del fondo a Base64
         const bgInput = document.getElementById('s-bg-file');
         if (bgInput) {
             bgInput.addEventListener('change', function(e) {
                 const file = e.target.files[0];
                 if(file) {
-                    if(file.size > 5000000) { // Límite de 5MB para no saturar la base
-                        alert("El archivo de fondo es muy pesado. Máximo 5MB."); 
+                    if(file.size > 2500000) { 
+                        alert("El archivo pesa más de 2.5MB. Prueba con uno más liviano."); 
                         this.value = ''; 
                         return; 
                     }
-                    const reader = new FileReader();
-                    reader.onload = function(ev) { 
-                        document.getElementById('s-bg-data').value = ev.target.result;
-                        document.getElementById('s-bg-mime').value = file.type.startsWith('video') ? 'video' : 'image';
-                    };
-                    reader.readAsDataURL(file);
+                    const status = document.getElementById('s-bg-status');
+                    status.innerText = '⏳ PROCESANDO ARCHIVO...';
+                    status.className = 'text-[10px] mt-1 font-bold text-red-500';
+                    
+                    setTimeout(() => {
+                        const reader = new FileReader();
+                        reader.onload = function(ev) { 
+                            document.getElementById('s-bg-data').value = ev.target.result;
+                            document.getElementById('s-bg-mime').value = file.type.startsWith('video') ? 'video' : 'image';
+                            status.innerText = '✅ ARCHIVO LISTO';
+                            status.className = 'text-[10px] mt-1 font-bold text-emerald-500';
+                        };
+                        reader.readAsDataURL(file);
+                    }, 100);
                 }
             });
         }
@@ -542,7 +556,6 @@ async function renderModalContent() {
                 } 
               };
         
-    
         if (currentTvData) await _supabase.from('pantallas').update(upd).eq('id', currentTvData.id);
         else await _supabase.from('pantallas').insert([{ ...upd, sucursal_id: window.currentSucId }]);
         closeModal(); verPantallasSucursal(window.currentSucId, window.currentSucName);
