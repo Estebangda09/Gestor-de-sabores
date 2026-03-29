@@ -4,7 +4,7 @@ let activeTab = 'config';
 window.tvHasRendered = false;
 window.animIntervalTV = null;
 
-// --- MEMORIA RAM (Evita alerta de consumo en Supabase) ---
+// --- MEMORIA RAM ---
 window.globalTvCache = null;
 
 // --- GESTIÓN DE CACHÉ PARA MODO OFFLINE ---
@@ -22,7 +22,7 @@ function gestionarCacheTV(id, data = null) {
 window.activarRealtimeTV = function(tvId) {
     console.log("Conectando Realtime para TV:", tvId);
 
-    // Canal 1: Diseño y estilos (Al presionar CONFIRMAR en el Admin)
+    // Canal 1: Diseño y estilos
     _supabase
         .channel('public:pantallas')
         .on('postgres_changes', { 
@@ -31,9 +31,8 @@ window.activarRealtimeTV = function(tvId) {
             table: 'pantallas', 
             filter: `id=eq.${tvId}` 
         }, () => {
-            console.log('Cambio de diseño detectado. ¡Recargando TV para aplicar cambios!');
-            // RECARGA LA PÁGINA AUTOMÁTICAMENTE PARA QUE TOME LOS CAMBIOS AL INSTANTE
-            window.location.reload(); 
+            console.log('Cambio de diseño detectado en DB...');
+            renderPantallaTV(tvId, true, true); 
         })
         .subscribe();
 
@@ -50,7 +49,7 @@ window.activarRealtimeTV = function(tvId) {
         })
         .subscribe();
 
-    // Canal 3: Edición de un sabor (Nombre, vegano, sintacc)
+    // Canal 3: Edición de un sabor
     _supabase
         .channel('public:sabores')
         .on('postgres_changes', { 
@@ -110,8 +109,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
         catSize: 24, saborSize: 18, columnas: 2, 
         animacionTipo: 'fadeUp', animacionDuracion: 0.5, animacionCiclo: 0,
         marquesinaActiva: false, marquesinaBg: '#1e293b', marquesinaColor: '#ffffff', marquesinaVelocidad: 20, marquesinaTexto: 'BIENVENIDOS',
-        espacioCategorias: 20, espacioSabores: 8, columnasPorCategoria: {},
-        bgData: null, bgMime: null
+        espacioCategorias: 20, espacioSabores: 8, columnasPorCategoria: {}, bgData: null
     };
 
     const shouldAnimate = (forceAnimation === true) || !window.tvHasRendered;
@@ -130,7 +128,8 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
     }
     
     tv.classList.remove('hidden');
-    tv.style.backgroundColor = style.bgData ? 'transparent' : style.bg; // Fondo transparente si hay imagen/video
+    // Si hay imagen de fondo, hacemos que el fondo nativo sea transparente para que se vea la imagen
+    tv.style.backgroundColor = style.bgData ? 'transparent' : style.bg; 
     tv.style.fontFamily = style.font;
 
     const altoMq = style.marquesinaActiva ? (style.marquesinaAlto || 80) : 0;
@@ -141,7 +140,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
     const styleTag = document.getElementById('anim-styles') || document.createElement('style');
     styleTag.id = 'anim-styles';
     
-    // --- CSS ESTRUCTURAL (Con Auto-Ajuste de texto) ---
+    // --- CSS ESTRUCTURAL ---
     styleTag.innerHTML = `
         body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: ${style.bgData ? '#000' : style.bg}; }
         #tv-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; margin: 0; padding: 0; position: relative; }
@@ -159,7 +158,7 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
             align-content: flex-start;
             justify-content: flex-start;
             position: relative;
-            z-index: 1; /* Para que quede por encima del video/imagen de fondo */
+            z-index: 1; /* Esto asegura que los sabores estén por encima de la imagen de fondo */
         }
 
         .tv-category-container { 
@@ -239,13 +238,9 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
 
     let html = '';
 
-    // --- HTML DEL FONDO (IMAGEN O VIDEO) ---
+    // --- HTML DEL FONDO (IMAGEN) ---
     if (style.bgData) {
-        if (style.bgMime === 'video') {
-            html += `<video autoplay loop muted playsinline style="position: absolute; top:0; left:0; width: 100vw; height: 100vh; object-fit: cover; z-index: 0;"><source src="${style.bgData}" type="video/mp4"></video>`;
-        } else {
-            html += `<img src="${style.bgData}" style="position: absolute; top:0; left:0; width: 100vw; height: 100vh; object-fit: cover; z-index: 0;">`;
-        }
+        html += `<img src="${style.bgData}" style="position: absolute; top:0; left:0; width: 100vw; height: 100vh; object-fit: cover; z-index: 0;">`;
     }
 
     html += `<div class="tv-layout">`;
