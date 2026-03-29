@@ -1,3 +1,4 @@
+// js/admin.js
 let currentPage = '';
 
 function renderMenu() {
@@ -315,12 +316,40 @@ async function abrirModal(type, data = null) {
 
     if (type === 'precio') {
         const { data: cp } = await _supabase.from('categorias_precios').select('*');
-        body.innerHTML = `<select id="f-cp" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">${cp.map(c => `<option value="${c.id}" ${data?.categoria_precio_id === c.id ? 'selected':''}>${c.nombre}</option>`)}</select><input id="f-lab" value="${data?.label || ''}" placeholder="Etiqueta" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><input id="f-val" type="number" value="${data?.valor || ''}" placeholder="Precio" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">`;
+        
+        // --- RESTAURADO: CAMPO DE SUBIDA DE IMAGEN PARA PRECIOS (LOCAL A BASE64) ---
+        body.innerHTML = `
+            <select id="f-cp" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none mb-3">
+                ${cp.map(c => `<option value="${c.id}" ${data?.categoria_precio_id === c.id ? 'selected':''}>${c.nombre}</option>`)}
+            </select>
+            <input id="f-lab" value="${data?.label || ''}" placeholder="Etiqueta" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none mb-3">
+            <input id="f-val" type="number" value="${data?.valor || ''}" placeholder="Precio" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none mb-3">
+            
+            <div class="border-2 p-4 rounded-2xl bg-slate-50">
+                <label class="text-[10px] font-bold uppercase text-slate-500 block mb-2">Imagen del producto (Opcional)</label>
+                <input type="file" id="f-img-file" accept="image/*" class="w-full text-xs">
+                <input type="hidden" id="f-img-b64" value="${data?.imagen_url || ''}">
+                ${data?.imagen_url ? `<p class="text-[10px] text-emerald-500 mt-1 font-bold">Ya tiene una imagen guardada.</p>` : ''}
+            </div>
+        `;
+
+        // Conversión a Base64 en tiempo real
+        document.getElementById('f-img-file').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if(file) {
+                if(file.size > 1000000) { alert("La imagen debe pesar menos de 1MB."); this.value = ''; return; }
+                const reader = new FileReader();
+                reader.onload = function(ev) { document.getElementById('f-img-b64').value = ev.target.result; };
+                reader.readAsDataURL(file);
+            }
+        });
+
         btn.onclick = async () => {
             const lab = document.getElementById('f-lab').value.trim();
             const val = document.getElementById('f-val').value;
+            const imgUrl = document.getElementById('f-img-b64').value; // Tomamos el valor en Base64
             if (!lab || !val) return alert("Etiqueta y Precio son obligatorios"); 
-            await _supabase.from('precios_globales').upsert({ id: data?.id, categoria_precio_id: document.getElementById('f-cp').value, label: lab, valor: val });
+            await _supabase.from('precios_globales').upsert({ id: data?.id, categoria_precio_id: document.getElementById('f-cp').value, label: lab, valor: val, imagen_url: imgUrl });
             closeModal(); showPage('precios');
         };
     }
@@ -361,8 +390,14 @@ async function renderModalContent() {
         body.innerHTML = `
             <input id="p-nom" value="${currentTvData?.nombre || ''}" placeholder="Nombre TV" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
             <div class="grid grid-cols-2 gap-4 mt-4">
-                <select id="p-tipo" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><option value="sabores" ${currentTvData?.tipo === 'sabores' ? 'selected':''}>Sabores</option><option value="precios" ${currentTvData?.tipo === 'precios' ? 'selected':''}>Precios</option></select>
-                <select id="p-ori" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"><option value="16:9" ${currentTvData?.orientacion === '16:9' ? 'selected':''}>Horizontal (16:9)</option><option value="9:16" ${currentTvData?.orientacion === '9:16' ? 'selected':''}>Vertical (9:16)</option></select>
+                <select id="p-tipo" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
+                    <option value="sabores" ${currentTvData?.tipo === 'sabores' ? 'selected':''}>Sabores</option>
+                    <option value="precios" ${currentTvData?.tipo === 'precios' ? 'selected':''}>Precios</option>
+                </select>
+                <select id="p-ori" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
+                    <option value="16:9" ${currentTvData?.orientacion === '16:9' ? 'selected':''}>Horizontal (16:9)</option>
+                    <option value="9:16" ${currentTvData?.orientacion === '9:16' ? 'selected':''}>Vertical (9:16)</option>
+                </select>
             </div>
             <div id="list-cont" class="grid gap-2 max-h-48 overflow-y-auto p-2 bg-slate-50 rounded-2xl border mt-4">
                 ${(currentTvData?.tipo === 'precios' ? prices : cats).map(i => {
@@ -382,15 +417,32 @@ async function renderModalContent() {
                 }).join('')}
             </div>`;
     } else {
-        const est = currentTvData?.estilo || { font: 'Inter', bg: '#fdfbf7', catColor: '#64748b', saborColor: '#1e293b', catSize: 24, saborSize: 18, columnas: 2, animacionTipo: 'fadeUp', animacionDuracion: 0.5, animacionCiclo: 0, marquesinaActiva: false, marquesinaBg: '#1e293b', marquesinaColor: '#ffffff', marquesinaVelocidad: 20, marquesinaAlto: 80, marquesinaSize: 30, marquesinaTexto: 'BIENVENIDOS' };
+        const est = currentTvData?.estilo || { font: 'Inter', bg: '#fdfbf7', catColor: '#64748b', saborColor: '#1e293b', catSize: 24, saborSize: 18, columnas: 2, animacionTipo: 'fadeUp', animacionDuracion: 0.5, animacionCiclo: 0, marquesinaActiva: false, marquesinaBg: '#1e293b', marquesinaColor: '#ffffff', marquesinaVelocidad: 20, marquesinaAlto: 80, marquesinaSize: 30, marquesinaTexto: 'BIENVENIDOS', bgData: null, bgMime: null };
         const espCat = est.espacioCategorias !== undefined ? est.espacioCategorias : 20;
         const espSab = est.espacioSabores !== undefined ? est.espacioSabores : 8;
 
+        // --- AGREGADO: CAMPO PARA SUBIR FONDO (LOCAL A BASE64) ---
         body.innerHTML = `
             <div class="grid grid-cols-2 gap-4">
                 <div><label class="text-[10px] font-bold uppercase">Tipografía</label><select id="s-font" class="w-full border p-2 rounded-xl"><option value="Inter" ${est.font==='Inter'?'selected':''}>Inter</option><option value="Oswald" ${est.font==='Oswald'?'selected':''}>Oswald</option><option value="Montserrat" ${est.font==='Montserrat'?'selected':''}>Montserrat</option></select></div>
                 <div><label class="text-[10px] font-bold uppercase">Columnas Principales</label><select id="s-col" class="w-full border p-2 rounded-xl"><option value="2" ${est.columnas==2?'selected':''}>2 Columnas</option><option value="1" ${est.columnas==1?'selected':''}>1 Columna</option></select></div>
-                <div><label class="text-[10px] font-bold uppercase">Fondo Pantalla</label><input type="color" id="s-bg" value="${est.bg}" class="w-full h-10 cursor-pointer"></div>
+                
+                <div class="col-span-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <div class="grid grid-cols-2 gap-4 items-end">
+                        <div>
+                            <label class="text-[10px] font-bold uppercase text-slate-500 block mb-1">Fondo Base (Color)</label>
+                            <input type="color" id="s-bg" value="${est.bg}" class="w-full h-10 cursor-pointer rounded border-none">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold uppercase text-blue-600 block mb-1">Subir Imagen / Video Local</label>
+                            <input type="file" id="s-bg-file" accept="image/*,video/mp4" class="w-full text-xs">
+                            <input type="hidden" id="s-bg-data" value="${est.bgData || ''}">
+                            <input type="hidden" id="s-bg-mime" value="${est.bgMime || ''}">
+                        </div>
+                    </div>
+                    ${est.bgData ? `<div class="mt-2 flex justify-between items-center"><p class="text-[10px] text-emerald-500 font-bold">Ya hay un ${est.bgMime} subido como fondo.</p><button type="button" onclick="document.getElementById('s-bg-data').value=''; document.getElementById('s-bg-mime').value=''; alert('Fondo borrado. Dale a Confirmar para guardar.');" class="text-[10px] text-red-500 font-bold uppercase">X Borrar Fondo</button></div>` : ''}
+                </div>
+
                 <div><label class="text-[10px] font-bold uppercase">Color Categorías</label><input type="color" id="s-catC" value="${est.catColor}" class="w-full h-10 cursor-pointer"></div>
                 <div><label class="text-[10px] font-bold uppercase">Color Sabores</label><input type="color" id="s-sabC" value="${est.saborColor}" class="w-full h-10 cursor-pointer"></div>
                 <div><label class="text-[10px] font-bold uppercase">Tipo Animación</label><select id="s-anim-T" class="w-full border p-2 rounded-xl"><option value="fadeUp" ${est.animacionTipo==='fadeUp'?'selected':''}>Deslizar Arriba</option><option value="fadeIn" ${est.animacionTipo==='fadeIn'?'selected':''}>Solo Aparecer</option><option value="slideInLeft" ${est.animacionTipo==='slideInLeft'?'selected':''}>Deslizar Lado</option></select></div>
@@ -420,44 +472,29 @@ async function renderModalContent() {
                     </div>
                 </div>
             </div>`;
-    }
 
-    // --- INYECCIÓN DINÁMICA DEL BOTÓN ACTUALIZAR TV ---
-    let footerDiv = btn.parentElement;
-    
-    // Verificamos si ya existe el botón, si no, lo creamos
-    if (!document.getElementById('btn-force-update')) {
-        let btnSync = document.createElement('button');
-        btnSync.id = 'btn-force-update';
-        btnSync.className = 'px-5 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-bold uppercase italic text-sm transition-colors';
-        btnSync.innerText = '↻ Actualizar TV';
-        // Lo insertamos antes del botón Confirmar original
-        footerDiv.insertBefore(btnSync, btn);
-    }
-    
-    let btnForce = document.getElementById('btn-force-update');
-    
-    // Lógica del botón Actualizar TV
-    if (currentTvData) {
-        btnForce.style.display = 'block';
-        btnForce.onclick = () => {
-            const originalText = btnForce.innerText;
-            btnForce.innerText = '⏳ ENVIANDO...';
-            
-            const bcChannel = _supabase.channel('admin_broadcast');
-            bcChannel.subscribe((status) => {
-                if (status === 'SUBSCRIBED') {
-                    bcChannel.send({ type: 'broadcast', event: 'force_update', payload: { tvId: currentTvData.id } });
-                    setTimeout(() => { btnForce.innerText = '✅ ENVIADO'; }, 500);
-                    setTimeout(() => { btnForce.innerText = originalText; }, 3000);
+        // Conversión del fondo a Base64
+        const bgInput = document.getElementById('s-bg-file');
+        if (bgInput) {
+            bgInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if(file) {
+                    if(file.size > 5000000) { // Límite de 5MB para no saturar la base
+                        alert("El archivo de fondo es muy pesado. Máximo 5MB."); 
+                        this.value = ''; 
+                        return; 
+                    }
+                    const reader = new FileReader();
+                    reader.onload = function(ev) { 
+                        document.getElementById('s-bg-data').value = ev.target.result;
+                        document.getElementById('s-bg-mime').value = file.type.startsWith('video') ? 'video' : 'image';
+                    };
+                    reader.readAsDataURL(file);
                 }
             });
-        };
-    } else {
-        btnForce.style.display = 'none';
+        }
     }
 
-    // --- LOGICA ORIGINAL DE TU BOTÓN CONFIRMAR (INTACTA) ---
     btn.onclick = async () => {
         let estOriginal = currentTvData?.estilo || {};
         
@@ -499,10 +536,13 @@ async function renderModalContent() {
                     marquesinaSize: parseInt(document.getElementById('s-mqS').value) || 30,
                     espacioCategorias: parseInt(document.getElementById('s-espC').value) || 20,
                     espacioSabores: parseInt(document.getElementById('s-espS').value) || 8,
-                    columnasPorCategoria: colsConfig
+                    columnasPorCategoria: colsConfig,
+                    bgData: document.getElementById('s-bg-data') ? document.getElementById('s-bg-data').value : estOriginal.bgData,
+                    bgMime: document.getElementById('s-bg-mime') ? document.getElementById('s-bg-mime').value : estOriginal.bgMime
                 } 
               };
         
+    
         if (currentTvData) await _supabase.from('pantallas').update(upd).eq('id', currentTvData.id);
         else await _supabase.from('pantallas').insert([{ ...upd, sucursal_id: window.currentSucId }]);
         closeModal(); verPantallasSucursal(window.currentSucId, window.currentSucName);
