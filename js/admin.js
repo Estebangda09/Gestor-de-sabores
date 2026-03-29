@@ -429,7 +429,6 @@ async function renderModalContent() {
         const espCat = est.espacioCategorias !== undefined ? est.espacioCategorias : 20;
         const espSab = est.espacioSabores !== undefined ? est.espacioSabores : 8;
 
-        // --- SUBIDA DE IMAGEN DE FONDO (SOLO IMAGEN, ASINCRONO) ---
         body.innerHTML = `
             <div class="grid grid-cols-2 gap-4">
                 <div><label class="text-[10px] font-bold uppercase">Tipografía</label><select id="s-font" class="w-full border p-2 rounded-xl"><option value="Inter" ${est.font==='Inter'?'selected':''}>Inter</option><option value="Oswald" ${est.font==='Oswald'?'selected':''}>Oswald</option><option value="Montserrat" ${est.font==='Montserrat'?'selected':''}>Montserrat</option></select></div>
@@ -453,7 +452,15 @@ async function renderModalContent() {
 
                 <div><label class="text-[10px] font-bold uppercase">Color Categorías</label><input type="color" id="s-catC" value="${est.catColor}" class="w-full h-10 cursor-pointer"></div>
                 <div><label class="text-[10px] font-bold uppercase">Color Sabores</label><input type="color" id="s-sabC" value="${est.saborColor}" class="w-full h-10 cursor-pointer"></div>
-                <div><label class="text-[10px] font-bold uppercase">Tipo Animación</label><select id="s-anim-T" class="w-full border p-2 rounded-xl"><option value="fadeUp" ${est.animacionTipo==='fadeUp'?'selected':''}>Deslizar Arriba</option><option value="fadeIn" ${est.animacionTipo==='fadeIn'?'selected':''}>Solo Aparecer</option><option value="slideInLeft" ${est.animacionTipo==='slideInLeft'?'selected':''}>Deslizar Lado</option></select></div>
+                
+                <div><label class="text-[10px] font-bold uppercase">Tipo Animación</label>
+                <select id="s-anim-T" class="w-full border p-2 rounded-xl">
+                    <option value="fadeUp" ${est.animacionTipo==='fadeUp'?'selected':''}>Deslizar Arriba</option>
+                    <option value="fadeIn" ${est.animacionTipo==='fadeIn'?'selected':''}>Solo Aparecer</option>
+                    <option value="slideInLeft" ${est.animacionTipo==='slideInLeft'?'selected':''}>Deslizar Lado</option>
+                    <option value="cinematic" ${est.animacionTipo==='cinematic'?'selected':''}>Cinemático (Aparición fluida)</option>
+                    <option value="neonLiquid" ${est.animacionTipo==='neonLiquid'?'selected':''}>Neón Líquido (Flujo de colores)</option>
+                </select></div>
                 
                 <div class="col-span-2 bg-blue-50 p-3 rounded-xl border border-blue-100 flex gap-4">
                     <div class="w-1/2"><label class="text-[10px] font-bold uppercase text-blue-700">Velocidad Efecto (seg)</label><input type="number" step="0.1" id="s-anim-D" value="${est.animacionDuracion}" class="w-full border p-2 rounded-xl mt-1"></div>
