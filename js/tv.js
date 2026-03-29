@@ -4,7 +4,7 @@ let activeTab = 'config';
 window.tvHasRendered = false;
 window.animIntervalTV = null;
 
-// --- MEMORIA RAM ---
+// --- MEMORIA RAM (Cero consumo extra en Supabase) ---
 window.globalTvCache = null;
 
 // --- GESTIÓN DE CACHÉ PARA MODO OFFLINE ---
@@ -18,7 +18,7 @@ function gestionarCacheTV(id, data = null) {
     }
 }
 
-// --- ACTIVAR ESCUCHA EN TIEMPO REAL ---
+// --- ACTIVAR ESCUCHA EN TIEMPO REAL (TUS CANALES ORIGINALES) ---
 window.activarRealtimeTV = function(tvId) {
     console.log("Conectando Realtime para TV:", tvId);
 
@@ -49,7 +49,7 @@ window.activarRealtimeTV = function(tvId) {
         })
         .subscribe();
 
-    // Canal 3: Edición de un sabor
+    // Canal 3: Edición de un sabor (Nombre, vegano, sintacc)
     _supabase
         .channel('public:sabores')
         .on('postgres_changes', { 
@@ -115,7 +115,6 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
     const shouldAnimate = (forceAnimation === true) || !window.tvHasRendered;
     window.tvHasRendered = true;
 
-    // --- CICLO DE REPETICIÓN ---
     if (window.animIntervalTV) {
         clearInterval(window.animIntervalTV);
         window.animIntervalTV = null;
@@ -128,7 +127,6 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
     }
     
     tv.classList.remove('hidden');
-    // Si hay imagen de fondo, hacemos que el fondo nativo sea transparente para que se vea la imagen
     tv.style.backgroundColor = style.bgData ? 'transparent' : style.bg; 
     tv.style.fontFamily = style.font;
 
@@ -140,85 +138,81 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
     const styleTag = document.getElementById('anim-styles') || document.createElement('style');
     styleTag.id = 'anim-styles';
     
-    // --- CSS ESTRUCTURAL ---
+    // Lógica dinámica para inyectar los efectos Cinemáticos y de Neón
+    let extraCss = `
+        .sabor-anim { animation: ${animTipo} ${animDur}s ease-out forwards; opacity: 0; }
+    `;
+
+    if (animTipo === 'cinematic') {
+        extraCss = `
+            .sabor-anim { 
+                animation: cinematicReveal ${animDur}s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; 
+                opacity: 0; 
+            }
+        `;
+    } else if (animTipo === 'neonLiquid') {
+        extraCss = `
+            .sabor-anim { 
+                animation: neonLiquidReveal ${animDur}s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; 
+                opacity: 0; 
+            }
+            /* Inyectamos el gradiente líquido de la solicitud en el texto de los sabores */
+            .sabor-anim .flavor-name, .sabor-anim .price-label, .sabor-anim .price-value {
+                background: linear-gradient(90deg, #ff007f, #7f00ff, #00d4ff, #ff007f);
+                background-size: 300% auto;
+                color: #fff !important;
+                background-clip: text;
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                animation: neonFlow 3s linear infinite;
+                text-shadow: 0 0 15px rgba(127, 0, 255, 0.3);
+            }
+        `;
+    }
+
     styleTag.innerHTML = `
         body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: ${style.bgData ? '#000' : style.bg}; }
         #tv-container { width: 100vw; height: 100vh; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; margin: 0; padding: 0; position: relative; }
         
         .tv-layout {
             height: ${layoutHeight}; 
-            display: flex;
-            flex-direction: column;
-            flex-wrap: wrap; 
-            column-gap: 2vw;
-            row-gap: 0;
+            display: flex; flex-direction: column; flex-wrap: wrap; 
+            column-gap: 2vw; row-gap: 0;
             padding: 20px 10px 10px 25px; 
-            margin: 0;
-            box-sizing: border-box;
-            align-content: flex-start;
-            justify-content: flex-start;
-            position: relative;
-            z-index: 1; /* Esto asegura que los sabores estén por encima de la imagen de fondo */
+            margin: 0; box-sizing: border-box;
+            align-content: flex-start; justify-content: flex-start;
+            position: relative; z-index: 1;
         }
 
         .tv-category-container { 
-            break-inside: avoid; 
-            page-break-inside: avoid;
+            break-inside: avoid; page-break-inside: avoid;
             width: ${datos.orientacion === '9:16' || style.columnas == 1 ? '100%' : 'calc(50% - 1.5vw)'}; 
-            display: flex; 
-            flex-direction: column;
-            margin: 0 0 1.5vh 0; 
-            padding: 0;
+            display: flex; flex-direction: column; margin: 0 0 1.5vh 0; padding: 0;
         }
 
         .tv-cat-header {
-            color: ${style.catColor}; 
-            font-size: ${style.catSize}px; 
-            text-transform: uppercase; 
-            font-weight: 900; 
-            margin: 0 0 0.8vh 0; 
-            border-bottom: 2px solid ${style.catColor}44;
-            padding: 0 0 3px 0;
+            color: ${style.catColor}; font-size: ${style.catSize}px; text-transform: uppercase; font-weight: 900; 
+            margin: 0 0 0.8vh 0; border-bottom: 2px solid ${style.catColor}44; padding: 0 0 3px 0;
         }
 
-        .tv-flavor-list {
-            display: grid;
-            column-gap: 1vw;
-            margin: 0; padding: 0;
-            width: 100%;
-        }
+        .tv-flavor-list { display: grid; column-gap: 1vw; margin: 0; padding: 0; width: 100%; }
 
         .tv-flavor-item { 
-            font-size: ${style.saborSize}px;
-            color: ${style.saborColor};
-            line-height: 1.15; 
-            display: flex; 
-            align-items: center; 
-            margin: 0; padding: 0;
-            width: 100%;
-            box-sizing: border-box;
-            padding-right: 5px;
-            min-width: 0; 
+            font-size: ${style.saborSize}px; color: ${style.saborColor}; line-height: 1.15; 
+            display: flex; align-items: center; margin: 0; padding: 0; width: 100%;
+            box-sizing: border-box; padding-right: 5px; min-width: 0; 
         }
 
         .tv-flavor-item .flavor-name {
-            font-weight: 700; 
-            flex: 1;
-            white-space: nowrap;
-            overflow: hidden;
-            display: block;
+            font-weight: 700; flex: 1;
+            /* CRÍTICO PARA EL AUTO-AJUSTE: Obliga al texto a estar en una sola línea */
+            white-space: nowrap; overflow: hidden; display: block;
+            padding-top: 2px; padding-right: 15px; /* Espacio para que no corte el brillo neón */
         }
 
         .price-row { 
-            font-size: ${style.saborSize}px;
-            color: ${style.saborColor};
-            grid-column: span 2; 
-            display: flex;
-            justify-content: space-between; 
-            align-items: center; 
-            border-bottom: 1px solid rgba(0,0,0,0.05); 
-            padding: 4px 0;
-            margin: 0 0 0.5vh 0;
+            font-size: ${style.saborSize}px; color: ${style.saborColor}; grid-column: span 2; display: flex;
+            justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.05); padding: 4px 0; margin: 0 0 0.5vh 0;
         }
 
         .price-label { font-weight: 700; color: ${style.catColor}; margin: 0; white-space: nowrap; overflow: hidden; display: block; flex: 1; }
@@ -227,8 +221,23 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
         @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideInLeft { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
-        .sabor-anim { animation: ${animTipo} ${animDur}s ease-out forwards; opacity: 0; }
+        
+        /* Animaciones Cinemáticas Nuevas */
+        @keyframes cinematicReveal {
+            0% { clip-path: inset(0 100% 0 0); transform: scale(0.9); opacity: 0; filter: blur(6px); }
+            100% { clip-path: inset(0 0 0 0); transform: scale(1); opacity: 1; filter: blur(0); }
+        }
+        @keyframes neonLiquidReveal {
+            0% { clip-path: inset(0 100% 0 0); transform: scale(0.9); filter: blur(6px); opacity: 0; }
+            100% { clip-path: inset(0 0 0 0); transform: scale(1); filter: blur(0); opacity: 1; }
+        }
+        @keyframes neonFlow {
+            0% { background-position: 0% center; }
+            100% { background-position: 300% center; }
+        }
         @keyframes ticker { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-33.33%, 0, 0); } }
+        
+        ${extraCss}
     `;
     if (!document.getElementById('anim-styles')) document.head.appendChild(styleTag);
 
@@ -238,7 +247,6 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
 
     let html = '';
 
-    // --- HTML DEL FONDO (IMAGEN) ---
     if (style.bgData) {
         html += `<img src="${style.bgData}" style="position: absolute; top:0; left:0; width: 100vw; height: 100vh; object-fit: cover; z-index: 0;">`;
     }
@@ -330,17 +338,18 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
 
     tv.innerHTML = html;
 
-    // --- AUTO-AJUSTE DE TEXTOS LARGOS ---
+    // --- AUTO-AJUSTE DE TEXTOS LARGOS (Shrink-to-fit) ---
+    // Reduce la letra de los nombres gigantes para que encajen en 1 línea sin desbordar
     setTimeout(() => {
         const elementosTexto = tv.querySelectorAll('.flavor-name, .price-label');
         elementosTexto.forEach(el => {
             let size = parseFloat(window.getComputedStyle(el).fontSize);
-            while (el.scrollWidth > el.clientWidth && size > 12) {
+            while (el.scrollWidth > el.clientWidth && size > 10) {
                 size -= 0.5;
                 el.style.fontSize = size + 'px';
             }
         });
-    }, 50);
+    }, 100);
 };
 
 // --- RESTRICCIÓN DE PANTALLA COMPLETA (SOLO MODO TV) ---
