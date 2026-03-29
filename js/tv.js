@@ -311,3 +311,11 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
             </div>`;
     }
 };
+// Activar pantalla completa al primer toque o clic en la pantalla
+document.addEventListener('click', function() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+            console.log(`Error al intentar iniciar pantalla completa: ${err.message}`);
+        });
+    }
+});
