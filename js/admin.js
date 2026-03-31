@@ -105,13 +105,102 @@ async function showPage(page, params = null) {
 
 window.abrirMiPerfil = () => { abrirModalUsuario(window.userPerfil, true); };
 
-window.abrirModalUsuario = async function(u = null, esMiPerfil = false) { /* Intacto */
-    const body = document.getElementById('modal-body'); const btn = document.getElementById('btn-save'); const p = u?.permisos || { categorias: false, sabores: false, sucursales: true, pantallas: false, precios: false }; const emailActual = u?.email_acceso || "";
-    document.getElementById('modal-tabs').classList.add('hidden'); document.getElementById('modal-form').classList.add('active'); document.getElementById('modal-title').innerText = esMiPerfil ? "MI PERFIL" : (u ? "EDITAR USUARIO" : "NUEVO USUARIO"); btn.innerText = u ? "GUARDAR CAMBIOS" : "CREAR USUARIO";
-    body.innerHTML = `<div class="space-y-4"><div><label class="text-[10px] font-bold text-slate-400 uppercase">Nombre de Usuario</label><input id="u-name" value="${u?.username || ''}" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"></div><div><label class="text-[10px] font-bold text-slate-400 uppercase">Correo Electrónico</label><input id="u-email" type="email" value="${emailActual}" placeholder="correo@ejemplo.com" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none ${u ? 'opacity-50' : ''}" ${u ? 'readonly' : ''}></div><div><label class="text-[10px] font-bold text-slate-400 uppercase">${u ? 'Cambiar Contraseña' : 'Contraseña'}</label><input id="u-pass" type="password" placeholder="${u ? 'Dejar en blanco para no cambiar' : 'Contraseña'}" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none"></div><div id="permisos-section" class="${esMiPerfil ? 'opacity-50 pointer-events-none' : ''} ${window.userPerfil.rol !== 'admin' ? 'hidden' : ''}"><div class="p-4 bg-blue-50 rounded-3xl mt-4"><p class="text-[10px] font-black uppercase mb-3 text-blue-600">Permisos de Acceso</p><div class="grid grid-cols-2 gap-2"><label class="flex items-center gap-2 text-xs font-bold"><input type="checkbox" id="p-cat" ${p.categorias ? 'checked' : ''}> CATEGORÍAS</label><label class="flex items-center gap-2 text-xs font-bold"><input type="checkbox" id="p-sab" ${p.sabores ? 'checked' : ''}> SABORES</label><label class="flex items-center gap-2 text-xs font-bold"><input type="checkbox" id="p-suc" ${p.sucursales ? 'checked' : ''}> SUCURSALES</label><label class="flex items-center gap-2 text-xs font-bold"><input type="checkbox" id="p-pan" ${p.pantallas ? 'checked' : ''}> PANTALLAS</label><label class="flex items-center gap-2 text-xs font-bold"><input type="checkbox" id="p-pre" ${p.precios ? 'checked' : ''}> PRECIOS</label></div></div></div></div>`;
+window.abrirModalUsuario = async function(u = null, esMiPerfil = false) {
+    const body = document.getElementById('modal-body');
+    const btn = document.getElementById('btn-save');
+    const p = u?.permisos || { categorias: false, sabores: false, sucursales: true, pantallas: false, precios: false };
+    const emailActual = u?.email_acceso || "";
+
+    document.getElementById('modal-tabs').classList.add('hidden');
+    document.getElementById('modal-form').classList.add('active');
+    document.getElementById('modal-title').innerText = esMiPerfil ? "MI PERFIL" : (u ? "EDITAR USUARIO" : "NUEVO USUARIO");
+    btn.innerText = u ? "GUARDAR CAMBIOS" : "CREAR USUARIO";
+
+    body.innerHTML = `
+        <div class="space-y-4">
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase">Nombre de Usuario</label>
+                <input id="u-name" value="${u?.username || ''}" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
+            </div>
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase">Correo Electrónico</label>
+                <input id="u-email" type="email" value="${emailActual}" placeholder="correo@ejemplo.com" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none ${u ? 'opacity-50' : ''}" ${u ? 'readonly' : ''}>
+            </div>
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase">${u ? 'Cambiar Contraseña' : 'Contraseña'}</label>
+                <input id="u-pass" type="password" placeholder="${u ? 'Dejar en blanco para no cambiar' : 'Mínimo 6 caracteres'}" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">
+            </div>
+            <div id="permisos-section" class="${esMiPerfil ? 'opacity-50 pointer-events-none' : ''} ${window.userPerfil.rol !== 'admin' ? 'hidden' : ''}">
+                <div class="p-4 bg-blue-50 rounded-3xl mt-4">
+                    <p class="text-[10px] font-black uppercase mb-3 text-blue-600">Permisos de Acceso</p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <label class="flex items-center gap-2 text-xs font-bold"><input type="checkbox" id="p-cat" ${p.categorias ? 'checked' : ''}> CATEGORÍAS</label>
+                        <label class="flex items-center gap-2 text-xs font-bold"><input type="checkbox" id="p-sab" ${p.sabores ? 'checked' : ''}> SABORES</label>
+                        <label class="flex items-center gap-2 text-xs font-bold"><input type="checkbox" id="p-suc" ${p.sucursales ? 'checked' : ''}> SUCURSALES</label>
+                        <label class="flex items-center gap-2 text-xs font-bold"><input type="checkbox" id="p-pan" ${p.pantallas ? 'checked' : ''}> PANTALLAS</label>
+                        <label class="flex items-center gap-2 text-xs font-bold"><input type="checkbox" id="p-pre" ${p.precios ? 'checked' : ''}> PRECIOS</label>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+
     btn.onclick = async () => {
-        const nuevoNombre = document.getElementById('u-name').value.trim(); const password = document.getElementById('u-pass').value; const permisos = esMiPerfil ? p : { categorias: document.getElementById('p-cat').checked, sabores: document.getElementById('p-sab').checked, sucursales: document.getElementById('p-suc').checked, pantallas: document.getElementById('p-pan').checked, precios: document.getElementById('p-pre').checked };
-        try { if (u) { await _supabase.from('perfiles').update({ username: nuevoNombre, permisos: permisos }).eq('id', u.id); if (password.length > 0) await _supabase.auth.updateUser({ password: password }); alert("Datos actualizados"); } else { await _supabase.rpc('admin_create_user', { p_email: document.getElementById('u-email').value, p_password: password, p_username: nuevoNombre, p_rol: 'empleado', p_permisos: permisos }); } closeModal(); if (esMiPerfil) window.location.reload(); else showPage('usuarios'); } catch (err) { alert("Error: " + err.message); }
+        const nuevoNombre = document.getElementById('u-name').value.trim();
+        const email = document.getElementById('u-email').value.trim();
+        const password = document.getElementById('u-pass').value;
+        const permisos = esMiPerfil ? p : { 
+            categorias: document.getElementById('p-cat').checked, 
+            sabores: document.getElementById('p-sab').checked, 
+            sucursales: document.getElementById('p-suc').checked, 
+            pantallas: document.getElementById('p-pan').checked, 
+            precios: document.getElementById('p-pre').checked 
+        };
+
+        if (!nuevoNombre || (!u && !email) || (!u && !password)) {
+            return alert("Por favor completa todos los campos obligatorios.");
+        }
+
+        try {
+            btn.innerText = "PROCESANDO...";
+            btn.disabled = true;
+
+            if (u) {
+                // ACTUALIZAR USUARIO EXISTENTE
+                const { error: errUpd } = await _supabase.from('perfiles').update({ username: nuevoNombre, permisos: permisos }).eq('id', u.id);
+                if (errUpd) throw errUpd;
+
+                if (password.length > 0) {
+                    const { error: errPass } = await _supabase.auth.updateUser({ password: password });
+                    if (errPass) throw errPass;
+                    alert("Perfil y contraseña actualizados");
+                } else {
+                    alert("Perfil actualizado correctamente");
+                }
+            } else {
+                // CREAR USUARIO NUEVO (Usando el RPC corregido)
+                const { error: errRpc } = await _supabase.rpc('admin_create_user', { 
+                    p_email: email, 
+                    p_password: password, 
+                    p_username: nuevoNombre, 
+                    p_rol: 'empleado', 
+                    p_permisos: permisos 
+                });
+                
+                if (errRpc) throw errRpc;
+                alert("¡Usuario creado con éxito!");
+            }
+
+            closeModal();
+            if (esMiPerfil) window.location.reload(); 
+            else showPage('usuarios');
+
+        } catch (err) {
+            console.error("Error completo:", err);
+            alert("Error al procesar: " + (err.message || "Error desconocido"));
+        } finally {
+            btn.innerText = u ? "GUARDAR CAMBIOS" : "CREAR USUARIO";
+            btn.disabled = false;
+        }
     };
 }
 
