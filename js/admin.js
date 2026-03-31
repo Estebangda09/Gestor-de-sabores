@@ -150,14 +150,33 @@ async function showPage(page, params = null) {
 
 
 
-    if (page === 'pantallas') { /* Código original pantallas intacto */
-
+   if (page === 'pantallas') {
         header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Digital Signage</h1>`;
+        
+        let sucs;
+        if (window.userPerfil.rol === 'admin') {
+            // El admin ve todo
+            const { data } = await _supabase.from('sucursales').select('*').order('nombre');
+            sucs = data;
+        } else {
+            // El empleado solo ve las sucursales donde tiene permiso
+            const { data: misSucs } = await _supabase.from('usuario_sucursales')
+                .select('sucursales(*)')
+                .eq('usuario_id', window.userPerfil.id);
+            
+            // Extraemos los objetos de sucursal del resultado
+            sucs = misSucs ? misSucs.map(ms => ms.sucursales) : [];
+        }
 
-        const { data: sucs } = await _supabase.from('sucursales').select('*').order('nombre');
-
-        container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-6">${(sucs || []).map(s => `<div class="bg-white p-6 rounded-3xl shadow-lg border-l-8 border-blue-500"><h3 class="text-xl font-black text-slate-800 uppercase mb-4">${s.nombre}</h3><button onclick="verPantallasSucursal('${s.id}', '${s.nombre}')" class="w-full bg-slate-900 text-white py-3 rounded-xl font-bold uppercase text-xs">CONFIGURAR TVs</button></div>`).join('')}</div>`;
-
+        if (!sucs || sucs.length === 0) {
+            container.innerHTML = `<div class="text-center p-20 bg-white rounded-3xl text-slate-400 font-bold uppercase italic">No tienes sucursales asignadas para gestionar pantallas.</div>`;
+        } else {
+            container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-6">${sucs.map(s => `
+                <div class="bg-white p-6 rounded-3xl shadow-lg border-l-8 border-blue-500">
+                    <h3 class="text-xl font-black text-slate-800 uppercase mb-4">${s.nombre}</h3>
+                    <button onclick="verPantallasSucursal('${s.id}', '${s.nombre}')" class="w-full bg-slate-900 text-white py-3 rounded-xl font-bold uppercase text-xs">CONFIGURAR TVs</button>
+                </div>`).join('')}</div>`;
+        }
     }
 
 
@@ -466,21 +485,48 @@ async function abrirModal(type, data = null) {
 
 
 // --- MODAL DE TV Y DISEÑO ---
-
 window.verPantallasSucursal = async function(sucId, sucName) {
+    // Verificación de seguridad para empleados
+    if (window.userPerfil.rol !== 'admin') {
+        const { data: tieneAcceso } = await _supabase.from('usuario_sucursales')
+            .select('id')
+            .eq('usuario_id', window.userPerfil.id)
+            .eq('sucursal_id', sucId)
+            .maybeSingle();
+            
+        if (!tieneAcceso) {
+            alert("No tienes permiso para gestionar esta sucursal.");
+            showPage('pantallas');
+            return;
+        }
+    }
 
-    window.currentSucId = sucId; window.currentSucName = sucName;
-
+    window.currentSucId = sucId; 
+    window.currentSucName = sucName;
     const { data: pants } = await _supabase.from('pantallas').select('*').eq('sucursal_id', sucId);
-
+    
     const container = document.getElementById('view-content');
-
     const header = document.getElementById('view-header');
-
-    header.innerHTML = `<div class="flex items-center gap-4"><button onclick="showPage('pantallas')" class="text-slate-400 text-2xl">←</button><h1 class="text-xl font-black uppercase italic">${sucName}</h1></div><button onclick="abrirModalPantalla('${sucId}')" class="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase shadow-lg">+ NUEVA TV</button>`;
-
-    container.innerHTML = `<div class="grid gap-4">${(pants || []).map(p => `<div class="bg-white p-5 rounded-2xl shadow-sm flex justify-between items-center border-2 border-slate-100"><div><p class="font-black italic text-slate-700">${p.nombre}</p><p class="text-[10px] text-blue-500 uppercase font-black">${p.tipo} - ${p.orientacion || '16:9'}</p></div><div class="flex gap-2"><button onclick="window.open('?mode=tv&id=${p.id}', '_blank')" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase">VER</button><button onclick='abrirModalPantalla("${sucId}", ${JSON.stringify(p)})' class="bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase">DISEÑO</button><button onclick="eliminarTV('${p.id}')" class="text-red-500 text-xs font-black">✕</button></div></div>`).join('')}</div>`;
-
+    
+    header.innerHTML = `
+        <div class="flex items-center gap-4">
+            <button onclick="showPage('pantallas')" class="text-slate-400 text-2xl">←</button>
+            <h1 class="text-xl font-black uppercase italic">${sucName}</h1>
+        </div>
+        ${window.userPerfil.rol === 'admin' ? `<button onclick="abrirModalPantalla('${sucId}')" class="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase shadow-lg">+ NUEVA TV</button>` : ''}`;
+    
+    container.innerHTML = `<div class="grid gap-4">${(pants || []).map(p => `
+        <div class="bg-white p-5 rounded-2xl shadow-sm flex justify-between items-center border-2 border-slate-100">
+            <div>
+                <p class="font-black italic text-slate-700">${p.nombre}</p>
+                <p class="text-[10px] text-blue-500 uppercase font-black">${p.tipo} - ${p.orientacion || '16:9'}</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="window.open('?mode=tv&id=${p.id}', '_blank')" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase">VER</button>
+                <button onclick='abrirModalPantalla("${sucId}", ${JSON.stringify(p)})' class="bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase">DISEÑO</button>
+                ${window.userPerfil.rol === 'admin' ? `<button onclick="eliminarTV('${p.id}')" class="text-red-500 text-xs font-black">✕</button>` : ''}
+            </div>
+        </div>`).join('')}</div>`;
 };
 
 
