@@ -284,15 +284,33 @@ window.abrirModalUsuario = async function(u = null, esMiPerfil = false) {
 
         try {
             if (u) {
-                // CASO EDITAR: Actualizamos perfil y contraseña por separado
-                const { error: errUpd } = await _supabase.from('perfiles').update({ username: nuevoNombre, permisos: permisos }).eq('id', u.id);
-                if (errUpd) throw errUpd;
-                if (password.length > 0) {
-                    const { error: errPass } = await _supabase.auth.updateUser({ password: password });
-                    if (errPass) throw errPass;
-                }
-                alert("Usuario actualizado");
-            } else {
+    // 1. Actualizamos datos básicos y permisos en la tabla perfiles (esto siempre funciona)
+    const { error: errUpd } = await _supabase.from('perfiles').update({ 
+        username: nuevoNombre, 
+        permisos: permisos 
+    }).eq('id', u.id);
+    
+    if (errUpd) throw errUpd;
+
+  
+    if (password.length > 0) {
+        if (esMiPerfil) {
+            // Si soy (Admin), uso la función normal de Supabase
+            const { error: errPass } = await _supabase.auth.updateUser({ password: password });
+            if (errPass) throw errPass;
+        } else {
+            // Si es OTRO usuario, usamos la función SQL RPC que creamos
+            const { error: errPass } = await _supabase.rpc('admin_update_user_password', { 
+                p_user_id: u.id, 
+                p_new_password: password 
+            });
+            if (errPass) throw errPass;
+        }
+        alert("Usuario y contraseña actualizados correctamente");
+    } else {
+        alert("Usuario actualizado correctamente");
+    }
+} else {
                 // CASO NUEVO: Llamamos al SQL enviando los 5 parámetros
                 const { error: errRpc } = await _supabase.rpc('admin_create_user', { 
                     p_email: email, 
