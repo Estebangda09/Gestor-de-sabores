@@ -5,7 +5,7 @@ window.tvHasRendered = false;
 window.animIntervalTV = null;
 window.highlightInterval = null;
 
-// --- MEMORIA RAM (Evita alerta de consumo en Supabase) ---
+// --- MEMORIA RAM ---
 window.globalTvCache = null;
 
 // --- GESTIÓN DE CACHÉ PARA MODO OFFLINE ---
@@ -247,7 +247,9 @@ window.renderPantallaTV = async function(id, forceAnimation = null, forceFetch =
                     if (tieneIcono) {
                         bulletHtml = `<div style="width: 50px; flex-shrink: 0; display: flex; gap: 4px; align-items: flex-start; justify-content: flex-start; padding-top: 1px;">${s.es_sintacc ? `<img src="img/sintacc.png" style="height: 35px; width: auto; object-fit: contain; flex-shrink: 0;">` : ''}${s.es_vegano ? `<img src="img/vegano.png" style="height: 35px; width: auto; object-fit: contain; flex-shrink: 0;">` : ''}</div>`;
                     } else {
-                        bulletHtml = `<div style="width: 50px; flex-shrink: 0; display: flex; align-items: flex-start; justify-content: flex-start; padding-left: 5px; padding-top: 4px;"><span class="tv-dot" style="color: #3b82f6; font-size: 0.9em; line-height: 1;">•</span></div>`;
+                        bulletHtml = `<div style="width: 50px; flex-shrink: 0; display: flex; align-items: flex-start; justify-content: flex-start; padding-left: 5px; padding-top: 4px;">
+        <span class="tv-dot" style="color: ${style.saborColor}; font-size: 0.9em; line-height: 1;">•</span>
+    </div>`;
                     }
 
                     html += `<div class="tv-flavor-item scan-item ${animClass}" style="${animStyle}">${bulletHtml}<span class="flavor-name">${nombreFormateado}</span></div>`;
