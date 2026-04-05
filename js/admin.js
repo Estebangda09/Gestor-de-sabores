@@ -406,23 +406,31 @@ async function abrirModal(type, data = null) {
 
 
     if (type === 'cat' || type === 'sucursal' || type === 'cat_precio') {
-
         body.innerHTML = `<input id="f-nom" value="${data?.nombre || ''}" placeholder="Nombre" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">`;
-
+        
         btn.onclick = async () => {
-
             const nom = document.getElementById('f-nom').value.trim();
-
             if (!nom) return alert("El nombre es obligatorio"); 
 
             const table = type === 'cat' ? 'categorias' : (type === 'sucursal' ? 'sucursales' : 'categorias_precios');
-
-            await _supabase.from(table).upsert({ id: data?.id, nombre: nom });
-
-            closeModal(); showPage(currentPage === 'admin_stock' ? 'sucursales' : currentPage);
-
+            
+            try {
+                if (data?.id) {
+                   
+                    const { error } = await _supabase.from(table).update({ nombre: nom }).eq('id', data.id);
+                    if (error) throw error;
+                } else {
+                  
+                    const { error } = await _supabase.from(table).insert([{ nombre: nom }]);
+                    if (error) throw error;
+                }
+                
+                closeModal(); 
+                showPage(currentPage === 'admin_stock' ? 'sucursales' : currentPage);
+            } catch (err) {
+                alert("Error al guardar: " + err.message);
+            }
         };
-
     }
 
 
