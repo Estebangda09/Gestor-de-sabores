@@ -84,7 +84,7 @@ async function showPage(page, params = null) {
 
 
 
-    if (page === 'usuarios') { /* Código original de usuarios intacto */
+    if (page === 'usuarios') { 
 
         header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Usuarios</h1><button onclick="abrirModalUsuario()" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg">+ NUEVO USUARIO</button>`;
 
@@ -96,7 +96,7 @@ async function showPage(page, params = null) {
 
 
 
-    if (page === 'sucursales') { /* Código original sucursales intacto */
+    if (page === 'sucursales') { 
 
         header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Mis Sucursales</h1>${window.userPerfil.rol === 'admin' ? `<button onclick="abrirModal('sucursal')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ NUEVA</button>` : ''}`;
 
@@ -110,7 +110,7 @@ async function showPage(page, params = null) {
 
 
 
-    if (page === 'sabores') { /* Código original sabores intacto */
+    if (page === 'sabores') { 
 
         header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Sabores</h1>`;
 
@@ -130,7 +130,7 @@ async function showPage(page, params = null) {
 
 
 
-    if (page === 'precios') { /* Código original precios intacto */
+    if (page === 'precios') {
 
         header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Precios</h1><div class="flex gap-2"><button onclick="abrirModal('cat_precio')" class="bg-slate-800 text-white px-4 py-2 rounded-xl font-bold text-xs">+ CAT</button><button onclick="abrirModal('precio')" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-xs">+ PRECIO</button></div>`;
 
@@ -181,7 +181,7 @@ async function showPage(page, params = null) {
 
 
 
-    if (page === 'admin_stock') { /* Código original admin_stock intacto */
+    if (page === 'admin_stock') { 
 
         const sucId = params;
 
@@ -211,7 +211,7 @@ async function showPage(page, params = null) {
 
 
 
-    if (page === 'categorias') { /* Código original categorias intacto */
+    if (page === 'categorias') { 
 
         header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Categorías</h1><button onclick="abrirModal('cat')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ Nueva</button>`;
 
@@ -404,8 +404,7 @@ async function abrirModal(type, data = null) {
     document.getElementById('modal-title').innerText = (data ? "EDITAR " : "NUEVA ") + type.toUpperCase();
 
 
-
-    if (type === 'cat' || type === 'sucursal' || type === 'cat_precio') {
+if (type === 'cat' || type === 'sucursal' || type === 'cat_precio') {
         body.innerHTML = `<input id="f-nom" value="${data?.nombre || ''}" placeholder="Nombre" class="w-full border-2 p-4 rounded-2xl bg-slate-50 outline-none">`;
         
         btn.onclick = async () => {
@@ -416,12 +415,22 @@ async function abrirModal(type, data = null) {
             
             try {
                 if (data?.id) {
-                   
                     const { error } = await _supabase.from(table).update({ nombre: nom }).eq('id', data.id);
                     if (error) throw error;
                 } else {
-                  
-                    const { error } = await _supabase.from(table).insert([{ nombre: nom }]);
+                    let objetoInsert = { nombre: nom };
+                
+                    if (type === 'sucursal') {
+                        
+                        const idTexto = nom.toLowerCase()
+                                           .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                                           .replace(/\s+/g, '-') 
+                                           .replace(/[^\w\-]+/g, ''); 
+                        
+                        objetoInsert.id_texto = idTexto;
+                    }
+
+                    const { error } = await _supabase.from(table).insert([objetoInsert]);
                     if (error) throw error;
                 }
                 
