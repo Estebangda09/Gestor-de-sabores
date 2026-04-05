@@ -284,51 +284,48 @@ window.abrirModalUsuario = async function(u = null, esMiPerfil = false) {
 
         try {
             if (u) {
-    // 1. Actualizamos datos básicos y permisos en la tabla perfiles (esto siempre funciona)
-    const { error: errUpd } = await _supabase.from('perfiles').update({ 
-        username: nuevoNombre, 
-        permisos: permisos 
-    }).eq('id', u.id);
-    
-    if (errUpd) throw errUpd;
+                // 1. Actualizamos datos básicos y permisos en la tabla perfiles
+                const { error: errUpd } = await _supabase.from('perfiles').update({ 
+                    username: nuevoNombre, 
+                    permisos: permisos 
+                }).eq('id', u.id);
+                
+                if (errUpd) throw errUpd;
 
-  
-    if (password.length > 0) {
-        if (esMiPerfil) {
-            // Si soy (Admin), uso la función normal de Supabase
-            const { error: errPass } = await _supabase.auth.updateUser({ password: password });
-            if (errPass) throw errPass;
-        } else {
-            // Si es OTRO usuario, usamos la función SQL RPC que creamos
-            const { error: errPass } = await _supabase.rpc('admin_update_user_password', { 
-                p_user_id: u.id, 
-                p_new_password: password 
-            });
-            if (errPass) throw errPass;
-        }
-        alert("Usuario y contraseña actualizados correctamente");
-    } else {
-        alert("Usuario actualizado correctamente");
-    }
-} else {
-                // CASO NUEVO: Llamamos al SQL enviando los 5 parámetros
-                const { error: errRpc } = await _supabase.rpc('admin_create_user', { 
-                    p_email: email, 
-                    p_password: password, 
-                    p_username: nuevoNombre, 
-                    p_rol: 'empleado', 
-                    p_permisos: permisos 
+                // 2. Manejo de contraseña
+                if (password.length > 0) {
+                    if (esMiPerfil) {
+                        const { error: errPass } = await _supabase.auth.updateUser({ password: password });
+                        if (errPass) throw errPass;
+                    } else {
+                        const { error: errPass } = await _supabase.rpc('admin_update_user_password', { 
+                            p_user_id: u.id, 
+                            p_new_password: password 
+                        });
+                        if (errPass) throw errPass;
+                    }
+                    alert("Usuario y contraseña actualizados correctamente");
+                } else {
+                    alert("Usuario actualizado correctamente");
+                }
+            } else {
+                // CREAR USUARIO NUEVO (MÉTODO OFICIAL)
+                const { data, error: errSignUp } = await _supabase.auth.signUp({
+                    email: email,
+                    password: password,
+                    options: { data: { username: nuevoNombre } }
                 });
-                if (errRpc) throw errRpc;
-                alert("Usuario creado exitosamente");
+
+                if (errSignUp) throw errSignUp;
+                alert("¡Usuario creado con éxito!");
             }
             closeModal();
             if (esMiPerfil) window.location.reload(); else showPage('usuarios');
         } catch (err) { 
             alert("Error: " + err.message); 
         }
-    };
-}
+    }; // Cierra btn.onclick
+}; // Cierra abrirModalUsuario
 
 
 
