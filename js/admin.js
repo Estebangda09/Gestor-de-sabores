@@ -96,16 +96,28 @@ async function showPage(page, params = null) {
 
 
 
-    if (page === 'sucursales') { 
-
+    if (page === 'sucursales') {
         header.innerHTML = `<h1 class="text-3xl font-black text-slate-800 uppercase italic">Mis Sucursales</h1>${window.userPerfil.rol === 'admin' ? `<button onclick="abrirModal('sucursal')" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold">+ NUEVA</button>` : ''}`;
-
+        
         const { data: sucs } = await _supabase.rpc('obtener_sucursales_por_permiso', { p_usuario_id: window.userPerfil.id, p_rol: window.userPerfil.rol });
+        
+        if (!sucs || sucs.length === 0) { 
+            container.innerHTML = `<div class="text-center p-20 bg-white rounded-3xl text-slate-400 font-bold">No tienes sucursales asignadas.</div>`; 
+            return; 
+        }
 
-        if (!sucs || sucs.length === 0) { container.innerHTML = `<div class="text-center p-20 bg-white rounded-3xl text-slate-400 font-bold">No tienes sucursales asignadas.</div>`; return; }
-
-        container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-3 gap-6">${sucs.map(s => `<div class="bg-white p-6 rounded-3xl shadow-lg border-t-8 border-blue-500 text-center"><h3 class="text-xl font-black mb-4 uppercase italic text-slate-800">${s.nombre}</h3><button onclick="showPage('admin_stock', '${s.id}')" class="w-full bg-slate-900 text-white py-3 rounded-xl font-black text-xs hover:bg-blue-600 transition uppercase">Gestionar Stock</button>${window.userPerfil.rol === 'admin' ? `<div class="mt-4 flex justify-center gap-4"><button onclick='abrirModal("sucursal", ${JSON.stringify(s)})' class="text-[10px] text-blue-400 font-bold">EDITAR</button></div>` : ''}</div>`).join('')}</div>`;
-
+        container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-3 gap-6">${sucs.map(s => `
+            <div class="bg-white p-6 rounded-3xl shadow-lg border-t-8 border-blue-500 text-center relative group">
+                <h3 class="text-xl font-black mb-4 uppercase italic text-slate-800">${s.nombre}</h3>
+                <button onclick="showPage('admin_stock', '${s.id}')" class="w-full bg-slate-900 text-white py-3 rounded-xl font-black text-xs hover:bg-blue-600 transition uppercase">Gestionar Stock</button>
+                
+                ${window.userPerfil.rol === 'admin' ? `
+                <div class="mt-4 flex justify-center gap-4">
+                    <button onclick='abrirModal("sucursal", ${JSON.stringify(s)})' class="text-[10px] text-blue-400 font-bold uppercase">EDITAR</button>
+                    <button onclick="eliminar('sucursales', '${s.id}')" class="text-[10px] text-red-300 font-bold uppercase hover:text-red-600 transition">ELIMINAR</button>
+                </div>
+                ` : ''}
+            </div>`).join('')}</div>`;
     }
 
 
